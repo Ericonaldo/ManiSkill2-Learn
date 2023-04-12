@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument("--debug", action="store_true", default=False)
 
     # Parameters for log dir
-    parser.add_argument("--work-dir", help="The directory to save logs and models")
+    parser.add_argument("--work-dir", help="The directory to save logs and models", default='./logs')
     parser.add_argument("--dev", action="store_true", default=False, help="Add timestamp to the name of work-dir")
     parser.add_argument("--with-agent-type", default=False, action="store_true", help="Add agent type to work-dir")
     parser.add_argument(
@@ -80,7 +80,7 @@ def parse_args():
     # Specify GPU
     group_gpus = parser.add_mutually_exclusive_group()
     group_gpus.add_argument("--num-gpus", default=None, type=int, help="Number of gpus to use")
-    group_gpus.add_argument("--gpu-ids", default=None, type=int, nargs="+", help="ids of gpus to use")
+    group_gpus.add_argument("-g", "--gpu-ids", default=None, type=int, nargs="+", help="ids of gpus to use")
     parser.add_argument("--sim-gpu-ids", default=None, type=int, nargs="+", help="ids of gpus to do simulation on; if not specified, this equals --gpu-ids")
 
     # Torch and reproducibility settings

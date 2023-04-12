@@ -131,7 +131,7 @@ To evaluate a DAPG+PPO model on rigid-body tasks, you can use the following scri
 
 # Evaluating point cloud-based model
 python maniskill2_learn/apis/run_rl.py configs/mfrl/ppo/maniskill2_pn.py \
-            --work-dir YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
+            --work-dir $YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
             --cfg-options "env_cfg.env_name=PickSingleYCB-v0" "env_cfg.obs_mode=pointcloud" "env_cfg.n_points=1200" \
             "env_cfg.control_mode=pd_ee_delta_pose" "env_cfg.obs_frame=ee" "env_cfg.n_goal_points=50" \
             "eval_cfg.num=100" "eval_cfg.num_procs=5" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
@@ -139,7 +139,7 @@ python maniskill2_learn/apis/run_rl.py configs/mfrl/ppo/maniskill2_pn.py \
 
 # Evaluating RGBD-based model
 python maniskill2_learn/apis/run_rl.py configs/mfrl/ppo/maniskill2_rgbd.py \
-            --work-dir YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
+            --work-dir $YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
             --cfg-options "env_cfg.env_name=PickSingleYCB-v0" "env_cfg.obs_mode=rgbd" \
             "env_cfg.control_mode=pd_ee_delta_pose" \
             "eval_cfg.num=100" "eval_cfg.num_procs=5" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
@@ -149,7 +149,7 @@ python maniskill2_learn/apis/run_rl.py configs/mfrl/ppo/maniskill2_rgbd.py \
 To evaluate a point cloud-based BC model on soft-body tasks, you can use the following script:
 ```
 CUDA_VISIBLE_DEVICES=1 python maniskill2_learn/apis/run_rl.py configs/brl/bc/pointnet_soft_body.py \
-            --work-dir YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
+            --work-dir $YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
             --cfg-options "env_cfg.env_name=Excavate-v0" "env_cfg.obs_mode=pointcloud" \
             "env_cfg.control_mode=pd_joint_delta_pos" \
             "eval_cfg.num=100" "eval_cfg.num_procs=4" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
@@ -193,7 +193,7 @@ Maniskill2_learn implements common Reinforcement Learning algorithms, including 
 
 ```
 python maniskill2_learn/apis/run_rl.py configs/mfrl/ppo/maniskill2_pn.py \
---work-dir YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
+--work-dir $YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
 --cfg-options "env_cfg.env_name=PickCube-v0" "env_cfg.obs_mode=pointcloud" \
 "env_cfg.n_points=1200" "env_cfg.control_mode=pd_joint_delta_pos" \
 "env_cfg.reward_mode=dense" "rollout_cfg.num_procs=5" \
@@ -208,7 +208,7 @@ python maniskill2_learn/apis/run_rl.py configs/mfrl/ppo/maniskill2_pn.py \
 
 # The above command does automatic evaluation after training. 
 # Alternatively, you can manually evaluate a model checkpoint 
-# by appending --evaluation and --resume-from YOUR_LOGGING_DIRECTORY/models/SOME_CHECKPOINT.ckpt 
+# by appending --evaluation and --resume-from $YOUR_LOGGING_DIRECTORY/models/SOME_CHECKPOINT.ckpt 
 # to the above commands.
 ```
 
@@ -216,7 +216,7 @@ To train a DAPG agent on `PegInsertionSide-v0` with point cloud observation, an 
 
 ```
 python maniskill2_learn/apis/run_rl.py configs/mfrl/dapg/maniskill2_pn.py \
---work-dir YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
+--work-dir $YOUR_LOGGING_DIRECTORY --gpu-ids 0 \
 --cfg-options "env_cfg.env_name=PegInsertionSide-v0" "env_cfg.obs_mode=pointcloud" \
 "env_cfg.n_points=1200" "env_cfg.control_mode=pd_joint_delta_pos" \
 "env_cfg.reward_mode=dense" "rollout_cfg.num_procs=5" \
@@ -225,7 +225,7 @@ python maniskill2_learn/apis/run_rl.py configs/mfrl/dapg/maniskill2_pn.py \
 "eval_cfg.num_procs=5"
 
 # To manually evaluate the model, 
-# add --evaluation and --resume-from YOUR_LOGGING_DIRECTORY/models/SOME_CHECKPOINT.ckpt 
+# add --evaluation and --resume-from $YOUR_LOGGING_DIRECTORY/models/SOME_CHECKPOINT.ckpt 
 # to the above commands.
 ```
 
