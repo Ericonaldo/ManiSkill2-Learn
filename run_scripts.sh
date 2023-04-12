@@ -1,0 +1,42 @@
+# Run PPO
+
+python maniskill2_learn/apis/run_rl.py configs/mfrl/ppo/maniskill2_pn.py --g 0 
+--cfg-options "env_cfg.env_name=PickCube-v0" "env_cfg.obs_mode=pointcloud" \
+"env_cfg.n_points=1200" "env_cfg.control_mode=pd_ee_delta_pose" \
+"env_cfg.reward_mode=dense" "rollout_cfg.num_procs=5" \
+"eval_cfg.num=100" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
+"eval_cfg.num_procs=5"
+
+# "num_procs" controls parallelism during training. Details are described in later sections.
+
+# FPS reported denotes the number of *control steps* per second.
+# Note that the default simulation frequency in ManiSkill2 environments is 500hz, control frequency is 20hz.
+# Therefore, 1 control step = 25 simulation steps.
+
+# The above command does automatic evaluation after training. 
+# Alternatively, you can manually evaluate a model checkpoint 
+# by appending --evaluation and --resume-from YOUR_LOGGING_DIRECTORY/models/SOME_CHECKPOINT.ckpt 
+# to the above commands.
+
+# Run DAPG
+
+python maniskill2_learn/apis/run_rl.py configs/mfrl/dapg/maniskill2_pn.py --g 0 \
+--cfg-options "env_cfg.env_name=PegInsertionSide-v0" "env_cfg.obs_mode=pointcloud" \
+"env_cfg.n_points=1200" "env_cfg.control_mode=pd_ee_delta_pose" \
+"env_cfg.reward_mode=dense" "rollout_cfg.num_procs=5" \
+"agent_cfg.demo_replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajectory.h5'" \
+"eval_cfg.num=100" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
+"eval_cfg.num_procs=5"
+
+# To manually evaluate the model, 
+# add --evaluation and --resume-from YOUR_LOGGING_DIRECTORY/models/SOME_CHECKPOINT.ckpt 
+# to the above commands.
+
+# RUN BC
+
+python maniskill2_learn/apis/run_rl.py configs/brl/bc/pointnet.py --g 0 \
+--cfg-options "env_cfg.env_name=PickCube-v0" "env_cfg.obs_mode=pointcloud" \
+"env_cfg.n_points=1200" "env_cfg.control_mode=pd_ee_delta_pose" \
+"replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajectory.h5'" \
+"eval_cfg.num=100" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
+"eval_cfg.num_procs=5"

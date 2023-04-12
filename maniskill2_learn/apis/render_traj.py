@@ -158,16 +158,16 @@ def render_with_o3d_random_trajectory(env_configs):
 
 if __name__ == "__main__":
     render_trajectories(
-        trajectory_file = '/home/xuanlin/exp-logs/maniskill_2022/demos/PickSingleYCB-v0/trajectory.none.pd_joint_delta_pos.h5',
-        json_name = '/home/xuanlin/exp-logs/maniskill_2022/demos/PickSingleYCB-v0/trajectory.none.pd_joint_delta_pos.json',
+        trajectory_file = '/home/eric/projects/ManiSkill2-Learn/demos/rigid_body/PickSingleYCB-v0/053_mini_soccer_ball.h5',
+        json_name = '/home/eric/projects/ManiSkill2-Learn/demos/rigid_body/PickSingleYCB-v0/053_mini_soccer_ball.json',
         env_name = 'PickSingleYCB-v0',
         control_mode = 'pd_joint_delta_pos',
-        video_dir = "/home/xuanlin/exp-logs/maniskill_2022/demos/PickSingleYCB-v0/videos",
+        video_dir = "/home/eric/projects/ManiSkill2-Learn/demos/PickSingleYCB-v0/videos",
     )
 
     # render_with_o3d(
-    #     trajectory_file = '/home/xuanlin/exp-logs/maniskill_2022/demos/PickSingleYCB-v0/trajectory.none.pd_joint_delta_pos.h5',
-    #     json_name = '/home/xuanlin/exp-logs/maniskill_2022/demos/PickSingleYCB-v0/trajectory.none.pd_joint_delta_pos.json',
+    #     trajectory_file = '/home/eric/projects/ManiSkill2-Learn/demos/PickSingleYCB-v0/trajectory.none.pd_joint_delta_pos.h5',
+    #     json_name = '/home/eric/projects/ManiSkill2-Learn/demos/PickSingleYCB-v0/trajectory.none.pd_joint_delta_pos.json',
     #     env_configs = dict(type='gym',
     #          env_name='PickSingleYCB-v0',
     #          control_mode='pd_joint_delta_pos',
