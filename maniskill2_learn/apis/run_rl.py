@@ -53,8 +53,8 @@ def parse_args():
 
     # Parameters for log dir
     parser.add_argument("--work-dir", help="The directory to save logs and models", default='./logs')
-    parser.add_argument("--dev", action="store_true", default=False, help="Add timestamp to the name of work-dir")
-    parser.add_argument("--with-agent-type", default=False, action="store_true", help="Add agent type to work-dir")
+    parser.add_argument("--dev", action="store_true", default=True, help="Add timestamp to the name of work-dir")
+    parser.add_argument("--with-agent-type", default=True, action="store_true", help="Add agent type to work-dir")
     parser.add_argument(
         "--agent-type-first",
         default=False,
@@ -118,7 +118,7 @@ def parse_args():
 
 def build_work_dir():
     if is_null(args.work_dir):
-        root_dir = "./work_dirs"
+        root_dir = "./logs"
         env_name = cfg.env_cfg.get("env_name", None) if is_not_null(cfg.env_cfg) else None
         config_name = osp.splitext(osp.basename(args.config))[0]
         folder_name = env_name if is_not_null(env_name) else config_name
@@ -173,16 +173,23 @@ def find_checkpoint():
             cfg.train_cfg["resume_steps"] = latest_index
     if is_not_null(cfg.resume_from):
         if isinstance(cfg.resume_from, str):
+            index_str = osp.basename(model_i).split(".")[0].split("_")[1]
+            if index_str == 'final':
+                index = eval(index_str)
+                cfg.train_cfg["resume_steps"] = latest_index
             cfg.resume_from = [
                 cfg.resume_from,
             ]
         logger.info(f"Get {len(cfg.resume_from)} checkpoint {cfg.resume_from}.")
         logger.info(f"Check checkpoint {cfg.resume_from}!")
-
+        
+        latest_index = -1
+        latest_name = None
         for file in cfg.resume_from:
             if not (osp.exists(file) and osp.isfile(file)):
                 logger.error(f"Checkpoint file {file} does not exist!")
                 exit(-1)
+        
 
 
 def get_python_env_info():
@@ -365,6 +372,7 @@ def run_one_process(rank, world_size, args, cfg):
 
     # Create rollout module for online methods
     if not args.evaluation and is_not_null(cfg.rollout_cfg):
+        print(cfg.rollout_cfg)
         from maniskill2_learn.env import build_rollout
 
         logger.info(f"Build rollout!")
@@ -440,6 +448,8 @@ def run_one_process(rank, world_size, args, cfg):
     if is_not_null(replay):
         replay.close()
         logger.info("Delete replay buffer")
+
+    time.sleep(1) # Wait for all processes to close
 
 
 def main():

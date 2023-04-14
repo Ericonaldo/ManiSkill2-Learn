@@ -760,6 +760,10 @@ class DictArray(GDict):
         elif self.capacity is None:
             self.capacity = self._get_one_attr(self.memory, "shape")[0]
         if not faster:
+            # print(type(self.memory))
+            # print(self.memory['actions'].shape, self.capacity)
+            # print(self.memory['env_states'].shape, self.capacity)
+            # print(self.memory['success'].shape, self.capacity)
             self.assert_shape(self.memory, self.capacity)
 
     @classmethod
