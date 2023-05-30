@@ -48,6 +48,7 @@ def convert_state_representation(keys, args, worker_id, main_process_id):
         "n_points": args.n_points,
         "n_goal_points": args.n_goal_points,
         "camera_cfgs": {},
+        "concat_rgbd": args.concat_rgbd
     }
     if args.enable_seg:
         input_dict["camera_cfgs"]["add_segmentation"] = True
@@ -172,6 +173,7 @@ def parse_args():
     
     # Extra observation args
     parser.add_argument("--enable-seg", action='store_true', help="Enable ground truth segmentation")
+    parser.add_argument("--concat-rgbd", action='store_true', help="If we use rgbd data straightly instead of rgb + depth")
 
     # Specific point cloud generation args
     parser.add_argument("--n-points", default=1200, type=int, 

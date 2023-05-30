@@ -11,7 +11,7 @@ from .block_utils import NN_BLOCKS, build_nn_block, BasicBlock, FlexibleBasicBlo
 try:
     from .pn2_modules import *
 except ImportError as e:
-    print("Pointnet++ is not compiled")
+    print("Import fail, Pointnet++ is not compiled")
     print(e)
 
 from .attention import AttentionPooling, MultiHeadSelfAttention, MultiHeadAttention, ATTENTION_LAYERS, build_attention_layer

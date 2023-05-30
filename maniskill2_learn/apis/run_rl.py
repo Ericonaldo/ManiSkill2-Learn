@@ -134,6 +134,8 @@ def build_work_dir():
             colored_print("When you specify the work dir path, the agent type cannot be at the beginning of the path!", level="warning")
         args.work_dir = osp.join(args.work_dir, agent_type)
 
+    args.work_dir = osp.join(args.work_dir, cfg.env_cfg.get("obs_mode", "default"))
+
     if args.dev:
         args.work_dir = osp.join(args.work_dir, args.timestamp)
 
@@ -188,8 +190,7 @@ def find_checkpoint():
         for file in cfg.resume_from:
             if not (osp.exists(file) and osp.isfile(file)):
                 logger.error(f"Checkpoint file {file} does not exist!")
-                exit(-1)
-        
+                exit(-1)   
 
 
 def get_python_env_info():
@@ -352,7 +353,7 @@ def run_one_process(rank, world_size, args, cfg):
 
     logger.info(f"Config:\n{cfg.pretty_text}")
     logger.info(f"Set random seed to {args.seed}")
-
+    
     # Create replay buffer for RL
     if is_not_null(cfg.replay_cfg) and (not args.evaluation or (args.reg_loss and cfg.replay_cfg.get("buffer_filenames", None) is not None)):
         logger.info(f"Build replay buffer!")
@@ -372,7 +373,6 @@ def run_one_process(rank, world_size, args, cfg):
 
     # Create rollout module for online methods
     if not args.evaluation and is_not_null(cfg.rollout_cfg):
-        print(cfg.rollout_cfg)
         from maniskill2_learn.env import build_rollout
 
         logger.info(f"Build rollout!")
@@ -405,7 +405,7 @@ def run_one_process(rank, world_size, args, cfg):
 
     # Get environments information for agents
     obs_shape, action_shape = None, None
-    if is_not_null(cfg.env_cfg):
+    if is_not_null(cfg.env_cfg): # May fail on Arnold
         # For RL which needs environments
         logger.info(f"Get obs shape!")
         from maniskill2_learn.env import get_env_info

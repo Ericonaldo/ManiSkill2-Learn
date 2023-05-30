@@ -621,7 +621,6 @@ class GDict:
         if is_num(indices):
             return self._recursive_do_gdict(self.memory, take, indices=indices, axis=axis, wrapper=wrapper)
         else:
-
             if isinstance(indices, slice):
                 len_indices = len(slice_to_range(indices))
             else:
@@ -761,9 +760,23 @@ class DictArray(GDict):
             self.capacity = self._get_one_attr(self.memory, "shape")[0]
         if not faster:
             # print(type(self.memory))
+            # print(self.memory.keys())
+            # print(self.memory["obs"].keys())
+            # print(self.memory["obs"]["depth"].shape)
+            # print(self.memory["obs"]["rgb"].shape)
+            # print(self.memory["obs"]["state"].shape)
+            # # print(self.memory["obs"]["agent"].keys())
+            # # print(self.memory["obs"]["extra"].keys())
+            # # print(self.memory['obs']["camera_param"].keys())
+            # # print(self.memory['obs']["image"].keys())
+            # # print(self.memory['obs']["image"]["base_camera"].keys(), self.memory['obs']["image"]["hand_camera"].keys())
+            # # print(self.memory['obs']["image"]["base_camera"]["depth"].shape, self.memory['obs']["image"]["hand_camera"]["depth"].shape)
+            # # print(self.memory['obs']["image"]["base_camera"]["rgb"].shape, self.memory['obs']["image"]["hand_camera"]["rgb"].shape)
+            # # print(self.memory['obs'].shape, self.capacity)
+            # print(self.memory['dones'].shape, self.capacity)
             # print(self.memory['actions'].shape, self.capacity)
-            # print(self.memory['env_states'].shape, self.capacity)
-            # print(self.memory['success'].shape, self.capacity)
+            # # print(self.memory['env_states'].shape, self.capacity)
+            # # print(self.memory['success'].shape, self.capacity)
             self.assert_shape(self.memory, self.capacity)
 
     @classmethod

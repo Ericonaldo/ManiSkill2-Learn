@@ -261,6 +261,7 @@ def train_rl(
         time_begin_episode = time.time()
         tmp_steps = 0
 
+
         if n_steps > 0:
             # For online RL
             collect_sample_time = 0
@@ -327,6 +328,7 @@ def train_rl(
             tb_log.update(ep_stats)
             tb_log.update(dict(num_episodes=num_episodes, total_episodes=total_episodes))
         else:
+            print("offline training")
             # For offline RL
             for i in range(n_updates):
                 total_updates += 1

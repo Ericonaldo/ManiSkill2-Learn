@@ -197,6 +197,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         obs_frame="base",
         ignore_dones=False,
         fix_seed=None,
+        concat_rgbd=False,
     ):
         super().__init__(env)
         
@@ -213,6 +214,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             obs_space = env.observation_space
 
         self.ignore_dones = ignore_dones
+        self.concat_rgbd = concat_rgbd
 
         self.fix_seed = fix_seed
 
@@ -298,15 +300,23 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 raise NotImplementedError()
             
             # Process RGB and Depth images
-            for cam_name in cam_names: 
-                rgb.append(imgs[cam_name]["rgb"])  # each [H, W, 3]
-                depth.append(imgs[cam_name]["depth"])  # each [H, W, 1]
-                if "Segmentation" in imgs[cam_name].keys():
-                    segs.append(imgs[cam_name]["Segmentation"]) # each [H, W, 4], last dim = [mesh_seg, actor_seg, 0, 0]
-            rgb = np.concatenate(rgb, axis=2)
-            assert rgb.dtype == np.uint8
-            depth = np.concatenate(depth, axis=2)
-            depth = depth.astype(np.float32, copy=False)
+            if self.concat_rgbd:
+                rgbd = {_:[] for _ in cam_names}
+                for cam_name in cam_names: 
+                    rgbd[cam_name].append(imgs[cam_name]["rgb"]) # each [H, W, 3]
+                    rgbd[cam_name].append(imgs[cam_name]["depth"]) # each [H, W, 1]
+                    rgbd[cam_name] = np.concatenate(rgbd[cam_name], axis=2)
+                    assert imgs[cam_name]["rgb"].dtype == np.uint8
+            else:
+                for cam_name in cam_names: 
+                    rgb.append(imgs[cam_name]["rgb"])  # each [H, W, 3]
+                    depth.append(imgs[cam_name]["depth"])  # each [H, W, 1]
+                rgb = np.concatenate(rgb, axis=2)
+                assert rgb.dtype == np.uint8
+                depth = np.concatenate(depth, axis=2)
+                depth = depth.astype(np.float32, copy=False)
+            if "Segmentation" in imgs[cam_name].keys():
+                segs.append(imgs[cam_name]["Segmentation"]) # each [H, W, 4], last dim = [mesh_seg, actor_seg, 0, 0]
             if len(segs) > 0:
                 segs = np.concatenate(segs, axis=2)
             obs.pop("image")
@@ -333,7 +343,8 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 goal_rgb = goal_rgb.astype(np.uint8)
                 if goal_rgb.ndim == 2:  # [H, W]
                     goal_rgb = goal_rgb[:, :, None]
-                rgb = np.concatenate([rgb, goal_rgb], axis=2)
+                if not self.concat_rgbd:
+                    rgb = np.concatenate([rgb, goal_rgb], axis=2)
             goal_depth = obs["extra"].pop("target_depth", None)
             if goal_depth is not None:
                 goal_depth = process_4d_goal_img_to_3d(goal_depth)
@@ -344,7 +355,11 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 )
                 if goal_depth.ndim == 2:
                     goal_depth = goal_depth[:, :, None]
-                depth = np.concatenate([depth, goal_depth], axis=2)
+                if self.concat_rgbd:
+                    depth = np.concatenate([depth, goal_depth], axis=2)
+            goal_rgbd = None
+            if goal_depth is not None and goal_rgb is not None and self.concat_rgbd:
+                goal_rgbd = np.concatenate([goal_rgb, goal_depth], axis=2)
 
             # If goal info is provided, calculate the relative position between the robot fingers' tool-center-point (tcp) and the goal
             if "tcp_pose" in obs["extra"].keys() and "goal_pos" in obs["extra"].keys():
@@ -377,11 +392,21 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 depth = cv2.resize(depth, self.img_size, interpolation=cv2.INTER_LINEAR)
 
             # compress rgb & depth for e.g., trajectory saving purposes
-            out_dict = {
-                "rgb": rgb.astype(np.uint8, copy=False).transpose(2, 0, 1), # [C, H, W]
-                "depth": depth.astype(np.float16, copy=False).transpose(2, 0, 1),
-                "state": s,
-            }
+            if self.concat_rgbd:
+                out_dict = {
+                    "state": s,
+                }
+                for key in rgbd:
+                    rgbd[key] = rgbd[key].astype(np.uint8, copy=False).transpose(2, 0, 1), # [C, H, W]
+                    out_dict["{}_rgbd".format(key)] = rgbd[key]
+                if goal_rgbd is not None:
+                    out_dict["goal_rgbd"] = goal_rgbd
+            else:
+                out_dict = {
+                    "rgb": rgb.astype(np.uint8, copy=False).transpose(2, 0, 1), # [C, H, W]
+                    "depth": depth.astype(np.float16, copy=False).transpose(2, 0, 1),
+                    "state": s,
+                }
             if len(segs) > 0:
                 out_dict["segs"] = segs.transpose(2, 0, 1)
 

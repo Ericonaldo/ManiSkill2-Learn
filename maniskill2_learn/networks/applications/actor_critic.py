@@ -4,6 +4,8 @@ from maniskill2_learn.utils.torch import ExtendedModule, avg_grad
 from ..builder import POLICYNETWORKS, VALUENETWORKS, build_backbone, build_reg_head
 
 from ..utils import replace_placeholder_with_args, get_kwargs_from_shape, combine_obs_with_action
+from maniskill2_learn.utils.diffusion.torch import dict_apply
+from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
 import torch, torch.nn as nn
 
 
@@ -49,7 +51,7 @@ class ContinuousActor(ActorCriticBase):
     def __init__(self, nn_cfg=None, head_cfg=None, mlp_cfg=None, backbone=None, action_space=None, obs_shape=None, action_shape=None, **kwargs):
         replaceable_kwargs = get_kwargs_from_shape(obs_shape, action_shape)
         nn_cfg, mlp_cfg = replace_placeholder_with_args([nn_cfg, mlp_cfg], **replaceable_kwargs)
-        assert isinstance(action_space, Box), "If you are training over discrete action space, you need DiscreteActor"
+        assert isinstance(action_space, Box), "If you are training over discrete action space, you need DiscreteActor, however you are using {}".format(action_space)
         if head_cfg is not None and action_space is not None and action_space.is_bounded():
             head_cfg["bound"] = [action_space.low, action_space.high]
         super(ContinuousActor, self).__init__(nn_cfg=nn_cfg, head_cfg=head_cfg, mlp_cfg=mlp_cfg, backbone=backbone)
@@ -60,9 +62,93 @@ class DiscreteActor(ActorCriticBase):
     def __init__(self, nn_cfg=None, head_cfg=None, mlp_cfg=None, backbone=None, action_space=None, obs_shape=None, action_shape=None, **kwargs):
         replaceable_kwargs = get_kwargs_from_shape(obs_shape, action_shape)
         nn_cfg, mlp_cfg = replace_placeholder_with_args([nn_cfg, mlp_cfg], **replaceable_kwargs)
-        assert isinstance(action_space, Discrete), "If you are training over discrete action space, you need ContinuousActor"
+        assert isinstance(action_space, Discrete), "If you are training over continuous action space, you need ContinuousActor"
         head_cfg["num_choices"] = action_shape
         super(DiscreteActor, self).__init__(nn_cfg=nn_cfg, head_cfg=head_cfg, mlp_cfg=mlp_cfg, backbone=backbone)
+
+
+@POLICYNETWORKS.register_module(name="ContDiffPolicy")
+@POLICYNETWORKS.register_module()
+class ContDiffActor(ContinuousActor):
+    def __init__(self, action_seq_len, nn_cfg=None, head_cfg=None, mlp_cfg=None, backbone=None, action_space=None, obs_shape=None, action_shape=None,
+                 n_action_steps=1, returns_condition=False, obs_as_global_cond=False, **kwargs):
+        super(ContDiffActor, self).__init__(nn_cfg=nn_cfg, head_cfg=head_cfg, mlp_cfg=mlp_cfg, backbone=backbone, 
+                                            action_space=action_space, obs_shape=obs_shape, action_shape=action_shape, **kwargs)
+        self.horizon = action_seq_len
+        self.diff_model = self.backbone
+        self.n_action_steps = n_action_steps
+        self.returns_condition = returns_condition
+        self.obs_as_global_cond = obs_as_global_cond
+        self.normalizer = LinearNormalizer()
+
+    def forward(self, obs_dict, actions=None, **kwargs):
+        """
+        obs_dict: must include "obs" key
+        result: must include "action" key
+        """
+        print("actor forward: ", obs_dict)
+        exit(0)
+        assert 'past_action' not in obs_dict # not implemented yet
+        # normalize input
+        nobs = self.normalizer.normalize(obs_dict)
+        value = next(iter(nobs.values()))
+        B, To = value.shape[:2]
+        T = self.horizon
+        Da = self.action_dim
+        Do = self.obs_feature_dim
+        To = self.n_obs_steps
+
+        # build input
+        device = self.device
+        dtype = self.dtype
+
+        # handle different ways of passing observation
+        local_cond = None
+        global_cond = None
+        if self.obs_as_global_cond:
+            # condition through global feature
+            this_nobs = dict_apply(nobs, lambda x: x[:,:To,...].reshape(-1,*x.shape[2:]))
+            nobs_features = self.diff_model.obs_encoder(this_nobs)
+            # reshape back to B, Do
+            global_cond = nobs_features.reshape(B, -1)
+            # empty data for action
+            cond_data = torch.zeros(size=(B, T, Da), device=device, dtype=dtype)
+            cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
+        else:
+            # condition through impainting
+            this_nobs = dict_apply(nobs, lambda x: x[:,:To,...].reshape(-1,*x.shape[2:]))
+            nobs_features = self.diff_model.obs_encoder(this_nobs)
+            # reshape back to B, T, Do
+            nobs_features = nobs_features.reshape(B, To, -1)
+            cond_data = torch.zeros(size=(B, T, Da+Do), device=device, dtype=dtype)
+            cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
+            cond_data[:,:To,Da:] = nobs_features
+            cond_mask[:,:To,Da:] = True
+
+        # run sampling
+        nsample = self.model.conditional_sample(
+            cond_data, 
+            cond_mask,
+            local_cond=local_cond,
+            global_cond=global_cond,
+            returns=None, # TODO: Return cond using self.returns_condition
+            **self.kwargs)
+        
+        # unnormalize prediction
+        naction_pred = nsample[...,:Da]
+        action_pred = self.normalizer['action'].unnormalize(naction_pred)
+
+        # get action
+        start = To - 1
+        end = start + self.n_action_steps
+        action = action_pred[:,start:end]
+        
+        # result = {
+        #     'action': action,
+        #     'action_pred': action_pred
+        # }
+        result = action
+        return result
 
 
 @POLICYNETWORKS.register_module(name="ContinuousValue")

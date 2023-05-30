@@ -55,6 +55,7 @@ class ReplayMemory:
                 sampling_cfg["no_random"] = True
                 buffer_filenames = sorted(buffer_filenames)
         data_coder = None if is_null(data_coder_cfg) else DataCoder(**data_coder_cfg)
+        self.file_loader = None
         if buffer_filenames is not None and len(buffer_filenames) > 0:
             logger.info(f"Load {len(buffer_filenames)} files!")
             data_size = get_total_size(buffer_filenames, num_samples=num_samples)
@@ -90,7 +91,6 @@ class ReplayMemory:
             else:
                 logger.info("Load without cache!")
         else:
-            self.file_loader = None
             self.dynamic_loading = False
         if sampling_cfg is not None:
             sampling_cfg["capacity"] = capacity
@@ -231,6 +231,7 @@ class ReplayMemory:
                 batch_idx, is_valid = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading)
             else:
                 return None
+           
         ret = self.memory.take(batch_idx)
         ret["is_valid"] = is_valid
         return ret

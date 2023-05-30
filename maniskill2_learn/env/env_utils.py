@@ -37,7 +37,7 @@ def convert_observation_to_space(observation):
             return convert_observation_to_space(observation)
         else:
             raise NotImplementedError(type(observation), observation)
-
+        
     return space
 
 
@@ -88,7 +88,7 @@ def get_env_info(env_cfg=None, vec_env=None):
     is_discrete = isinstance(action_space, StackedDiscrete)
     if is_discrete:
         action_shape = vec_env.action_space.n
-        get_logger().info(f"Environment has the discrete action space with {action_shape} choices.")
+        get_logger().info(f"Environment has tbuild_from_cfghe discrete action space with {action_shape} choices.")
     else:
         action_shape = action.shape[0]
         get_logger().info(f"Environment has the continuous action space with dimension {action_shape}.")
@@ -116,6 +116,7 @@ def make_gym_env(
     reward_scale=1,
     worker_id=None,
     buffers=None,
+    concat_rgbd=False,
     **kwargs,
 ):
     """
@@ -175,7 +176,7 @@ def make_gym_env(
         env = RenderInfoWrapper(env)
         env = ManiSkill2_ObsWrapper(env, img_size=img_size, 
             n_points=n_points, n_goal_points=n_goal_points, obs_frame=obs_frame, 
-            ignore_dones=ignore_dones, fix_seed=fix_seed)
+            ignore_dones=ignore_dones, fix_seed=fix_seed, concat_rgbd=concat_rgbd)
 
     if extra_wrappers is not None:
         if not isinstance(extra_wrappers, list):
@@ -194,6 +195,7 @@ def make_gym_env(
 
     if buffers is not None:
         env = BufferAugmentedEnv(env, buffers=buffers)
+
     return env
 
 

@@ -6,6 +6,7 @@ from .transformer import TransformerEncoder
 from .resnet import ResNet, ResNetV1c, ResNetV1d
 from .visuomotor import Visuomotor
 from .rl_cnn import IMPALA, NatureCNN
+from .unets import ConditionalUnet1D
 
 try:
     from .sp_resnet import SparseResNet10, SparseResNet18, SparseResNet34, SparseResNet50, SparseResNet101
