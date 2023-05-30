@@ -160,8 +160,6 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
         self.key_shape_map = key_shape_map
         self.out_feature_dim = self.output_shape()
 
-        print("fuck!", self.out_feature_dim)
-
     def forward(self, obs_dict):
         batch_size = None
         features = list()
@@ -177,10 +175,8 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
                     batch_size = img.shape[0]
                 else:
                     assert batch_size == img.shape[0]
-                print(img.shape)
                 if len(img.shape) == 5: # (bs, length, channel, h, w)
                     img = img.reshape(batch_size*img.shape[1],*img.shape[2:])
-                print(img.shape)
                 assert img.shape[1:] == self.key_shape_map[key]
                 img = self.key_transform_map[key](img)
                 imgs.append(img)
@@ -237,7 +233,6 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
                 (batch_size,) + shape, 
                 dtype=self.dtype,
                 device=self.device)
-            print("kkkkk", this_obs.shape)
             example_obs_dict[key] = this_obs
         example_output = self.forward(example_obs_dict)
         output_shape = list(example_output.shape[1:])
