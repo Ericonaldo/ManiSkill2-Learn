@@ -52,14 +52,17 @@ class DiffAgent(BaseAgent):
         super(DiffAgent, self).__init__()
         self.batch_size = batch_size
 
+        visual_nn_cfg['n_obs_steps'] = n_obs_steps
         self.obs_encoder = build_model(visual_nn_cfg)
-        obs_feature_dim = self.obs_encoder.out_feature_dim
+        self.obs_feature_dim = self.obs_encoder.out_feature_dim
 
         actor_optim_cfg = actor_cfg.pop("optim_cfg")
         lr_scheduler_cfg = actor_cfg.pop("lr_scheduler_cfg", None)
         self.action_dim = env_params['action_shape']
         actor_cfg.update(env_params)
-        actor_cfg.update(dict(input_dim=self.action_dim + obs_feature_dim, action_seq_len=action_seq_len))
+        # actor_cfg.update(dict(input_dim=self.action_dim + self.obs_feature_dim, action_seq_len=action_seq_len))
+        actor_cfg.update(dict(action_seq_len=action_seq_len))
+        actor_cfg['nn_cfg'].update(dict(global_cond_dim=self.obs_feature_dim))
 
         self.actor = build_model(actor_cfg)
         self.model = self.actor.diff_model
@@ -139,7 +142,7 @@ class DiffAgent(BaseAgent):
 
         self.mask_generator = LowdimMaskGenerator(
             action_dim=self.action_dim,
-            obs_dim=0 if obs_as_global_cond else obs_feature_dim,
+            obs_dim=0 if obs_as_global_cond else self.obs_feature_dim,
             max_n_obs_steps=n_obs_steps,
             fix_obs_steps=fix_obs_steps,
             action_visible=action_visible,
@@ -147,6 +150,7 @@ class DiffAgent(BaseAgent):
         self.obs_as_global_cond = obs_as_global_cond
         self.action_visible = action_visible
         self.fix_obs_steps = fix_obs_steps
+        self.n_obs_steps = n_obs_steps
 
 
     def get_loss_weights(self, action_weight, discount, weights_dict):
@@ -326,8 +330,10 @@ class DiffAgent(BaseAgent):
         diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
         return diffuse_loss, info
 
-    def forward(self, cond=0.9, *args, **kwargs):
-        return self.conditional_sample(cond=cond*torch.ones(1, device=self.device), *args, **kwargs)
+    def forward(self, cond_data, cond_mask, returns_rate=0.9, *args, **kwargs):
+        # TODO
+        # kwargs['returns'] = returns_rate*torch.ones(1, device=self.device)
+        return self.conditional_sample(cond_data, cond_mask, *args, **kwargs)
 
     def update_parameters(self, memory, updates):
         batch_size = self.batch_size
@@ -342,17 +348,23 @@ class DiffAgent(BaseAgent):
         # 'state': (bs, horizon, 38)}, 'actions': (bs, horizon, 7), 'dones': (bs, 1), 
         # 'episode_dones': (bs, horizon, 1), 'worker_indices': (bs, 1), 'is_truncated': (bs, 1), 'is_valid': (bs, 1)}
 
-        obs_fea = self.obs_encoder(sampled_batch["obs"])
-
         # generate impainting mask
         # condition_mask = self.mask_generator(trajectory.shape)
         if self.obs_as_global_cond:
             traj_data = sampled_batch["actions"]
-            cond_mask = self.mask_generator(traj_data.shape)
+            act_mask, obs_mask = self.mask_generator(traj_data.shape)
         else:
             raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+        
+        masked_obs = sampled_batch['obs']
+        for key in masked_obs:
+            if isinstance(masked_obs[key], list):
+                masked_obs[key] = masked_obs[key][0]
+            masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
-        loss, ret_dict = self.loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=cond_mask, global_cond=obs_fea) # TODO: local_cond, returns
+        obs_fea = self.obs_encoder(masked_obs)
+
+        loss, ret_dict = self.loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=act_mask, global_cond=obs_fea) # TODO: local_cond, returns
         loss.backward()
         self.actor_optim.step()
 

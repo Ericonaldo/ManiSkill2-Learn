@@ -1,5 +1,5 @@
 horizon = 4
-
+workdir = "rgbd"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=16,
@@ -37,17 +37,17 @@ agent_cfg = dict(
         optim_cfg=dict(type="Adam", lr=3e-4),
         n_action_steps=1,
     ),
-    n_obs_steps=horizon-2, # n_obs_steps - 1 is the history length of the action
+    n_obs_steps=horizon-2, # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
     obs_as_global_cond=True,
     fix_obs_stepd=True,
     action_visible=True,
 )
 
-env_cfg = dict(
-    type="gym",
-    env_name="PickCube-v0",
-    unwrapped=False,
-)
+# env_cfg = dict(
+#     type="gym",
+#     env_name="PickCube-v0",
+#     unwrapped=False,
+# )
 
 
 replay_cfg = dict(
@@ -74,12 +74,12 @@ train_cfg = dict(
     n_checkpoint=50000,
 )
 
-eval_cfg = dict(
-    type="Evaluation",
-    num=10,
-    num_procs=1,
-    use_hidden_state=False,
-    save_traj=False,
-    save_video=True,
-    use_log=False,
-)
+# eval_cfg = dict(
+#     type="Evaluation",
+#     num=10,
+#     num_procs=1,
+#     use_hidden_state=False,
+#     save_traj=False,
+#     save_video=True,
+#     use_log=False,
+# )

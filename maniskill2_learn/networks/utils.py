@@ -24,7 +24,7 @@ def combine_obs_with_action(obs, action=None):
 
 def get_kwargs_from_shape(obs_shape, action_shape):
     PCD_KEYS = ["pointcloud", "full_pcd", "no_robot", "handle_only", "fused_pcd", "fused_ball_pcd", "pointcloud_3d_ann", "particles"]
-    IMAGE_KEYS = ["rgb", "rgbd", "depth"]
+    IMAGE_KEYS = ["rgb", "rgbd", "depth", "base_camera_rgbd", "hand_camera_rgbd"] # Add your own keys if you have different obs space
     replaceable_kwargs = {}
     if action_shape is not None:
         replaceable_kwargs["action_shape"] = deepcopy(action_shape)
@@ -66,9 +66,11 @@ def get_kwargs_from_shape(obs_shape, action_shape):
             if len(visual_shape[visual_key]) == 3:
                 num_images = 1
             else: 
-                assert len(visual_shape[visual_key]) == 4, f"You need to provide either 3-dim or 5-dim inputs! The input shape is {visual_shape[visual_key]}!"
+                # assert len(visual_shape[visual_key]) == 4, f"You need to provide either 3-dim or 5-dim inputs! The input shape is {visual_shape[visual_key]}!"
                 num_images = visual_shape[visual_key][0]  # [K, C, N, M]
             replaceable_kwargs["image_size"], replaceable_kwargs["num_images"] = visual_shape[visual_key][-2:], num_images
+            if isinstance(replaceable_kwargs["image_size"], list):
+                replaceable_kwargs["image_size"] = replaceable_kwargs["image_size"][0]
             replaceable_kwargs["num_pixels"] = np.prod(replaceable_kwargs["image_size"])
             replaceable_kwargs["image_channels"] = (
                 sum([visual_shape[name][-3] for name in ["rgb", "depth", "seg"] if name in visual_shape]) * num_images
@@ -77,6 +79,9 @@ def get_kwargs_from_shape(obs_shape, action_shape):
                 replaceable_kwargs["seg_per_image"] = visual_shape["seg"][-3]
     else:
         replaceable_kwargs["obs_shape"] = deepcopy(obs_shape)
+
+    print("Got replaceable kwargs, ", replaceable_kwargs)
+
     return replaceable_kwargs
 
 

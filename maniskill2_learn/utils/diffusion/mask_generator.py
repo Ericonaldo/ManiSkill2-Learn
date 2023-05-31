@@ -47,7 +47,8 @@ class LowdimMaskGenerator(ModuleAttrMixin):
         max_n_obs_steps=3, 
         fix_obs_steps=True, 
         # action mask
-        action_visible=True
+        action_visible=True,
+        return_one_mask=False
         ):
         super().__init__()
         self.action_dim = action_dim
@@ -55,6 +56,7 @@ class LowdimMaskGenerator(ModuleAttrMixin):
         self.max_n_obs_steps = max_n_obs_steps
         self.fix_obs_steps = fix_obs_steps
         self.action_visible = action_visible
+        self.return_one_mask = return_one_mask
 
     @torch.no_grad()
     def forward(self, shape, seed=None):
@@ -85,7 +87,7 @@ class LowdimMaskGenerator(ModuleAttrMixin):
             
         steps = torch.arange(0, T, device=device).reshape(1,T).expand(B,T)
         obs_mask = (steps.T < obs_steps).T.reshape(B,T,1).expand(B,T,D)
-        obs_mask = obs_mask & is_obs_dim
+        obs_mask = obs_mask
 
         # generate action mask
         if self.action_visible:
@@ -97,11 +99,17 @@ class LowdimMaskGenerator(ModuleAttrMixin):
             action_mask = (steps.T < action_steps).T.reshape(B,T,1).expand(B,T,D)
             action_mask = action_mask & is_action_dim
 
-        mask = obs_mask
-        if self.action_visible:
-            mask = mask | action_mask
+
+        if self.return_one_mask:
+            mask = obs_mask & is_obs_dim
+            if self.action_visible:
+                mask = mask | action_mask
         
-        return mask
+            return mask
+        if self.obs_dim <= 0:
+            assert self.fix_obs_steps, "We require fix obs steps to obtain obs masks"
+            obs_mask = obs_mask[0,:,0]
+        return action_mask, obs_mask
 
 
 class KeypointMaskGenerator(ModuleAttrMixin):

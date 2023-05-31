@@ -134,7 +134,7 @@ def build_work_dir():
             colored_print("When you specify the work dir path, the agent type cannot be at the beginning of the path!", level="warning")
         args.work_dir = osp.join(args.work_dir, agent_type)
 
-    args.work_dir = osp.join(args.work_dir, cfg.env_cfg.get("obs_mode", "default"))
+    args.work_dir = osp.join(args.work_dir, cfg.get("workdir", "default"))
 
     if args.dev:
         args.work_dir = osp.join(args.work_dir, args.timestamp)
@@ -406,6 +406,7 @@ def run_one_process(rank, world_size, args, cfg):
     # Get environments information for agents
     obs_shape, action_shape = None, None
     if is_not_null(cfg.env_cfg): # May fail on Arnold
+        raise NotImplementedError("Not supported for rendering! Current env cfg: {}".format(cfg.env_cfg))
         # For RL which needs environments
         logger.info(f"Get obs shape!")
         from maniskill2_learn.env import get_env_info
@@ -416,16 +417,40 @@ def run_one_process(rank, world_size, args, cfg):
             env_params = get_env_info(cfg.env_cfg, evaluator.vec_env)
         else:
             env_params = get_env_info(cfg.env_cfg)
-        cfg.agent_cfg["env_params"] = env_params
         obs_shape = env_params["obs_shape"]
         action_shape = env_params["action_shape"]
         logger.info(f'State shape:{env_params["obs_shape"]}, action shape:{env_params["action_shape"]}')
+        print("Obtained env params", env_params)
+        exit(0)
     elif is_not_null(replay):
         obs_shape = None
         for obs_key in ["inputs", "obs"]:
             if obs_key in replay.memory:
                 obs_shape = replay.memory.slice(0).shape[obs_key]
+                if isinstance(obs_shape, dict):
+                    for k in obs_shape:
+                        if isinstance(obs_shape[k], list):
+                            obs_shape[k] = obs_shape[k][0]
+                        if "rgb" in k and len(obs_shape[k]) == 4: # Remove the horizon dimension for multi-step replay buffer
+                            obs_shape[k] = obs_shape[k][1:]
                 break
+        action_shape = None
+        act_key = "actions"
+        if act_key in replay.memory:
+            action_shape = replay.memory.slice(0).shape[act_key]
+        action_space = gym.spaces.Box(
+            low=-1, high=1, shape=(action_shape,), dtype=np.float32
+        )
+        env_params = dict(
+            obs_shape=obs_shape,
+            action_shape=action_shape,
+            action_space=action_space,
+            is_discrete=False,
+        )
+
+        print("Obtained shapes from replay: obs {}; act: {}".format(obs_shape, action_shape))
+
+    cfg.agent_cfg["env_params"] = env_params
 
     if is_not_null(obs_shape) or is_not_null(action_shape):
         from maniskill2_learn.networks.utils import get_kwargs_from_shape, replace_placeholder_with_args

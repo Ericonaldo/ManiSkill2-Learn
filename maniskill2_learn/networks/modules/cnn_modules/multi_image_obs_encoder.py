@@ -48,7 +48,8 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
             share_rgb_model: bool=True,
             # renormalize rgb input with imagenet normalization
             # assuming input in [0,1]
-            imagenet_norm: bool=False
+            imagenet_norm: bool=False,
+            n_obs_steps: int=1,
         ):
         """
         Assumes rgb input: B,C,H,W
@@ -61,6 +62,7 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
         key_model_map = nn.ModuleDict()
         key_transform_map = nn.ModuleDict()
         key_shape_map = dict()
+        self.n_obs_steps = n_obs_steps
 
         obs_shape_meta = shape_meta['obs']
         # handle sharing vision backbone
@@ -163,6 +165,7 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
     def forward(self, obs_dict):
         batch_size = None
         features = list()
+        horizon = self.n_obs_steps
         # process rgb input
         if self.share_rgb_model:
             # pass all rgb obs to rgb model
@@ -175,20 +178,24 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
                     batch_size = img.shape[0]
                 else:
                     assert batch_size == img.shape[0]
-                if len(img.shape) == 5: # (bs, length, channel, h, w)
-                    img = img.reshape(batch_size*img.shape[1],*img.shape[2:])
-                assert img.shape[1:] == self.key_shape_map[key]
+                if len(img.shape) == 5: # (B, L,C,H,W)
+                    assert img.shape[1] == horizon, "The input horizon {} is not the same as expected obs length {}!".format(img.shape[1], self.n_obs_steps)
+                    img = img.reshape(batch_size*horizon,*img.shape[2:]) # (B*L,C,H,W)
+                assert img.shape[1:] == self.key_shape_map[key] # (C,H,W)
                 img = self.key_transform_map[key](img)
                 imgs.append(img)
-            # (N*B,C,H,W)
+            # (N*B*L,C,H,W)
             imgs = torch.cat(imgs, dim=0)
-            # (N*B,D)
+            # (N*B*L,D)
             feature = self.key_model_map['rgb'](imgs)
-            # (N,B,D)
-            feature = feature.reshape(-1,batch_size,*feature.shape[1:])
-            # (B,N,D)
+            # (N,B*L,D)
+            feature = feature.reshape(-1,batch_size*horizon,*feature.shape[1:])
+            if horizon > 1:
+                # (N,B,L,D)
+                feature = feature.reshape(-1,batch_size,horizon,*feature.shape[2:])
+            # (B,N,D) or (B,N,L,D)
             feature = torch.moveaxis(feature,0,1)
-            # (B,N*D)
+            # (B,N*D) or (B,N*L*D)
             feature = feature.reshape(batch_size,-1)
             features.append(feature)
         else:
@@ -227,10 +234,11 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
         example_obs_dict = dict()
         obs_shape_meta = self.shape_meta['obs']
         batch_size = 1
+        horizon = self.n_obs_steps
         for key, attr in obs_shape_meta.items():
             shape = self.key_shape_map[key]
             this_obs = torch.zeros(
-                (batch_size,) + shape, 
+                (batch_size,horizon) + shape, 
                 dtype=self.dtype,
                 device=self.device)
             example_obs_dict[key] = this_obs

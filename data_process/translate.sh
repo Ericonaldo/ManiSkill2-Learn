@@ -61,58 +61,73 @@ python data_process.py --traj-path ../demos/rigid_body/TurnFaucet-v0/trajectory.
 python tools/convert_state.py --env-name PickCube-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/PickCube-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/PickCube-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/PickCube-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
 
 
 python tools/convert_state.py --env-name StackCube-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/StackCube-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/StackCube-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/StackCube-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/StackCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
+
 
 python tools/convert_state.py --env-name LiftCube-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/LiftCube-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/LiftCube-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/LiftCube-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/LiftCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
+
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/StackCube-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/StackCube-v0
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/LiftCube-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/LiftCube-v0
 
 python tools/convert_state.py --env-name AssemblingKits-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/AssemblingKits-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/AssemblingKits-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/AssemblingKits-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/AssemblingKits-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
+
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/AssemblingKits-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/AssemblingKits-v0
 
 python tools/convert_state.py --env-name PandaAvoidObstacles-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/PandaAvoidObstacles-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/PandaAvoidObstacles-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/PandaAvoidObstacles-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/PandaAvoidObstacles-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
 
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/PandaAvoidObstacles-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/PandaAvoidObstacles-v0
 
 python tools/convert_state.py --env-name PegInsertionSide-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/PegInsertionSide-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/PegInsertionSide-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/PegInsertionSide-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/PegInsertionSide-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
+
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/PegInsertionSide-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/PegInsertionSide-v0
 
 python tools/convert_state.py --env-name PickClutterYCB-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/PickClutterYCB-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/PickClutterYCB-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/PickClutterYCB-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/PickClutterYCB-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
+
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/PickClutterYCB-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/PickClutterYCB-v0
 
 python tools/convert_state.py --env-name PlugCharger-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/PlugCharger-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/PlugCharger-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/PlugCharger-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/PlugCharger-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
 
-python tools/convert_state.py --env-name StacPickSingleEGADkCube-v0 --num-procs 5 \
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/PlugCharger-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/PlugCharger-v0
+
+python tools/convert_state.py --env-name PickSingleEGAD-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/PickSingleEGAD-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/PickSingleEGAD-v0/trajectory.none.pd_ee_delta_pose.json \
---output-name ./demos/rigid_body/PickSingleEGAD-v0/trajmslearn.pd_ee_delta_pose.h5 \
+--output-name ./demos/rigid_body/PickSingleEGAD-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
+
+rsync -av --progress -r --partial --append-verify ./demos/rigid_body/PickSingleEGAD-v0/* workspace:/mnt/bn/robotics-data-hl/ManiSkill2/demos/rigid_body/PickSingleEGAD-v0
 
 ## Soft body
 # image
