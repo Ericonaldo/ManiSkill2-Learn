@@ -133,7 +133,7 @@ class DiffAgent(BaseAgent):
         loss_weights = self.get_loss_weights(action_weight, loss_discount, loss_weights)
         self.loss_fn = Losses[loss_type](loss_weights, self.action_dim)
 
-        self.actor_optim = build_optimizer(self.model, optim_cfg)
+        self.actor_optim = build_optimizer([self.model,self.obs_encoder], optim_cfg)
         if lr_scheduler_cfg is None:
             self.lr_scheduler = None
         else:
@@ -153,6 +153,8 @@ class DiffAgent(BaseAgent):
         self.action_visible = action_visible
         self.fix_obs_steps = fix_obs_steps
         self.n_obs_steps = n_obs_steps
+
+        self.init_normalizer = False
 
 
     def get_loss_weights(self, action_weight, discount, weights_dict):
@@ -212,7 +214,7 @@ model
 
     def p_mean_variance(self, x, t, local_cond=None, global_cond=None, returns=None):
 
-        if self.returns_condition:
+        if self.returns_condition: 
             # epsilon could be epsilon or x0 itself
             epsilon_cond = self.model(x, t, local_cond, global_cond, returns, use_dropout=False)
             epsilon_uncond = self.model(x, t, local_cond, global_cond, returns, force_dropout=True)
@@ -341,7 +343,7 @@ model
         observation.pop("actions")
 
         if self.obs_as_global_cond:
-            act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim))
+            act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim), self.device)
         else:
             raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
         
@@ -360,10 +362,17 @@ model
         obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length\
 
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
+        pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
         
         return pred_action_seq[-(self.self.action_seq_len-hist_len)]
     
     def update_parameters(self, memory, updates):
+        if not self.init_normalizer:
+            # Fit normalizer
+            data = memory.get_all("actions")
+            self.normalizer.fit(data, last_n_dims=1, mode='limits')
+            self.init_normalizer = True
+
         batch_size = self.batch_size
         sampled_batch = memory.sample(batch_size).to_torch(dtype="float32")
 
@@ -377,10 +386,9 @@ model
         # 'episode_dones': (bs, horizon, 1), 'worker_indices': (bs, 1), 'is_truncated': (bs, 1), 'is_valid': (bs, 1)}
 
         # generate impainting mask
-        # condition_mask = self.mask_generator(trajectory.shape)
         if self.obs_as_global_cond:
             traj_data = sampled_batch["actions"]
-            act_mask, obs_mask = self.mask_generator(traj_data.shape)
+            act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
         else:
             raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
         
@@ -391,6 +399,7 @@ model
             masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
         obs_fea = self.obs_encoder(masked_obs)
+        traj_data = self.normalizer.normalize(traj_data)
 
         loss, ret_dict = self.loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=act_mask, global_cond=obs_fea) # TODO: local_cond, returns
         loss.backward()

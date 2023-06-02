@@ -39,24 +39,29 @@ def build_optimizer(model, cfg):
 
         params = []
         existing_params = []
-        if hasattr(model, "named_parameters"):
-            # It is a mode not a Parameter.
-            for name, param in model.named_parameters():
-                if id(param) in existing_params or not param.requires_grad:
-                    continue
-                param_i = copy.deepcopy(param_i_template)
-                existing_params.append(id(param))
-                if param_cfg is not None:
-                    for pattern, param_config in param_cfg.items():
-                        if regex_match(name, pattern):
-                            param_i = param_config
-                            break
-                if param_i is None:
-                    continue
-                param_i = {'params': param}
-                params.append(param_i)
+        if isinstance(model, list):
+            models = model
         else:
-            params = [model, ]
+            models = [model]
+        for model in models:
+            if hasattr(model, "named_parameters"):
+                # It is a mode not a Parameter.
+                for name, param in model.named_parameters():
+                    if id(param) in existing_params or not param.requires_grad:
+                        continue
+                    param_i = copy.deepcopy(param_i_template)
+                    existing_params.append(id(param))
+                    if param_cfg is not None:
+                        for pattern, param_config in param_cfg.items():
+                            if regex_match(name, pattern):
+                                param_i = param_config
+                                break
+                    if param_i is None:
+                        continue
+                    param_i = {'params': param}
+                    params.append(param_i)
+            else:
+                params += [model, ]
         cfg["params"] = params
         optimizer = build_from_cfg(cfg, OPTIMIZERS)
     else:

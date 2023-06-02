@@ -1,7 +1,7 @@
 from typing import Sequence, Optional
 import torch
 from torch import nn
-from .module_attr_mixin import ModuleAttrMixin
+from maniskill2_learn.utils.torch import ExtendedModule
 
 
 def get_intersection_slice_mask(
@@ -29,7 +29,7 @@ def get_union_slice_mask(
     return mask
 
 
-class DummyMaskGenerator(ModuleAttrMixin):
+class DummyMaskGenerator(ExtendedModule):
     def __init__(self):
         super().__init__()
     
@@ -40,7 +40,7 @@ class DummyMaskGenerator(ModuleAttrMixin):
         return mask
 
 
-class LowdimMaskGenerator(ModuleAttrMixin):
+class LowdimMaskGenerator(ExtendedModule):
     def __init__(self,
         action_dim, obs_dim,
         # obs mask setup
@@ -59,8 +59,8 @@ class LowdimMaskGenerator(ModuleAttrMixin):
         self.return_one_mask = return_one_mask
 
     @torch.no_grad()
-    def forward(self, shape, seed=None):
-        device = self.device
+    def forward(self, shape, device, seed=None):
+        # device = self.device
         B, T, D = shape
         assert D == (self.action_dim + self.obs_dim)
 
@@ -112,7 +112,7 @@ class LowdimMaskGenerator(ModuleAttrMixin):
         return action_mask, obs_mask
 
 
-class KeypointMaskGenerator(ModuleAttrMixin):
+class KeypointMaskGenerator(ExtendedModule):
     def __init__(self, 
             # dimensions
             action_dim, keypoint_dim,

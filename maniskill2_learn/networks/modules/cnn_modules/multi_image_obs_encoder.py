@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torchvision
 from .crop_randomizer import CropRandomizer
-from maniskill2_learn.utils.diffusion.module_attr_mixin import ModuleAttrMixin
 from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodules
 from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
 from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
@@ -13,7 +12,7 @@ from maniskill2_learn.utils.torch import no_grad
 from maniskill2_learn.networks.builder import MODELNETWORKS
 
 @MODELNETWORKS.register_module()
-class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
+class MultiImageObsEncoder(CNNBase):
     @no_grad
     def preprocess(self, inputs):
         # assert inputs are channel-first; output is channel-first
@@ -72,7 +71,6 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
             for key in obs_shape_meta.keys():
                 key_model_map[key] = rgb_model
 
-        print(obs_shape_meta)
         for key, attr in obs_shape_meta.items():
             shape = tuple(attr['shape'])
             key_shape_map[key] = shape
@@ -122,7 +120,6 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
 
                 # configure randomizer
                 this_randomizer = nn.Identity()
-                print(input_shape)
                 if crop_shape is not None:
                     if isinstance(crop_shape, dict):
                         h, w = crop_shape[key]

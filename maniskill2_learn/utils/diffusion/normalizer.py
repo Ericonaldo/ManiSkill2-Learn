@@ -265,9 +265,10 @@ def _normalize(x, params, forward=True):
     assert 'scale' in params
     if isinstance(x, np.ndarray):
         x = torch.from_numpy(x)
-    scale = params['scale']
-    offset = params['offset']
-    x = x.to(device=scale.device, dtype=scale.dtype)
+        x = x.to(device=scale.device, dtype=scale.dtype)
+    scale = params['scale'].to(device=x.device, dtype=x.dtype)
+    offset = params['offset'].to(device=x.device, dtype=x.dtype)
+    # x = x.to(device=scale.device, dtype=scale.dtype)
     src_shape = x.shape
     x = x.reshape(-1, scale.shape[0])
     if forward:

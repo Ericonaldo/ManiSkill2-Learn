@@ -201,9 +201,12 @@ class ReplayMemory:
     def tail_mean(self, num):
         return self.memory.slice(slice(len(self) - num, len(self))).to_gdict().mean()
 
-    def get_all(self):
+    def get_all(self, key=None):
         # Return all elements in replay buffer
-        return self.memory.slice(slice(0, len(self)))
+        ret = self.memory.slice(slice(0, len(self)))
+        if key is not None:
+            return ret[key]
+        return ret
 
     def to_hdf5(self, file, with_traj_index=False):
         data = self.get_all()
