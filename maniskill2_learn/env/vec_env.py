@@ -199,7 +199,6 @@ class VectorEnvBase(Env):
             
     def _init_obs_space(self):
         self.observation_space = convert_observation_to_space(self.reset(idx=np.arange(self.num_envs)))
-        print("observation space", self.observation_space)
 
     def _assert_id(self, idx=None):
         raise NotImplementedError

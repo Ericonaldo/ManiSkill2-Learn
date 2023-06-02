@@ -29,6 +29,10 @@ def get_kwargs_from_shape(obs_shape, action_shape):
     if action_shape is not None:
         replaceable_kwargs["action_shape"] = deepcopy(action_shape)
 
+    for key in obs_shape.keys():
+        if isinstance(obs_shape[key], list) and (not isinstance(obs_shape[key][0], int)):
+            obs_shape[key] = obs_shape[key][0]
+
     if isinstance(obs_shape, dict):
         if "state" in obs_shape:
             replaceable_kwargs["agent_shape"] = obs_shape["state"]
@@ -63,17 +67,18 @@ def get_kwargs_from_shape(obs_shape, action_shape):
 
         elif visual_key in IMAGE_KEYS:
             # For new maniskill callback envs
-            if len(visual_shape[visual_key]) == 3:
+            if len(visual_shape[visual_key]) == 3:  # NOTE: Be careful!
                 num_images = 1
             else: 
                 # assert len(visual_shape[visual_key]) == 4, f"You need to provide either 3-dim or 5-dim inputs! The input shape is {visual_shape[visual_key]}!"
                 num_images = visual_shape[visual_key][0]  # [K, C, N, M]
             replaceable_kwargs["image_size"], replaceable_kwargs["num_images"] = visual_shape[visual_key][-2:], num_images
-            if isinstance(replaceable_kwargs["image_size"], list):
-                replaceable_kwargs["image_size"] = replaceable_kwargs["image_size"][0]
+            # if isinstance(replaceable_kwargs["image_size"], list) and (not isinstance(replaceable_kwargs["image_size"][0], int)):
+            #     replaceable_kwargs["image_size"] = replaceable_kwargs["image_size"][0]
             replaceable_kwargs["num_pixels"] = np.prod(replaceable_kwargs["image_size"])
+            print(visual_shape)
             replaceable_kwargs["image_channels"] = (
-                sum([visual_shape[name][-3] for name in ["rgb", "depth", "seg"] if name in visual_shape]) * num_images
+                sum([visual_shape[name][-3] for name in IMAGE_KEYS if name in visual_shape]) * num_images # NOTE: Be careful!
             )
             if "depth" in visual_shape and "seg" in visual_shape:
                 replaceable_kwargs["seg_per_image"] = visual_shape["seg"][-3]

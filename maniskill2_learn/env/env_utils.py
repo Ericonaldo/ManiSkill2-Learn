@@ -21,6 +21,8 @@ def convert_observation_to_space(observation):
     """Convert observation to OpenAI gym observation space (recursively).
     Modified from gym.envs.mujoco_env
     """
+    if isinstance(observation, (list)):
+        observation = observation[0]
     if isinstance(observation, (dict)):
         # if not isinstance(observation, OrderedDict):
         #     warn("observation is not an OrderedDict. Keys are {}".format(observation.keys()))
@@ -117,6 +119,7 @@ def make_gym_env(
     worker_id=None,
     buffers=None,
     concat_rgbd=False,
+    history_len=1,
     **kwargs,
 ):
     """
@@ -176,7 +179,7 @@ def make_gym_env(
         env = RenderInfoWrapper(env)
         env = ManiSkill2_ObsWrapper(env, img_size=img_size, 
             n_points=n_points, n_goal_points=n_goal_points, obs_frame=obs_frame, 
-            ignore_dones=ignore_dones, fix_seed=fix_seed, concat_rgbd=concat_rgbd)
+            ignore_dones=ignore_dones, fix_seed=fix_seed, concat_rgbd=concat_rgbd, history_len=history_len)
 
     if extra_wrappers is not None:
         if not isinstance(extra_wrappers, list):

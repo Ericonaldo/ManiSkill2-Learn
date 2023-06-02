@@ -9,9 +9,9 @@ from copy import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import defaultdict
+from collections import defaultdict, deque
 
-from maniskill2_learn.networks import build_model, ContDiffActor, build_reg_head
+from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
 from maniskill2_learn.utils.data import to_torch, DictArray, GDict, dict_to_str
 from maniskill2_learn.utils.meta import get_total_memory, get_logger
@@ -19,6 +19,7 @@ from maniskill2_learn.utils.torch import BaseAgent, get_mean_lr, get_cuda_info, 
 from maniskill2_learn.utils.diffusion.helpers import Losses, apply_conditioning, cosine_beta_schedule, extract
 from maniskill2_learn.utils.diffusion.progress import Progress, Silent
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
+from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
 # from maniskill2_learn.networks.modules.cnn_modules.multi_image_obs_encoder import MultiImageObsEncoder
 
 from ..builder import BRL
@@ -30,8 +31,11 @@ class DiffAgent(BaseAgent):
         self,
         actor_cfg,
         visual_nn_cfg,
+        nn_cfg,
+        optim_cfg,
         env_params,
         action_seq_len,
+        lr_scheduler_cfg=None,
         batch_size=128,
         n_timesteps=1000,
         loss_type="l1",
@@ -47,6 +51,7 @@ class DiffAgent(BaseAgent):
         action_visible=True, # If we cond on some hist actions
         fix_obs_steps=True, # Randomly cond on certain obs steps or deterministicly
         n_obs_steps=3,
+        normalizer=LinearNormalizer(),
         **kwargs,
     ):
         super(DiffAgent, self).__init__()
@@ -56,21 +61,18 @@ class DiffAgent(BaseAgent):
         self.obs_encoder = build_model(visual_nn_cfg)
         self.obs_feature_dim = self.obs_encoder.out_feature_dim
 
-        actor_optim_cfg = actor_cfg.pop("optim_cfg")
-        lr_scheduler_cfg = actor_cfg.pop("lr_scheduler_cfg", None)
+        lr_scheduler_cfg = lr_scheduler_cfg
         self.action_dim = env_params['action_shape']
+        self.normalizer = normalizer
+
+        actor_cfg["action_seq_len"] = action_seq_len
         actor_cfg.update(env_params)
-        # actor_cfg.update(dict(input_dim=self.action_dim + self.obs_feature_dim, action_seq_len=action_seq_len))
-        actor_cfg.update(dict(action_seq_len=action_seq_len))
-        actor_cfg['nn_cfg'].update(dict(global_cond_dim=self.obs_feature_dim))
-
         self.actor = build_model(actor_cfg)
-        self.model = self.actor.diff_model
-
-        assert isinstance(self.actor, ContDiffActor)
+        nn_cfg.update(dict(global_cond_dim=self.obs_feature_dim))
+        self.model = build_model(nn_cfg)
 
         self.horizon = self.action_seq_len = action_seq_len
-        self.observation_shape = env_params['obs_shape'] # TODO: Check
+        self.observation_shape = env_params['obs_shape']
 
         self.returns_condition = returns_condition
         self.condition_guidance_w = condition_guidance_w
@@ -131,7 +133,7 @@ class DiffAgent(BaseAgent):
         loss_weights = self.get_loss_weights(action_weight, loss_discount, loss_weights)
         self.loss_fn = Losses[loss_type](loss_weights, self.action_dim)
 
-        self.actor_optim = build_optimizer(self.actor, actor_optim_cfg)
+        self.actor_optim = build_optimizer(self.model, optim_cfg)
         if lr_scheduler_cfg is None:
             self.lr_scheduler = None
         else:
@@ -156,7 +158,7 @@ class DiffAgent(BaseAgent):
     def get_loss_weights(self, action_weight, discount, weights_dict):
         """
         sets loss coefficients for trajectory
-
+model
         action_weight   : float
             coefficient on first action loss
         discount   : float
@@ -330,11 +332,37 @@ class DiffAgent(BaseAgent):
         diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
         return diffuse_loss, info
 
-    def forward(self, cond_data, cond_mask, returns_rate=0.9, *args, **kwargs):
-        # TODO
-        # kwargs['returns'] = returns_rate*torch.ones(1, device=self.device)
-        return self.conditional_sample(cond_data, cond_mask, *args, **kwargs)
+    def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
+        observation = observation.to_torch(device=self.device, dtype="float32", non_blocking=True)
+        
+        action_history = observation["actions"]
+        bs = action_history.shape[0]
+        hist_len = action_history.shape[1]
+        observation.pop("actions")
 
+        if self.obs_as_global_cond:
+            act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim))
+        else:
+            raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+        
+        self.set_mode(mode=mode)
+        
+        # for obs_key in observation.keys():
+        #     print(obs_key, observation[obs_key].shape)
+
+        supp = torch.zeros(
+            size=[bs, self.action_seq_len-hist_len, self.action_dim], 
+            dtype=action_history.dtype,
+            device=action_history.device
+        )
+        action_history = torch.concat([action_history, supp], dim=1)
+
+        obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length\
+
+        pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
+        
+        return pred_action_seq[-(self.self.action_seq_len-hist_len)]
+    
     def update_parameters(self, memory, updates):
         batch_size = self.batch_size
         sampled_batch = memory.sample(batch_size).to_torch(dtype="float32")
@@ -371,10 +399,8 @@ class DiffAgent(BaseAgent):
         ## Not implement yet
         # if self.step % self.update_ema_every == 0:
         #     self.step_ema()
-
-        ret_dict["grad_norm"] = np.mean(
-            [torch.linalg.norm(parameter.grad.data).item() for parameter in self.actor.parameters() if parameter.grad is not None]
-        )
+        ret_dict["grad_norm_diff_model"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.model.parameters() if parameter.grad is not None])
+        ret_dict["grad_norm_diff_obs_encoder"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.obs_encoder.parameters() if parameter.grad is not None])
 
         if self.lr_scheduler is not None:
             ret_dict["lr"] = get_mean_lr(self.actor_optim)

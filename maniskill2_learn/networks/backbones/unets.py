@@ -27,7 +27,7 @@ from ..modules import build_activation_layer, build_norm_layer
 
 
 @BACKBONES.register_module()
-class ConditionalUnet1D(nn.Module):
+class ConditionalUnet1D(ExtendedModule): # (nn.Module):
     def __init__(self, 
         input_dim,
         local_cond_dim=None,
@@ -55,7 +55,10 @@ class ConditionalUnet1D(nn.Module):
         if global_cond_dim is not None:
             cond_dim += global_cond_dim
 
-        in_out = list(zip(all_dims[:-1], all_dims[1:]))
+
+        in_out = list(zip(all_dims[:-1], all_dims[1:]))        
+        # print("cond_dim", cond_dim)
+        # print("inout", in_out)
 
         local_cond_encoder = None
         if local_cond_dim is not None:
@@ -208,7 +211,7 @@ class ConditionalUnet1D(nn.Module):
         return x
 
 
-class Residual(nn.Module):
+class Residual(ExtendedModule): # (nn.Module):
     def __init__(self, fn):
         super().__init__()
         self.fn = fn
@@ -217,7 +220,7 @@ class Residual(nn.Module):
         return self.fn(x, *args, **kwargs) + x
 
 
-class PreNorm(nn.Module):
+class PreNorm(ExtendedModule): # (nn.Module):
     def __init__(self, dim, fn):
         super().__init__()
         self.fn = fn
@@ -228,7 +231,7 @@ class PreNorm(nn.Module):
         return self.fn(x)
 
 
-class LinearAttention(nn.Module):
+class LinearAttention(ExtendedModule): # (nn.Module):
     def __init__(self, dim, heads=4, dim_head=128):
         super().__init__()
         self.heads = heads
@@ -251,7 +254,7 @@ class LinearAttention(nn.Module):
         return self.to_out(out)
 
 
-class GlobalMixing(nn.Module):
+class GlobalMixing(ExtendedModule): # (nn.Module):
     def __init__(self, dim, heads=4, dim_head=128):
         super().__init__()
         self.heads = heads
@@ -274,7 +277,7 @@ class GlobalMixing(nn.Module):
         return self.to_out(out)
 
 
-class ConditionalResidualBlock1D(nn.Module):
+class ConditionalResidualBlock1D(ExtendedModule): # (nn.Module):
     def __init__(self, 
             in_channels, 
             out_channels, 
@@ -328,7 +331,7 @@ class ConditionalResidualBlock1D(nn.Module):
         out = out + self.residual_conv(x)
         return out
 
-class Downsample1d(nn.Module):
+class Downsample1d(ExtendedModule): # (nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.conv = nn.Conv1d(dim, dim, 3, 2, 1)
@@ -336,7 +339,7 @@ class Downsample1d(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
-class Upsample1d(nn.Module):
+class Upsample1d(ExtendedModule): # (nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.conv = nn.ConvTranspose1d(dim, dim, 4, 2, 1)
@@ -344,7 +347,7 @@ class Upsample1d(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
-class Conv1dBlock(nn.Module):
+class Conv1dBlock(ExtendedModule): # (nn.Module):
     '''
         Conv1d --> GroupNorm --> Mish
     '''

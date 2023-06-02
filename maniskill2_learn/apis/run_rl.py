@@ -406,7 +406,8 @@ def run_one_process(rank, world_size, args, cfg):
     # Get environments information for agents
     obs_shape, action_shape = None, None
     if is_not_null(cfg.env_cfg): # May fail on Arnold
-        raise NotImplementedError("Not supported for rendering! Current env cfg: {}".format(cfg.env_cfg))
+        if getattr(cfg, "eval_cfg", None) is None:
+            raise NotImplementedError("Not supported for rendering during training! Current env cfg: {}".format(cfg.env_cfg))
         # For RL which needs environments
         logger.info(f"Get obs shape!")
         from maniskill2_learn.env import get_env_info
@@ -419,9 +420,8 @@ def run_one_process(rank, world_size, args, cfg):
             env_params = get_env_info(cfg.env_cfg)
         obs_shape = env_params["obs_shape"]
         action_shape = env_params["action_shape"]
-        logger.info(f'State shape:{env_params["obs_shape"]}, action shape:{env_params["action_shape"]}')
-        print("Obtained env params", env_params)
-        exit(0)
+        logger.info(f'Got shapes from env_params: state shape:{env_params["obs_shape"]}, action shape:{env_params["action_shape"]}')
+
     elif is_not_null(replay):
         obs_shape = None
         for obs_key in ["inputs", "obs"]:
@@ -452,10 +452,13 @@ def run_one_process(rank, world_size, args, cfg):
 
     cfg.agent_cfg["env_params"] = env_params
 
+    print(obs_shape, action_shape)
+
     if is_not_null(obs_shape) or is_not_null(action_shape):
         from maniskill2_learn.networks.utils import get_kwargs_from_shape, replace_placeholder_with_args
 
         replaceable_kwargs = get_kwargs_from_shape(obs_shape, action_shape)
+        print(obs_shape, action_shape, env_params, replaceable_kwargs)
         cfg = replace_placeholder_with_args(cfg, **replaceable_kwargs)
     logger.info(f"Final agent config:\n{cfg.agent_cfg}")
 

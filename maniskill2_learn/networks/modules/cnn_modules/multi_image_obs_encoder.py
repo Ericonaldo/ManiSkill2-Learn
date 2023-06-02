@@ -71,7 +71,8 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
             key_model_map['rgb'] = rgb_model
             for key in obs_shape_meta.keys():
                 key_model_map[key] = rgb_model
-  
+
+        print(obs_shape_meta)
         for key, attr in obs_shape_meta.items():
             shape = tuple(attr['shape'])
             key_shape_map[key] = shape
@@ -121,6 +122,7 @@ class MultiImageObsEncoder(ModuleAttrMixin, CNNBase):
 
                 # configure randomizer
                 this_randomizer = nn.Identity()
+                print(input_shape)
                 if crop_shape is not None:
                     if isinstance(crop_shape, dict):
                         h, w = crop_shape[key]

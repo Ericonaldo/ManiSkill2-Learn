@@ -198,6 +198,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         ignore_dones=False,
         fix_seed=None,
         concat_rgbd=False,
+        history_len=1,
     ):
         super().__init__(env)
         
@@ -218,21 +219,63 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
         self.fix_seed = fix_seed
 
+        self.history_len = history_len
+        self.action_dim = env.action_space.shape[0]
+
+        # For evaluation
+        self.obs_queue = None # For evaluation
+        self.action_queue = None
+
+        if self.history_len > 1:
+            self.action_queue = deque(maxlen=self.history_len-1)
+            self.action_queue.extend([np.zeros(self.action_dim) for _ in range(self.history_len-1)])
+
     def reset(self, **kwargs):
         if self.fix_seed is not None:
             obs = self.env.reset(seed=self.fix_seed, **kwargs)
         else:
             obs = self.env.reset(**kwargs)
-        return self.observation(obs)
+
+        observation = self.observation(obs)
+        if self.history_len > 1 and self.obs_mode != "state":
+            print(obs, observation)
+            for obs_key in observation.keys():
+                if isinstance(observation[obs_key], (list,tuple)):
+                    observation[obs_key] = observation[obs_key][0]
+            if self.obs_queue is None:
+                self.obs_queue = {}
+                for obs_key in observation.keys():
+                    self.obs_queue[obs_key] = deque(maxlen=self.history_len)
+                    self.obs_queue[obs_key].extend([observation[obs_key] for _ in range(self.history_len)])
+            for obs_key in observation.keys():
+                self.obs_queue[obs_key].append(observation[obs_key])
+                observation[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
+
+            observation["actions"] = np.stack(self.action_queue, axis=0)
+                
+        return observation
 
     def step(self, action):
         next_obs, reward, done, info = super(ManiSkill2_ObsWrapper, self).step(action)
         if self.ignore_dones:
             done = False
+          
+        if self.history_len > 1 and self.obs_mode != "state":
+            if self.action_queue is not None:
+                self.action_queue.append(action)
+
+            if self.obs_queue is not None:
+                for obs_key in next_obs.keys():
+                    self.obs_queue[obs_key].append(next_obs[obs_key])
+                    next_obs[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
+
+            next_obs["actions"] = np.stack(self.action_queue, axis=0)
+        
         return next_obs, reward, done, info
 
     def get_obs(self):
-        return self.observation(self.env.observation(self.env.get_obs()))
+        observation = self.observation(self.env.observation(self.env.get_obs()))
+        return observation
 
     def observation(self, observation):
         from mani_skill2.utils.common import flatten_state_dict
@@ -251,23 +294,33 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         # exit(0)
 
         # Note that rgb information returned from the environment must have range [0, 255]
+        # Uncomment this code if you are using earlier version of ManiSkill2 before May 25, 2023
+        # if 'OpenCabinet' in self.ms2_env_name or 'PushChair' in self.ms2_env_name or 'MoveBucket' in self.ms2_env_name:
+        #     # For envs migrated from ManiSkill1, we need to manually calculate the robot pose and the end-effector pose(s)
+        #     robot_base_link = None
+        #     hand_tcp_links = []
+        #     for rob_link in self.env.agent.robot.get_links():
+        #         if rob_link.name == 'mobile_base':
+        #             robot_base_link = rob_link
+        #         if 'hand_tcp' in rob_link.name:
+        #             hand_tcp_links.append(rob_link)
+        #     observation["agent"]["base_pose"] = vectorize_pose(robot_base_link.get_pose()) # [7,]
+        #     if len(hand_tcp_links) == 1:
+        #         observation["extra"]["tcp_pose"] = vectorize_pose(hand_tcp_links[0].get_pose()) # [7,]
+        #     else:
+        #         assert len(hand_tcp_links) > 1
+        #         observation["extra"]["tcp_pose"] = np.stack([vectorize_pose(l.get_pose()) for l in hand_tcp_links], axis=0) # [nhands, 7], multi-arm envs
         
-        if 'OpenCabinet' in self.ms2_env_name or 'PushChair' in self.ms2_env_name or 'MoveBucket' in self.ms2_env_name:
-            # For envs migrated from ManiSkill1, we need to manually calculate the robot pose and the end-effector pose(s)
-            robot_base_link = None
-            hand_tcp_links = []
-            for rob_link in self.env.agent.robot.get_links():
-                if rob_link.name == 'mobile_base':
-                    robot_base_link = rob_link
-                if 'hand_tcp' in rob_link.name:
-                    hand_tcp_links.append(rob_link)
-            observation["agent"]["base_pose"] = vectorize_pose(robot_base_link.get_pose()) # [7,]
-            if len(hand_tcp_links) == 1:
-                observation["extra"]["tcp_pose"] = vectorize_pose(hand_tcp_links[0].get_pose()) # [7,]
-            else:
-                assert len(hand_tcp_links) > 1
-                observation["extra"]["tcp_pose"] = np.stack([vectorize_pose(l.get_pose()) for l in hand_tcp_links], axis=0) # [nhands, 7], multi-arm envs
-
+        # Comment this portion of code out if you are using earlier version of ManiSkill2 before May 25, 2023
+        if 'PushChair' in self.ms2_env_name or 'MoveBucket' in self.ms2_env_name:
+            try:
+                right_tcp_pose = observation["extra"].pop("right_tcp_pose")
+                left_tcp_pose = observation["extra"].pop("left_tcp_pose")
+                observation["extra"]["tcp_pose"] = np.stack([right_tcp_pose, left_tcp_pose], axis=0) # [nhands, 7], multi-arm envs
+            except KeyError as e:
+                print("base_pose and/or tcp_pose not found in MS1 environment observations. Please see ManiSkill2_ObsWrapper in env/wrappers.py for more details.", flush=True)
+                raise e
+            
         if self.obs_mode == "rgbd":
             """
             Example *input* observation keys and their respective shapes ('extra' keys don't necessarily match):
