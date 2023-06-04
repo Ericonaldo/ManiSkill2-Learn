@@ -4,7 +4,7 @@ n_obs_steps = horizon - future_action_len
 workdir = "rgbd"
 agent_cfg = dict(
     type="DiffAgent",
-    batch_size=16,
+    batch_size=256,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
@@ -70,12 +70,12 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=1000000,
+    total_steps=100000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
     n_eval=50000,
-    n_checkpoint=50000,
+    n_checkpoint=500,
 )
 
 # eval_cfg = dict(

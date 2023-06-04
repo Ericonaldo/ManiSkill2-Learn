@@ -100,7 +100,6 @@ class OneStepTransition(SamplingStrategy):
 
 @SAMPLING.register_module()
 class TStepTransition(SamplingStrategy):
-    # Sample 1-step transitions. A special case of TStepTransition with better speed.
 
     def __init__(self, horizon=1, **kwargs):
         super(TStepTransition, self).__init__(**kwargs)

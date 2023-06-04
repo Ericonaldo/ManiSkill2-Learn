@@ -379,10 +379,11 @@ model
 
         batch_size = self.batch_size
         sampled_batch = memory.sample(batch_size)
+        sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"]
+        
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
             
-        sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"]
         self.actor_optim.zero_grad()
         # {'obs': {'base_camera_rgbd': [(bs, horizon, 4, 128, 128)], 'hand_camera_rgbd': [(bs, horizon, 4, 128, 128)], 
         # 'state': (bs, horizon, 38)}, 'actions': (bs, horizon, 7), 'dones': (bs, 1), 

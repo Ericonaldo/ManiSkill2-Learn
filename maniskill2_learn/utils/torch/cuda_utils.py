@@ -54,7 +54,7 @@ def get_gpu_utilization(device=None):
 
 
 def get_cuda_info(device=None, unit="G", number_only=True):
-    current_mem = get_gpu_memory_usage_by_current_program(device, unit, number_only)
+    # current_mem = get_gpu_memory_usage_by_current_program(device, unit, number_only)
     # all_mem, used, _, ratio = get_gpu_memory_info(device, unit, number_only)
     # utilization = get_gpu_utilization(device)
     # return {"gpu_mem_ratio": ratio, "gpu_mem": used, "gpu_mem_this": current_mem, "gpu_util": utilization if number_only else f"{utilization}%"}
