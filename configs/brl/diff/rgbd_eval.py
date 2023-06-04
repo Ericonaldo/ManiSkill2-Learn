@@ -50,7 +50,8 @@ env_cfg = dict(
     unwrapped=False,
     history_len=n_obs_steps,
     obs_mode="rgbd",
-    control_mode="pd_ee_delta_pose"
+    control_mode="pd_ee_delta_pose",
+    concat_rgbd=True,
 )
 
 

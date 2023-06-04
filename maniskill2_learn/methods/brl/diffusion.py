@@ -13,10 +13,11 @@ from collections import defaultdict, deque
 
 from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
-from maniskill2_learn.utils.data import to_torch, DictArray, GDict, dict_to_str
+from maniskill2_learn.utils.data import DictArray, GDict, dict_to_str
 from maniskill2_learn.utils.meta import get_total_memory, get_logger
 from maniskill2_learn.utils.torch import BaseAgent, get_mean_lr, get_cuda_info, build_optimizer
 from maniskill2_learn.utils.diffusion.helpers import Losses, apply_conditioning, cosine_beta_schedule, extract
+from maniskill2_learn.utils.diffusion.arrays import to_torch
 from maniskill2_learn.utils.diffusion.progress import Progress, Silent
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
@@ -155,6 +156,8 @@ class DiffAgent(BaseAgent):
         self.n_obs_steps = n_obs_steps
 
         self.init_normalizer = False
+
+        self.act_mask, self.obs_mask = None, None
 
 
     def get_loss_weights(self, action_weight, discount, weights_dict):
@@ -335,7 +338,7 @@ model
         return diffuse_loss, info
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
-        observation = observation.to_torch(device=self.device, dtype="float32", non_blocking=True)
+        observation = to_torch(observation, device=self.device, dtype=torch.float32)
         
         action_history = observation["actions"]
         bs = action_history.shape[0]
@@ -351,11 +354,11 @@ model
         
         # for obs_key in observation.keys():
         #     print(obs_key, observation[obs_key].shape)
-
+        
         supp = torch.zeros(
-            size=[bs, self.action_seq_len-hist_len, self.action_dim], 
+            bs, self.action_seq_len-hist_len, self.action_dim, 
             dtype=action_history.dtype,
-            device=action_history.device
+            device=self.device,
         )
         action_history = torch.concat([action_history, supp], dim=1)
 
@@ -363,8 +366,9 @@ model
 
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
+        pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
         
-        return pred_action_seq[-(self.self.action_seq_len-hist_len)]
+        return pred_action
     
     def update_parameters(self, memory, updates):
         if not self.init_normalizer:
@@ -374,8 +378,7 @@ model
             self.init_normalizer = True
 
         batch_size = self.batch_size
-        sampled_batch = memory.sample(batch_size).to_torch(dtype="float32")
-
+        sampled_batch = memory.sample(batch_size)
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
             
@@ -386,11 +389,16 @@ model
         # 'episode_dones': (bs, horizon, 1), 'worker_indices': (bs, 1), 'is_truncated': (bs, 1), 'is_valid': (bs, 1)}
 
         # generate impainting mask
-        if self.obs_as_global_cond:
-            traj_data = sampled_batch["actions"]
-            act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
-        else:
-            raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+        traj_data = sampled_batch["actions"]
+        act_mask, obs_mask = None, None
+        if self.fix_obs_steps:
+            act_mask, obs_mask = self.act_mask, self.obs_mask
+        if act_mask is None or obs_mask is None:
+            if self.obs_as_global_cond:
+                act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
+                self.act_mask, self.obs_mask = act_mask, obs_mask
+            else:
+                raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
         
         masked_obs = sampled_batch['obs']
         for key in masked_obs:

@@ -238,7 +238,6 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
         observation = self.observation(obs)
         if self.history_len > 1 and self.obs_mode != "state":
-            print(obs, observation)
             for obs_key in observation.keys():
                 if isinstance(observation[obs_key], (list,tuple)):
                     observation[obs_key] = observation[obs_key][0]
@@ -266,6 +265,8 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
             if self.obs_queue is not None:
                 for obs_key in next_obs.keys():
+                    if isinstance(next_obs[obs_key], (list,tuple)):
+                        next_obs[obs_key] = next_obs[obs_key][0]
                     self.obs_queue[obs_key].append(next_obs[obs_key])
                     next_obs[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
 

@@ -25,7 +25,6 @@ def to_torch(x, dtype=None, device=None):
         return {k: to_torch(v, dtype, device) for k, v in x.items()}
     elif torch.is_tensor(x):
         return x.to(device).type(dtype)
-        # import pdb; pdb.set_trace()
     return torch.tensor(x, dtype=dtype, device=device)
 
 

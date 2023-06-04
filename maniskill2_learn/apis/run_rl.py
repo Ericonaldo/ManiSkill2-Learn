@@ -452,13 +452,10 @@ def run_one_process(rank, world_size, args, cfg):
 
     cfg.agent_cfg["env_params"] = env_params
 
-    print(obs_shape, action_shape)
-
     if is_not_null(obs_shape) or is_not_null(action_shape):
         from maniskill2_learn.networks.utils import get_kwargs_from_shape, replace_placeholder_with_args
 
         replaceable_kwargs = get_kwargs_from_shape(obs_shape, action_shape)
-        print(obs_shape, action_shape, env_params, replaceable_kwargs)
         cfg = replace_placeholder_with_args(cfg, **replaceable_kwargs)
     logger.info(f"Final agent config:\n{cfg.agent_cfg}")
 
