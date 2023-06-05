@@ -380,11 +380,11 @@ def train_rl(
             agent.eval()  # For things like batch norm
             agent.set_mode(mode="test")  # For things like obs normalization
 
-            lens, rewards, finishes = evaluator.run(agent, **eval_cfg, work_dir=eval_dir)
+            info = evaluator.run(agent, **eval_cfg, work_dir=eval_dir, replay=replay)
             # agent.recover_data_parallel()
 
             torch.cuda.empty_cache()
-            save_eval_statistics(eval_dir, lens, rewards, finishes)
+            save_eval_statistics(eval_dir, **info)
             agent.train()
             agent.set_mode(mode="train")
 

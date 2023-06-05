@@ -70,20 +70,20 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=100000,
+    total_steps=500000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
-    n_eval=50000,
+    n_eval=1000,
     n_checkpoint=500,
 )
 
-# eval_cfg = dict(
-#     type="Evaluation",
-#     num=10,
-#     num_procs=1,
-#     use_hidden_state=False,
-#     save_traj=False,
-#     save_video=True,
-#     use_log=False,
-# )
+eval_cfg = dict(
+    type="OfflineDiffusionEvaluation",
+    num=10,
+    num_procs=1,
+    use_hidden_state=False,
+    save_traj=False,
+    save_video=True,
+    use_log=False,
+)

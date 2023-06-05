@@ -31,15 +31,28 @@ from .env_utils import build_vec_env, build_env, true_done, get_max_episode_step
 from .replay_buffer import ReplayMemory
 
 
-def save_eval_statistics(folder, lengths, rewards, finishes, logger=None):
+# def save_eval_statistics(folder, lengths, rewards, finishes, logger=None):
+def save_eval_statistics(folder, logger=None, **kwargs):
     if logger is None:
         logger = get_logger()
-    logger.info(
-        f"Num of trails: {len(lengths):.2f}, "
-        f"Length: {np.mean(lengths):.2f}\u00B1{np.std(lengths):.2f}, "
-        f"Reward: {np.mean(rewards):.2f}\u00B1{np.std(rewards):.2f}, "
-        f"Success or Early Stop Rate: {np.mean(finishes):.2f}\u00B1{np.std(finishes):.2f}"
-    )
+    lengths = kwargs.get("lengths", None)
+    rewards = kwargs.get("rewards", None)
+    finishes = kwargs.get("finishes", None)
+    if lengths is not None:
+        logger.info(
+            f"Num of trails: {len(lengths):.2f}, "
+            f"Length: {np.mean(lengths):.2f}\u00B1{np.std(lengths):.2f}, "
+            f"Reward: {np.mean(rewards):.2f}\u00B1{np.std(rewards):.2f}, "
+            f"Success or Early Stop Rate: {np.mean(finishes):.2f}\u00B1{np.std(finishes):.2f}"
+        )
+    else:
+        action_diff = kwargs.get("action_diff", None)
+        num = kwargs.get("num", -1)
+        if action_diff is not None:
+            logger.info(
+                f"Num of Samples: {num:.2f}, "
+                f"Action Difference: {np.mean(action_diff):.2f}\u00B1{np.std(action_diff):.2f}"
+            )
     if folder is not None:
         table = [["length", "reward", "finish"]]
         table += [[num_to_str(__, precision=2) for __ in _] for _ in zip(lengths, rewards, finishes)]
@@ -480,7 +493,11 @@ class Evaluation:
                 reset_pi()
                 log_mem_info(self.logger)
         self.finish()
-        return self.episode_lens, self.episode_rewards, self.episode_finishes
+
+        return dict(
+            lens=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+        )
+        # return self.episode_lens, self.episode_rewards, self.episode_finishes
 
     def close(self):
         if hasattr(self, "env"):
@@ -648,9 +665,121 @@ class BatchEvaluation:
         self.finish()
         if self.enable_merge:
             self.merge_results(n)
-        return self.episode_lens, self.episode_rewards, self.episode_finishes
+        
+        return dict(
+            lens=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+        )
+        # return self.episode_lens, self.episode_rewards, self.episode_finishes
 
     def close(self):
         for worker in self.workers:
             worker.call("close")
             worker.close()
+
+
+@EVALUATIONS.register_module()
+class OfflineDiffusionEvaluation:
+    def __init__(
+        self,
+        env_cfg,
+        worker_id=None,
+        sample_mode="train",
+        eval_levels=None,
+        seed=None,
+        **kwargs,
+    ):
+        
+        self.n = 1
+        self.worker_id = worker_id
+        
+        self.log_every_episode = kwargs.get("log_every_episode", True)
+        self.log_every_step = kwargs.get("log_every_step", False)
+
+        logger_name = get_logger_name()
+        log_level = logging.INFO if (kwargs.get("log_all", False) or self.worker_id is None or self.worker_id == 0) else logging.ERROR
+        worker_suffix = "-env" if self.worker_id is None else f"-env-{self.worker_id}"
+
+        self.logger = get_logger("Evaluation-" + logger_name + worker_suffix, log_level=log_level)
+        self.logger.info(f"The Evaluation environment has seed in {seed}!")
+
+        self.sample_mode = sample_mode
+
+        self.work_dir, self.video_dir, self.trajectory_path = None, None, None
+        self.h5_file = None
+
+        self.sample_id = 0
+        self.level_index = 0
+        self.episode_lens, self.episode_rewards, self.episode_finishes = [], [], []
+        self.episode_len, self.episode_reward, self.episode_finish = 0, 0, False
+        self.recent_obs = None
+
+        self.data_episode = None
+        self.video_writer = None
+        self.video_file = None
+
+        # restrict the levels as those randomly sampled from eval_levels_path, if eval_levels_path is not None
+        if eval_levels is not None:
+            if is_str(eval_levels):
+                is_csv = eval_levels.split(".")[-1] == "csv"
+                eval_levels = load(eval_levels)
+                if is_csv:
+                    eval_levels = eval_levels[0]
+            self.eval_levels = eval_levels
+            self.logger.info(f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}")
+        else:
+            self.eval_levels = None
+
+    def start(self, work_dir=None):
+        if work_dir is not None:
+            self.work_dir = work_dir if self.worker_id is None else os.path.join(work_dir, f"thread_{self.worker_id}")
+            # shutil.rmtree(self.work_dir, ignore_errors=True)
+            os.makedirs(self.work_dir, exist_ok=True)
+            if self.save_video:
+                self.video_dir = osp.join(self.work_dir, "videos")
+                os.makedirs(self.video_dir, exist_ok=True)
+            if self.save_traj:
+                self.trajectory_path = osp.join(self.work_dir, "trajectory.h5")
+                self.h5_file = File(self.trajectory_path, "w")
+                self.logger.info(f"Save trajectory at {self.trajectory_path}.")
+                group = self.h5_file.create_group(f"meta")
+                GDict(get_meta_info()).to_hdf5(group)
+
+        self.episode_lens, self.episode_rewards, self.episode_finishes = [], [], []
+        self.data_episode = None
+        self.level_index = -1
+        self.logger.info(f"Begin to evaluate in worker {self.worker_id}")
+
+        self.sample_id = -1
+        self.reset()
+
+    def finish(self):
+        return
+
+    def run(self, pi, memory, num=1, work_dir=None, **kwargs):
+        if self.eval_levels is not None:
+            if num > len(self.eval_levels):
+                print(f"We do not need to select more than {len(self.eval_levels)} levels!")
+                num = min(num, len(self.eval_levels))
+        self.start(work_dir)
+        import torch
+        
+        sampled_batch = memory.sample(num)
+        sampled_batch = sampled_batch.to_torch(device=pi.device, dtype="float32", non_blocking=True) # ["obs","actions"]
+
+        observation = sampled_batch["obs"]
+        observation["actions"] = sampled_batch["actions"]
+            
+        with torch.no_grad():
+            with pi.no_sync(mode="actor"):
+                action_sequence = pi(observation, mode=self.sample_mode)
+                assert action_sequence.shape == sampled_batch["actions"].shape, "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(action_sequence.shape, sampled_batch["actions"].shape)
+        self.action_diff = ((action_sequence - sampled_batch["actions"])**2).mean()
+
+        self.finish()
+        return dict(
+            num=num, 
+            action_diff=self.action_diff
+        )
+
+    def close(self):
+        return

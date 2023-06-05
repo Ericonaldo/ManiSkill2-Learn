@@ -49,8 +49,6 @@ eval_cfg = dict(
     type="Evaluation",
     num=10,
     num_procs=1,
-    use_hidden_state=False,
     save_traj=False,
-    save_video=True,
     use_log=False,
 )

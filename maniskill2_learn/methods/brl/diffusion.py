@@ -38,7 +38,7 @@ class DiffAgent(BaseAgent):
         action_seq_len,
         lr_scheduler_cfg=None,
         batch_size=128,
-        n_timesteps=1000,
+        n_timesteps=150,
         loss_type="l1",
         clip_denoised=False,
         predict_epsilon=True,
@@ -366,7 +366,8 @@ model
 
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
-        pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
+        if mode=="eval":
+            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
         
         return pred_action
     
