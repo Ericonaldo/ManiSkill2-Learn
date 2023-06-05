@@ -45,6 +45,10 @@ def save_eval_statistics(folder, logger=None, **kwargs):
             f"Reward: {np.mean(rewards):.2f}\u00B1{np.std(rewards):.2f}, "
             f"Success or Early Stop Rate: {np.mean(finishes):.2f}\u00B1{np.std(finishes):.2f}"
         )
+        if folder is not None:
+            table = [["length", "reward", "finish"]]
+            table += [[num_to_str(__, precision=2) for __ in _] for _ in zip(lengths, rewards, finishes)]
+            dump(table, osp.join(folder, "statistics.csv"))
     else:
         action_diff = kwargs.get("action_diff", None)
         num = kwargs.get("num", -1)
@@ -53,10 +57,10 @@ def save_eval_statistics(folder, logger=None, **kwargs):
                 f"Num of Samples: {num:.2f}, "
                 f"Action Difference: {np.mean(action_diff):.2f}\u00B1{np.std(action_diff):.2f}"
             )
-    if folder is not None:
-        table = [["length", "reward", "finish"]]
-        table += [[num_to_str(__, precision=2) for __ in _] for _ in zip(lengths, rewards, finishes)]
-        dump(table, osp.join(folder, "statistics.csv"))
+        if folder is not None:
+            table = [["action_diff"]]
+            table += [[num_to_str(__, precision=2) for __ in _] for _ in zip(action_diff)]
+            dump(table, osp.join(folder, "statistics.csv"))
 
 
 CV_VIDEO_CODES = {
@@ -766,7 +770,8 @@ class OfflineDiffusionEvaluation:
             with pi.no_sync(mode="actor"):
                 action_sequence = pi(observation, mode=self.sample_mode)
                 assert action_sequence.shape == sampled_batch["actions"].shape, "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(action_sequence.shape, sampled_batch["actions"].shape)
-        self.action_diff = ((action_sequence - sampled_batch["actions"])**2).mean()
+        action_sequence = action_sequence.cpu().numpy()
+        self.action_diff = ((action_sequence - sampled_batch["actions"])**2).sum(axis=-1).sum(axis=-1)
 
         self.finish()
         return dict(

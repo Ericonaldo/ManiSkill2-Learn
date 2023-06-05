@@ -366,7 +366,7 @@ model
         if action_history.shape[1] == self.horizon:
             act_mask, obs_mask = None, None
             if self.fix_obs_steps:
-                act_mask, obs_mask = self.act_mask, self.obs_mask
+                act_mask, obs_mask = self.act_mask[:action_history.shape[0]], self.obs_mask[:action_history.shape[0]]
             else:
                 raise NotImplementedError
             
@@ -374,11 +374,17 @@ model
                 if isinstance(observation[key], list):
                     observation[key] = observation[key][0]
                 observation[key] = observation[key][:,obs_mask,...]
+        else:
+            if self.fix_obs_steps:
+                act_mask, obs_mask = self.act_mask[:action_history.shape[0]], self.obs_mask[:action_history.shape[0]]
+            else:
+                raise NotImplementedError
 
         obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
 
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
+        pred_action = pred_action_seq
         if mode=="eval":
             pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
         
