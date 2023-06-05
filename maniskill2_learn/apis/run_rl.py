@@ -318,8 +318,8 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
             logger.info(dict_to_str(loss_dict))
         if is_not_null(evaluator):
             # For RL
-            lens, rewards, finishes = evaluator.run(agent, work_dir=work_dir, **cfg.eval_cfg)
-            save_eval_statistics(work_dir, lens, rewards, finishes)
+            info = evaluator.run(agent, work_dir=work_dir, **cfg.eval_cfg)
+            save_eval_statistics(work_dir, **info)
         agent.train()
         agent.set_mode("train")
 

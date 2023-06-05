@@ -46,6 +46,12 @@ class ReplayMemory:
         # capacity: the size of replay buffer, -1 means we will recompute the buffer size with files for initial replay buffer.
         assert capacity > 0 or buffer_filenames is not None
         # assert sampling_cfg is not None, "Please provide a valid sampling strategy over replay buffer!"
+        
+        self.horizon = 1
+        self.future_action_len = 0
+        if buffer_filenames is not None and len(buffer_filenames) > 0:
+            self.horizon = sampling_cfg.get("horizon", 1)
+            self.future_action_len = sampling_cfg.get("future_action_len", 0)
 
         if buffer_filenames is not None:
             logger = get_logger()
@@ -83,7 +89,7 @@ class ReplayMemory:
                     num_procs,
                     synchronized=synchronized,
                     num_samples=num_samples,
-                    horizon=sampling_cfg.get("horizon", 1),
+                    horizon=self.horizon,
                     keys_map=keys_map,
                     deterministic_loading=deterministic_loading,
                 )
@@ -220,7 +226,7 @@ class ReplayMemory:
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
 
-        batch_idx, is_valid = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading)
+        batch_idx, is_valid, ret_len = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading)
         if batch_idx is None:
             # without replacement only
             if auto_restart or self.dynamic_loading:
@@ -236,6 +242,18 @@ class ReplayMemory:
                 return None
            
         ret = self.memory.take(batch_idx)
+        if self.horizon > 1:
+            for i in range(len(batch_idx)):
+                if self.horizon-ret_len[i]:
+                    if "obs" in ret.keys(): # Concat obs
+                        for key in ret["obs"].keys():
+                            if isinstance(ret["obs"][key], (list,tuple)):
+                                ret["obs"][key] = ret["obs"][key][0] 
+                            supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
+                            ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)
+                    if "actions" in ret.keys(): # Set zero actions
+                            supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
+                            ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
         return ret
 

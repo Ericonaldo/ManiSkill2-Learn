@@ -380,7 +380,7 @@ def train_rl(
             agent.eval()  # For things like batch norm
             agent.set_mode(mode="test")  # For things like obs normalization
 
-            info = evaluator.run(agent, **eval_cfg, work_dir=eval_dir, replay=replay)
+            info = evaluator.run(agent, **eval_cfg, work_dir=eval_dir, memory=replay)
             # agent.recover_data_parallel()
 
             torch.cuda.empty_cache()
@@ -388,7 +388,8 @@ def train_rl(
             agent.train()
             agent.set_mode(mode="train")
 
-            eval_dict = dict(mean_length=np.mean(lens), std_length=np.std(lens), mean_reward=np.mean(rewards), std_reward=np.std(rewards))
+            eval_dict = {"mean_{}".format(k): np.mean(info[k]) for k in info}
+            # eval_dict = dict(mean_length=np.mean(lens), std_length=np.std(lens), mean_reward=np.mean(rewards), std_reward=np.std(rewards))
             tf_logger.log(eval_dict, n_iter=steps, tag_name="test")
 
         if check_checkpoint.check(steps):

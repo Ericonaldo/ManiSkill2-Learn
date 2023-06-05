@@ -260,6 +260,10 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             done = False
           
         if self.history_len > 1 and self.obs_mode != "state":
+            # if self.action_queue is None:
+            #     self.action_queue = deque(maxlen=self.history_len-1)
+            #     self.action_queue.extend([action for _ in range(self.history_len-1)])
+
             if self.action_queue is not None:
                 self.action_queue.append(action)
 

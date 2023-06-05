@@ -59,6 +59,7 @@ replay_cfg = dict(
     sampling_cfg=dict(
         type="TStepTransition",
         horizon=horizon,
+        future_action_len=future_action_len,
     ),
     capacity=-1,
     num_samples=-1,
@@ -75,7 +76,7 @@ train_cfg = dict(
     n_steps=0,
     n_updates=500,
     n_eval=1000,
-    n_checkpoint=500,
+    n_checkpoint=1000,
 )
 
 eval_cfg = dict(
@@ -84,6 +85,5 @@ eval_cfg = dict(
     num_procs=1,
     use_hidden_state=False,
     save_traj=False,
-    save_video=True,
     use_log=False,
 )

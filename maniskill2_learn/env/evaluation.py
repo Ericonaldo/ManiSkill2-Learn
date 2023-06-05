@@ -734,15 +734,6 @@ class OfflineDiffusionEvaluation:
             self.work_dir = work_dir if self.worker_id is None else os.path.join(work_dir, f"thread_{self.worker_id}")
             # shutil.rmtree(self.work_dir, ignore_errors=True)
             os.makedirs(self.work_dir, exist_ok=True)
-            if self.save_video:
-                self.video_dir = osp.join(self.work_dir, "videos")
-                os.makedirs(self.video_dir, exist_ok=True)
-            if self.save_traj:
-                self.trajectory_path = osp.join(self.work_dir, "trajectory.h5")
-                self.h5_file = File(self.trajectory_path, "w")
-                self.logger.info(f"Save trajectory at {self.trajectory_path}.")
-                group = self.h5_file.create_group(f"meta")
-                GDict(get_meta_info()).to_hdf5(group)
 
         self.episode_lens, self.episode_rewards, self.episode_finishes = [], [], []
         self.data_episode = None
@@ -750,7 +741,6 @@ class OfflineDiffusionEvaluation:
         self.logger.info(f"Begin to evaluate in worker {self.worker_id}")
 
         self.sample_id = -1
-        self.reset()
 
     def finish(self):
         return
@@ -764,9 +754,12 @@ class OfflineDiffusionEvaluation:
         import torch
         
         sampled_batch = memory.sample(num)
-        sampled_batch = sampled_batch.to_torch(device=pi.device, dtype="float32", non_blocking=True) # ["obs","actions"]
+        # sampled_batch = sampled_batch.to_torch(device=pi.device, dtype="float32", non_blocking=True) # ["obs","actions"]
 
         observation = sampled_batch["obs"]
+        for key in observation:
+            if isinstance(observation[key], (list, tuple)):
+                observation[key] = observation[key][0]
         observation["actions"] = sampled_batch["actions"]
             
         with torch.no_grad():

@@ -341,6 +341,7 @@ model
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         
         action_history = observation["actions"]
+        action_history = self.normalizer.normalize(action_history)
         bs = action_history.shape[0]
         hist_len = action_history.shape[1]
         observation.pop("actions")
@@ -362,7 +363,19 @@ model
         )
         action_history = torch.concat([action_history, supp], dim=1)
 
-        obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length\
+        if action_history.shape[1] == self.horizon:
+            act_mask, obs_mask = None, None
+            if self.fix_obs_steps:
+                act_mask, obs_mask = self.act_mask, self.obs_mask
+            else:
+                raise NotImplementedError
+            
+            for key in observation:
+                if isinstance(observation[key], list):
+                    observation[key] = observation[key][0]
+                observation[key] = observation[key][:,obs_mask,...]
+
+        obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
 
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)

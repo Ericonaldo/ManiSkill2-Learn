@@ -95,13 +95,13 @@ class OneStepTransition(SamplingStrategy):
         if index is None:
             return None, None
         else:
-            return index, np.ones([index.shape[0], self.horizon], dtype=np.bool_)
+            return index, np.ones([index.shape[0], self.horizon], dtype=np.bool_), None
 
 
 @SAMPLING.register_module()
 class TStepTransition(SamplingStrategy):
 
-    def __init__(self, horizon=1, **kwargs):
+    def __init__(self, horizon=1, future_action_len=0, **kwargs):
         super(TStepTransition, self).__init__(**kwargs)
         """
         horizon means the length of the successive transitions when we do sampling.
@@ -113,6 +113,7 @@ class TStepTransition(SamplingStrategy):
             get_logger().warning("Please use OneStepTransition whem horizon is 1!")
 
         self.horizon = horizon
+        self.future_action_len = future_action_len
         self.worker_indices = np.zeros(self.capacity, dtype=np.int16) - 1
 
         self.num_procs = 0
@@ -194,8 +195,9 @@ class TStepTransition(SamplingStrategy):
         self.worker_indices[self.position] = worker_indices
 
         if self.horizon > 0:
-            if len(self.current_episode[worker_indices]) >= self.horizon:
-                self.valid_seq[worker_indices].append(self.current_episode[worker_indices][-self.horizon :])
+            # if len(self.current_episode[worker_indices]) >= self.horizon:
+            if len(self.current_episode[worker_indices]) >= self.future_action_len + 1: # at least current action + future action
+                self.valid_seq[worker_indices].append(self.current_episode[worker_indices][-self.horizon :]) # may have some short traj
         else:
             if dones:
                 self.valid_seq[worker_indices].append(self.current_episode[worker_indices])
@@ -226,12 +228,21 @@ class TStepTransition(SamplingStrategy):
                     break
             last_indices = 0 if j == 0 else query_size[j - 1]
             ret.append(self.valid_seq[j][i - last_indices])
-        padded_size = max([len(_) for _ in ret])
-        mask = np.zeros([len(ret), padded_size, 1], dtype=np.bool_)
+        ret_len = [len(_) for _ in ret]
+        padded_size = max(ret_len)
+        # mask = np.zeros([len(ret), padded_size, 1], dtype=np.bool_)
+        mask = np.ones([len(ret), padded_size, 1], dtype=np.bool_) # We set all true since we want to generate all except conditioned ones
         for i in range(len(ret)):
-            mask[i, : len(ret[i])] = True
-            ret[i] = ret[i] + [ret[i][0],] * (
+            # mask[i, : len(ret[i])] = True
+            # ret[i] = ret[i] + [ret[i][0],] * (
+            #     padded_size - len(ret[i])
+            # )  # adding two lists
+            # mask[i, -len(ret[i]):] = True
+            ret[i] = [ret[i][0],] * (
                 padded_size - len(ret[i])
-            )  # adding two lists
+            ) + ret[i]  # padding history before
+            # ret[i] = [-1,] * (
+            #     padded_size - len(ret[i])
+            # ) + ret[i] # padding zero before
         ret = np.array(ret, dtype=np.int)
-        return ret, mask
+        return ret, mask, ret_len
