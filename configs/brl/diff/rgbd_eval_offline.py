@@ -4,7 +4,7 @@ n_obs_steps = horizon - future_action_len
 workdir = "rgbd"
 agent_cfg = dict(
     type="DiffAgent",
-    batch_size=256,
+    batch_size=16,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
@@ -44,14 +44,15 @@ agent_cfg = dict(
     ),
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-#     history_len=n_obs_steps,
-#     obs_mode="rgbd",
-#     control_mode="pd_ee_delta_pose"
-# )
+env_cfg = dict(
+    type="gym",
+    env_name="PickCube-v0",
+    unwrapped=False,
+    history_len=n_obs_steps,
+    obs_mode="rgbd",
+    control_mode="pd_ee_delta_pose",
+    concat_rgbd=True,
+)
 
 
 replay_cfg = dict(
@@ -59,7 +60,6 @@ replay_cfg = dict(
     sampling_cfg=dict(
         type="TStepTransition",
         horizon=horizon,
-        future_action_len=future_action_len,
     ),
     capacity=-1,
     num_samples=-1,
@@ -71,19 +71,20 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=500000,
+    total_steps=50000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
-    n_eval=10000,
-    n_checkpoint=5000,
+    n_eval=50000,
+    n_checkpoint=50000,
 )
 
 eval_cfg = dict(
     type="OfflineDiffusionEvaluation",
-    num=10,
+    num=100,
     num_procs=1,
     use_hidden_state=False,
     save_traj=False,
+    save_video=True,
     use_log=False,
 )

@@ -65,6 +65,7 @@ def parse_args():
 
     # Evaluation mode
     parser.add_argument("--evaluation", "--eval", help="Evaluate a model, instead of training it", action="store_true")
+    parser.add_argument("--build-replay", help="Build replay for evaluation", action="store_true")
     parser.add_argument("--reg-loss", help="Measure regression loss during evaluation", action="store_true")
     parser.add_argument("--test-name", 
         help="Subdirectory name under work-dir to save the test result (if None, use {work-dir}/test)", default=None)
@@ -318,7 +319,7 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
             logger.info(dict_to_str(loss_dict))
         if is_not_null(evaluator):
             # For RL
-            info = evaluator.run(agent, work_dir=work_dir, **cfg.eval_cfg)
+            info = evaluator.run(agent, work_dir=work_dir, memory=replay, **cfg.eval_cfg)
             save_eval_statistics(work_dir, **info)
         agent.train()
         agent.set_mode("train")
@@ -355,7 +356,7 @@ def run_one_process(rank, world_size, args, cfg):
     logger.info(f"Set random seed to {args.seed}")
     
     # Create replay buffer for RL
-    if is_not_null(cfg.replay_cfg) and (not args.evaluation or (args.reg_loss and cfg.replay_cfg.get("buffer_filenames", None) is not None)):
+    if is_not_null(cfg.replay_cfg) and ((not (args.evaluation and not args.build_replay)) or (args.reg_loss and cfg.replay_cfg.get("buffer_filenames", None) is not None)):
         logger.info(f"Build replay buffer!")
         from maniskill2_learn.env import build_replay
 
@@ -464,15 +465,15 @@ def run_one_process(rank, world_size, args, cfg):
 
     main_rl(rollout, evaluator, replay, args, cfg, expert_replay=expert_replay, recent_traj_replay=recent_traj_replay)
 
+    if is_not_null(replay):
+        replay.close()
+        logger.info("Delete replay buffer")
     if is_not_null(evaluator):
         evaluator.close()
         logger.info("Close evaluator object")
     if is_not_null(rollout):
         rollout.close()
         logger.info("Close rollout object")
-    if is_not_null(replay):
-        replay.close()
-        logger.info("Delete replay buffer")
 
     time.sleep(1) # Wait for all processes to close
 

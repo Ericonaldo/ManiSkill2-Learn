@@ -51,6 +51,8 @@ def save_eval_statistics(folder, logger=None, **kwargs):
             dump(table, osp.join(folder, "statistics.csv"))
     else:
         action_diff = kwargs.get("action_diff", None)
+        if action_diff is None:
+            return
         num = kwargs.get("num", -1)
         if action_diff is not None:
             logger.info(
@@ -259,7 +261,10 @@ class FastEvaluation:
                         )
 
         h5_file.close()
-        return episode_lens, episode_rewards, episode_finishes
+        return dict(
+            lens=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+        )
+        # return episode_lens, episode_rewards, episode_finishes
 
     def close(self):
         self.vec_env.close()

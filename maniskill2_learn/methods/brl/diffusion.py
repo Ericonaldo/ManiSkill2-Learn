@@ -345,42 +345,42 @@ model
         bs = action_history.shape[0]
         hist_len = action_history.shape[1]
         observation.pop("actions")
-
-        if self.obs_as_global_cond:
-            act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim), self.device)
-        else:
-            raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
         
         self.set_mode(mode=mode)
         
         # for obs_key in observation.keys():
         #     print(obs_key, observation[obs_key].shape)
-        
-        supp = torch.zeros(
-            bs, self.action_seq_len-hist_len, self.action_dim, 
-            dtype=action_history.dtype,
-            device=self.device,
-        )
-        action_history = torch.concat([action_history, supp], dim=1)
+        # print(action_history.shape)
 
-        if action_history.shape[1] == self.horizon:
-            act_mask, obs_mask = None, None
-            if self.fix_obs_steps:
-                act_mask, obs_mask = self.act_mask[:action_history.shape[0]], self.obs_mask[:action_history.shape[0]]
+        act_mask, obs_mask = None, None
+        if self.fix_obs_steps:
+            act_mask, obs_mask = self.act_mask, self.obs_mask
+
+        if act_mask is None or obs_mask is None:
+            if self.obs_as_global_cond:
+                act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim), self.device)
+                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
-                raise NotImplementedError
-            
+                raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+
+        if act_mask.shape[0] != bs:
+            act_mask, obs_mask = act_mask[:action_history.shape[0]], obs_mask[:action_history.shape[0]]
+        
+        if action_history.shape[1] == self.horizon:
             for key in observation:
                 if isinstance(observation[key], list):
                     observation[key] = observation[key][0]
                 observation[key] = observation[key][:,obs_mask,...]
-        else:
-            if self.fix_obs_steps:
-                act_mask, obs_mask = self.act_mask[:action_history.shape[0]], self.obs_mask[:action_history.shape[0]]
-            else:
-                raise NotImplementedError
 
         obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
+        
+        if self.action_seq_len-hist_len:
+            supp = torch.zeros(
+                bs, self.action_seq_len-hist_len, self.action_dim, 
+                dtype=action_history.dtype,
+                device=self.device,
+            )
+            action_history = torch.concat([action_history, supp], dim=1)
 
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
