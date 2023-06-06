@@ -374,7 +374,7 @@ model
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
 
         if act_mask.shape[0] != bs:
-            act_mask, obs_mask = act_mask[:action_history.shape[0]], obs_mask[:action_history.shape[0]]
+            act_mask = act_mask[:action_history.shape[0]] # obs mask is int
         
         if action_history.shape[1] == self.horizon:
             for key in observation:
