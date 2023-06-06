@@ -1,10 +1,10 @@
-horizon = 8
-future_action_len = 2
-n_obs_steps = horizon - future_action_len
+horizon = 16
+n_obs_steps = 8
+future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
     type="DiffAgent",
-    batch_size=256,
+    batch_size=128,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
@@ -19,6 +19,10 @@ agent_cfg = dict(
                     type="rgbd",
                     shape="image_size",
                     channel=4
+                ),
+                state=dict(
+                    type="low_dim",
+                    shape="agent_shape"
                 )
             )
         ),

@@ -51,9 +51,8 @@ python maniskill2_learn/apis/run_rl.py configs/brl/bc/pointnet.py --g 0 \
 
 
 python maniskill2_learn/apis/run_rl.py configs/brl/bc/rgbd.py --num-gpus 8 \
---cfg-options "env_cfg.env_name=PickCube-v0" "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5" \
-"env_cfg.control_mode=pd_ee_delta_pose" \
-"replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajectory.rgbd.pd_ee_delta_pose.h5" \
+--cfg-options "env_cfg.env_name=PickCube-v0" "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+# "env_cfg.control_mode=pd_ee_delta_pose" \
 
 
 

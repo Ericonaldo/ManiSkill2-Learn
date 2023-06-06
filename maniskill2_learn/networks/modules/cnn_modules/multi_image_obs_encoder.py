@@ -72,10 +72,13 @@ class MultiImageObsEncoder(CNNBase):
                 key_model_map[key] = rgb_model
 
         for key, attr in obs_shape_meta.items():
-            shape = tuple(attr['shape'])
+            # shape = tuple(attr['shape'])
+            shape = attr['shape']
+            if isinstance(shape, int):
+                shape = (shape,)
             key_shape_map[key] = shape
             obs_type = attr["type"]
-            if obs_type == 'rgb' or 'rgbd':
+            if (obs_type == 'rgb') or (obs_type == 'rgbd'):
                 channel = attr.get('channel', 3)
                 shape = tuple([channel, *shape])
                 key_shape_map[key] = shape
@@ -145,10 +148,11 @@ class MultiImageObsEncoder(CNNBase):
                 
                 this_transform = nn.Sequential(this_resizer, this_randomizer, this_normalizer)
                 key_transform_map[key] = this_transform
-            elif type == 'low_dim':
+            elif obs_type == 'low_dim':
                 low_dim_keys.append(key)
             else:
-                raise RuntimeError(f"Unsupported obs type: {type}")
+                raise RuntimeError(f"Unsupported obs type: {obs_type}")
+                
         rgb_keys = sorted(rgb_keys)
         low_dim_keys = sorted(low_dim_keys)
 
@@ -209,7 +213,7 @@ class MultiImageObsEncoder(CNNBase):
                     assert batch_size == img.shape[0]
                 if len(img.shape) == 5: # (bs, length, channel, h, w)
                     img = img.reshape(batch_size*img.shape[1],-1)
-                assert img.shape[1:] == self.key_shape_map[key]
+                assert img.shape[2:] == self.key_shape_map[key] # bs, horizon
                 img = self.key_transform_map[key](img)
                 feature = self.key_model_map[key](img)
                 features.append(feature)
@@ -221,7 +225,8 @@ class MultiImageObsEncoder(CNNBase):
                 batch_size = data.shape[0]
             else:
                 assert batch_size == data.shape[0]
-            assert data.shape[1:] == self.key_shape_map[key]
+            assert data.shape[2:] == self.key_shape_map[key], f"{data.shape}, {self.key_shape_map[key]}" # bs, horizon
+            data = data.reshape(batch_size,-1)
             features.append(data)
         
         # concatenate all features

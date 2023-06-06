@@ -36,6 +36,7 @@ class DiffAgent(BaseAgent):
         optim_cfg,
         env_params,
         action_seq_len,
+        eval_action_len=1,
         lr_scheduler_cfg=None,
         batch_size=128,
         n_timesteps=150,
@@ -73,6 +74,7 @@ class DiffAgent(BaseAgent):
         self.model = build_model(nn_cfg)
 
         self.horizon = self.action_seq_len = action_seq_len
+        self.eval_action_len = eval_action_len
         self.observation_shape = env_params['obs_shape']
 
         self.returns_condition = returns_condition
@@ -159,6 +161,9 @@ class DiffAgent(BaseAgent):
 
         self.act_mask, self.obs_mask = None, None
 
+        self.eval_action_queue = None
+        if self.eval_action_len > 1:
+            self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
 
     def get_loss_weights(self, action_weight, discount, weights_dict):
         """
@@ -338,6 +343,11 @@ model
         return diffuse_loss, info
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
+
+        if mode=="eval":
+            if self.eval_action_queue is not None and len(self.eval_action_queue):
+                return self.eval_action_queue.popleft()
+        
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         
         action_history = observation["actions"]
@@ -385,8 +395,12 @@ model
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
         pred_action = pred_action_seq
+
         if mode=="eval":
             pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
+            if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
+                for i in range(self.eval_action_len-1):
+                    self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,:])
         
         return pred_action
     

@@ -1,6 +1,6 @@
-horizon = 8
-future_action_len = 2
-n_obs_steps = horizon - future_action_len
+horizon = 16
+n_obs_steps = 4
+future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
     type="DiffAgent",
