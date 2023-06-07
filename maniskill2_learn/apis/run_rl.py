@@ -53,6 +53,7 @@ def parse_args():
 
     # Parameters for log dir
     parser.add_argument("--work-dir", help="The directory to save logs and models", default='./logs')
+    parser.add_argument("--env-id", help="Env name", default='None')
     parser.add_argument("--dev", action="store_true", default=True, help="Add timestamp to the name of work-dir")
     parser.add_argument("--with-agent-type", default=True, action="store_true", help="Add agent type to work-dir")
     parser.add_argument(
@@ -120,7 +121,7 @@ def parse_args():
 def build_work_dir():
     if is_null(args.work_dir):
         root_dir = "./logs"
-        env_name = cfg.env_cfg.get("env_name", None) if is_not_null(cfg.env_cfg) else None
+        env_name = cfg.env_cfg.get("env_name", None) if is_not_null(cfg.env_cfg) else args.env_id
         config_name = osp.splitext(osp.basename(args.config))[0]
         folder_name = env_name if is_not_null(env_name) else config_name
         if args.with_agent_type:
@@ -507,6 +508,7 @@ if __name__ == "__main__":
     work_dir = args.work_dir
     if args.evaluation:
         test_name = args.test_name if args.test_name is not None else "test"
+        work_dir += "_eval"
         work_dir = osp.join(work_dir, test_name)
         # Always clean up for evaluation
         shutil.rmtree(work_dir, ignore_errors=True)

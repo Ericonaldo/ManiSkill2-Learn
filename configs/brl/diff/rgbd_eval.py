@@ -1,11 +1,11 @@
 horizon = 16
-n_obs_steps = 4
+n_obs_steps = 8
 future_action_len = horizon - n_obs_steps
-eval_action_len = 2 # how many actions to be executed in the following timesteps for one input
+eval_action_len = 4 # how many actions to be executed in the following timesteps for one input
 workdir = "rgbd"
 agent_cfg = dict(
     type="DiffAgent",
-    batch_size=16,
+    batch_size=128,
     action_seq_len=horizon,
     eval_action_len=eval_action_len,
     visual_nn_cfg=dict(
@@ -21,6 +21,10 @@ agent_cfg = dict(
                     type="rgbd",
                     shape="image_size",
                     channel=4
+                ),
+                state=dict(
+                    type="low_dim",
+                    shape="agent_shape",
                 )
             )
         ),

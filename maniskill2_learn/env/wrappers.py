@@ -237,6 +237,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             obs = self.env.reset(**kwargs)
 
         observation = self.observation(obs)
+        
         if self.history_len > 1 and self.obs_mode != "state":
             for obs_key in observation.keys():
                 if isinstance(observation[obs_key], (list,tuple)):

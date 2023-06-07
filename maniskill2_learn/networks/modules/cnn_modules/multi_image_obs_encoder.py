@@ -72,8 +72,10 @@ class MultiImageObsEncoder(CNNBase):
                 key_model_map[key] = rgb_model
 
         for key, attr in obs_shape_meta.items():
-            # shape = tuple(attr['shape'])
             shape = attr['shape']
+            print(key, shape)
+            if isinstance(shape, list):
+                shape = tuple(shape)
             if isinstance(shape, int):
                 shape = (shape,)
             key_shape_map[key] = shape

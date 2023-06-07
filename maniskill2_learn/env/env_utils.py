@@ -95,6 +95,8 @@ def get_env_info(env_cfg=None, vec_env=None):
         action_shape = action.shape[0]
         get_logger().info(f"Environment has the continuous action space with dimension {action_shape}.")
     del vec_env
+    for obs_key in obs_shape:
+        obs_shape[obs_key] = obs_shape[obs_key][1:]
     return dict_of(obs_shape, action_shape, action_space, is_discrete)
 
 

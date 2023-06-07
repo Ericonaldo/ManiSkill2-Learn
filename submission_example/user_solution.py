@@ -18,8 +18,8 @@ from maniskill2_learn.utils.data import GDict, is_not_null
 class UserPolicy(BasePolicy):
     def __init__(self, env_id: str, observation_space: spaces.Space, action_space: spaces.Space):
         super().__init__(env_id, observation_space, action_space)
-        cfg = Config.fromfile("/root/ManiSkill2-Learn/configs/mfrl/ppo/maniskill2_pn.py") # Change this
-        model_path = f'/root/ManiSkill2-Learn/maniskill2_learn_pretrained_models_videos/{env_id}/dapg_pointcloud/model_25000000.ckpt' # Change this
+        cfg = Config.fromfile("/root/ManiSkill2-Learn/configs/brl/diff/rgbd_eval.py") # Change this
+        model_path = f'/root/ManiSkill2-Learn/logs/{env_id}/DiffAgent/rgbd/model_50000.ckpt' # Change this
         self.device = 'cuda:0'
 
         self.logger = get_logger()

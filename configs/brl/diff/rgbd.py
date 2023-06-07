@@ -71,6 +71,8 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
+    num_procs=8,
+    synchronized=False,
 )
 
 train_cfg = dict(
