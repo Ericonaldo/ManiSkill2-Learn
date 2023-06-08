@@ -37,18 +37,18 @@ class MultiImageObsEncoder(CNNBase):
                 for key in inputs:
                     if "rgbd" in key:
                         if len(inputs[key].shape) == 4: # (B,C,H,W)
-                            inputs[key][:,:3,:,:,:] /= 255.0
+                            inputs[key][:,:3,:,:] /= 255.0
                         elif len(inputs[key].shape) == 5: # (B,L,C,H,W)
-                            inputs[key][:,:,:3,:,:,:] /= 255.0
+                            inputs[key][:,:,:3,:,:] /= 255.0
                         elif len(inputs[key].shape) == 3: # (C,H,W)
-                            inputs[key][:3,:,:,:] /= 255.0
+                            inputs[key][:3,:,:] /= 255.0
 
         return inputs
     
     def __init__(self,
             shape_meta: dict,
             rgb_model: Union[nn.Module, Dict[str,nn.Module]]=get_resnet("resnet18"),
-            # pcd_model: Union[nn.Module, Dict[str,nn.Module]]=PointNet(feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
+            pcd_model: Union[nn.Module, Dict[str,nn.Module]]=PointNet(feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
             resize_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None,
             crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=[76,76],
             random_crop: bool=True,
@@ -56,6 +56,7 @@ class MultiImageObsEncoder(CNNBase):
             use_group_norm: bool=False,
             # use single rgb model for all rgb inputs
             share_rgb_model: bool=True,
+            use_pct_model: bool=False,
             # renormalize rgb input with imagenet normalization
             # assuming input in [0,1]
             imagenet_norm: bool=False,
@@ -79,9 +80,11 @@ class MultiImageObsEncoder(CNNBase):
         if share_rgb_model:
             assert isinstance(rgb_model, nn.Module)
             key_model_map['rgb'] = rgb_model
-            for key in obs_shape_meta.keys():
-                key_model_map[key] = rgb_model
 
+        if use_pct_model:
+            assert isinstance(pcd_model, nn.Module)
+            key_model_map['pct'] = pcd_model
+        
         for key, attr in obs_shape_meta.items():
             shape = attr['shape']
             if isinstance(shape, list):
@@ -91,6 +94,7 @@ class MultiImageObsEncoder(CNNBase):
             key_shape_map[key] = shape
             obs_type = attr["type"]
             if (obs_type == 'rgb') or (obs_type == 'rgbd'):
+                key_model_map[key] = key_model_map['rgb']
                 channel = attr.get('channel', 3)
                 shape = tuple([channel, *shape])
                 key_shape_map[key] = shape
@@ -119,7 +123,7 @@ class MultiImageObsEncoder(CNNBase):
 
                 if obs_type == "rgbd":
                     key_model_map[key].conv1 = torch.nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-                
+
                 # configure resize
                 input_shape = shape
                 this_resizer = nn.Identity()
@@ -160,6 +164,8 @@ class MultiImageObsEncoder(CNNBase):
                 
                 this_transform = nn.Sequential(this_resizer, this_randomizer, this_normalizer)
                 key_transform_map[key] = this_transform
+            elif obs_type == 'pcd':
+                key_model_map[key] = key_model_map['pct']
             elif obs_type == 'low_dim':
                 low_dim_keys.append(key)
             else:

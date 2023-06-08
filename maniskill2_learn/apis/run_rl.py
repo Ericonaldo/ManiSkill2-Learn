@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument("--debug", action="store_true", default=False)
 
     # Parameters for log dir
-    parser.add_argument("--work-dir", help="The directory to save logs and models", default='./logs')
+    parser.add_argument("--work-dir", help="The directory to save logs and models", default=None)
     parser.add_argument("--env-id", help="Env name", default='None')
     parser.add_argument("--dev", action="store_true", default=True, help="Add timestamp to the name of work-dir")
     parser.add_argument("--with-agent-type", default=True, action="store_true", help="Add agent type to work-dir")
