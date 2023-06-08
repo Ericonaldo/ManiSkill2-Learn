@@ -8,6 +8,7 @@ from .crop_randomizer import CropRandomizer
 from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodules
 from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
 from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
+from maniskill2_learn.networks.backbones.pointnet import PointNet
 from maniskill2_learn.utils.torch import no_grad
 from maniskill2_learn.networks.builder import MODELNETWORKS
 
@@ -32,12 +33,22 @@ class MultiImageObsEncoder(CNNBase):
                     inputs["rgbd"] = torch.cat(feature, dim=1)
                     inputs.pop("rgb")
                     inputs.pop("depth")
+            else:
+                for key in inputs:
+                    if "rgbd" in key:
+                        if len(inputs[key].shape) == 4: # (B,C,H,W)
+                            inputs[key][:,:3,:,:,:] /= 255.0
+                        elif len(inputs[key].shape) == 5: # (B,L,C,H,W)
+                            inputs[key][:,:,:3,:,:,:] /= 255.0
+                        elif len(inputs[key].shape) == 3: # (C,H,W)
+                            inputs[key][:3,:,:,:] /= 255.0
 
         return inputs
     
     def __init__(self,
             shape_meta: dict,
             rgb_model: Union[nn.Module, Dict[str,nn.Module]]=get_resnet("resnet18"),
+            # pcd_model: Union[nn.Module, Dict[str,nn.Module]]=PointNet(feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
             resize_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None,
             crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=[76,76],
             random_crop: bool=True,
@@ -73,7 +84,6 @@ class MultiImageObsEncoder(CNNBase):
 
         for key, attr in obs_shape_meta.items():
             shape = attr['shape']
-            print(key, shape)
             if isinstance(shape, list):
                 shape = tuple(shape)
             if isinstance(shape, int):
@@ -171,6 +181,8 @@ class MultiImageObsEncoder(CNNBase):
         batch_size = None
         features = list()
         horizon = self.n_obs_steps
+        # Preprocess img model
+        # obs_dict = self.preprocess(obs_dict)
         # process rgb input
         if self.share_rgb_model:
             # pass all rgb obs to rgb model
@@ -183,7 +195,7 @@ class MultiImageObsEncoder(CNNBase):
                     batch_size = img.shape[0]
                 else:
                     assert batch_size == img.shape[0]
-                if len(img.shape) == 5: # (B, L,C,H,W)
+                if len(img.shape) == 5: # (B,L,C,H,W)
                     assert img.shape[1] == horizon, "The input horizon {} is not the same as expected obs length {}!".format(img.shape[1], self.n_obs_steps)
                     img = img.reshape(batch_size*horizon,*img.shape[2:]) # (B*L,C,H,W)
                 assert img.shape[1:] == self.key_shape_map[key] # (C,H,W)

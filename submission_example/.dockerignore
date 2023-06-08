@@ -1,0 +1,10 @@
+*eval/
+eval*/
+*eval*
+demos/*
+.git
+*.mp4
+*.h5
+*videos/
+*videos*
+*.zip

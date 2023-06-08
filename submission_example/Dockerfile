@@ -4,58 +4,57 @@
 FROM haosulab/mani-skill2:latest
 
 # Install os-level packages
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades \
-	--allow-change-held-packages --no-install-recommends \
-    libglvnd0 \
-    libgl1 \
-    libglx0 \
-    libgles2  \
-    libxcb1-dev \
-    tzdata \
-    build-essential \
-    ffmpeg \
-    libssl-dev \
-    net-tools \
-    vim \
-    libgl1-mesa-glx \
-    libosmesa6 \
-    libosmesa6-dev \
-    libglew-dev \
-    libglfw3 \
-    libglfw3-dev \
-    sudo \
-    libcurl4-openssl-dev \
-    xorg \
-    openbox \
-    patchelf \
-    librdmacm1 \
-    libibverbs1 \
-    bash-completion \
-    ca-certificates \
-    cmake \
-    curl \
-    git \
-    htop \
-    libegl1 \
-    libxext6 \
-    libjpeg-dev \
-    libpng-dev  \
-    libvulkan1 \
-    rsync \
-    tmux \
-    unzip \
-    vim \
-    vulkan-utils \
-    wget \
-    xvfb
+# RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades \
+# 	--allow-change-held-packages --no-install-recommends \
+#     libglvnd0 \
+#     libgl1 \
+#     libglx0 \
+#     libgles2  \
+#     libxcb1-dev \
+#     tzdata \
+#     build-essential \
+#     ffmpeg \
+#     libssl-dev \
+#     net-tools \
+#     vim \
+#     libgl1-mesa-glx \
+#     libosmesa6 \
+#     libosmesa6-dev \
+#     libglew-dev \
+#     libglfw3 \
+#     libglfw3-dev \
+#     sudo \
+#     libcurl4-openssl-dev \
+#     xorg \
+#     openbox \
+#     patchelf \
+#     librdmacm1 \
+#     libibverbs1 \
+#     bash-completion \
+#     ca-certificates \
+#     cmake \
+#     curl \
+#     git \
+#     htop \
+#     libegl1 \
+#     libxext6 \
+#     libjpeg-dev \
+#     libpng-dev  \
+#     libvulkan1 \
+#     rsync \
+#     tmux \
+#     unzip \
+#     vim \
+#     vulkan-utils \
+#     wget \
+#     xvfb
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # Install additional python packages you need
-RUN conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.6 -c pytorch -c conda-forge
- && pip install pytransform3d
+RUN conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.6 -c pytorch -c conda-forge && pip install pytransform3d
 
 # Copy your codes and model weights
-COPY ../../ManiSkill2-Learn /root/ManiSkill2-Learn
+COPY ManiSkill2-Learn /root/ManiSkill2-Learn
 ENV PYTHONPATH /root/ManiSkill2-Learn:$PYTHONPATH
 
 # Install ManiSkill2-Learn

@@ -38,7 +38,7 @@ def save_eval_statistics(folder, logger=None, **kwargs):
     lengths = kwargs.get("lengths", None)
     rewards = kwargs.get("rewards", None)
     finishes = kwargs.get("finishes", None)
-    if lengths is not None:
+    if rewards is not None:
         logger.info(
             f"Num of trails: {len(lengths):.2f}, "
             f"Length: {np.mean(lengths):.2f}\u00B1{np.std(lengths):.2f}, "
@@ -262,7 +262,7 @@ class FastEvaluation:
 
         h5_file.close()
         return dict(
-            lens=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+            lengths=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
         )
         # return episode_lens, episode_rewards, episode_finishes
 
@@ -504,7 +504,7 @@ class Evaluation:
         self.finish()
 
         return dict(
-            lens=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+            lengths=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
         )
         # return self.episode_lens, self.episode_rewards, self.episode_finishes
 

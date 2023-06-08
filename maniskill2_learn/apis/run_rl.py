@@ -146,6 +146,8 @@ def build_work_dir():
             colored_print("We will ignore the clean-up flag, since we are either in the evaluation mode or resuming from the directory!", level="warning")
         else:
             shutil.rmtree(args.work_dir, ignore_errors=True)
+    if args.evaluation:
+        args.work_dir += "_eval"
     os.makedirs(osp.abspath(args.work_dir), exist_ok=True)
 
 
@@ -508,7 +510,6 @@ if __name__ == "__main__":
     work_dir = args.work_dir
     if args.evaluation:
         test_name = args.test_name if args.test_name is not None else "test"
-        work_dir += "_eval"
         work_dir = osp.join(work_dir, test_name)
         # Always clean up for evaluation
         shutil.rmtree(work_dir, ignore_errors=True)
