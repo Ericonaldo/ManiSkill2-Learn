@@ -48,7 +48,7 @@ class MultiImageObsEncoder(CNNBase):
     def __init__(self,
             shape_meta: dict,
             rgb_model: Union[nn.Module, Dict[str,nn.Module]]=get_resnet("resnet18"),
-            pcd_cfg: dict=None,
+            pcd_model: dict=None,
             resize_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None,
             crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=[76,76],
             random_crop: bool=True,
@@ -74,6 +74,7 @@ class MultiImageObsEncoder(CNNBase):
         key_transform_map = nn.ModuleDict()
         key_shape_map = dict()
         self.n_obs_steps = n_obs_steps
+        self.use_pcd_model = use_pcd_model
 
         obs_shape_meta = shape_meta['obs']
         # handle sharing vision backbone
@@ -81,8 +82,8 @@ class MultiImageObsEncoder(CNNBase):
             assert isinstance(rgb_model, nn.Module)
             key_model_map['rgb'] = rgb_model
 
-        if use_pcd_model and (pcd_cfg is not None):
-            key_model_map['pcd'] = build_model(pcd_cfg)
+        if use_pcd_model and (pcd_model is not None):
+            key_model_map['pcd'] = pcd_model
 
         self.pcd_keys = list()
         
@@ -191,56 +192,64 @@ class MultiImageObsEncoder(CNNBase):
         # Preprocess img model
         obs_dict = self.preprocess(obs_dict)
         # process rgb input
-        if self.share_rgb_model:
-            # pass all rgb obs to rgb model
-            imgs = list()
-            for key in self.rgb_keys:
-                img = obs_dict[key]
-                if isinstance(img, list):
-                    img = img[0]
-                if batch_size is None:
-                    batch_size = img.shape[0]
-                else:
-                    assert batch_size == img.shape[0]
-                if len(img.shape) == 5: # (B,L,C,H,W)
-                    assert img.shape[1] == horizon, "The input horizon {} is not the same as expected obs length {}!".format(img.shape[1], self.n_obs_steps)
-                    img = img.reshape(batch_size*horizon,*img.shape[2:]) # (B*L,C,H,W)
-                assert img.shape[1:] == self.key_shape_map[key] # (C,H,W)
-                img = self.key_transform_map[key](img)
-                imgs.append(img)
-            # (N*B*L,C,H,W)
-            imgs = torch.cat(imgs, dim=0)
-            # (N*B*L,D)
-            feature = self.key_model_map['rgb'](imgs)
-            # (N,B*L,D)
-            feature = feature.reshape(-1,batch_size*horizon,*feature.shape[1:])
-            if horizon > 1:
-                # (N,B,L,D)
-                feature = feature.reshape(-1,batch_size,horizon,*feature.shape[2:])
-            # (B,N,D) or (B,N,L,D)
-            feature = torch.moveaxis(feature,0,1)
-            # (B,N*D) or (B,N*L*D)
-            feature = feature.reshape(batch_size,-1)
-            features.append(feature)
-        else:
-            # run each rgb obs to independent models
-            for key in self.rgb_keys:
-                img = obs_dict[key]
-                if isinstance(img, list):
-                    img = img[0]
-                if batch_size is None:
-                    batch_size = img.shape[0]
-                else:
-                    assert batch_size == img.shape[0]
-                if len(img.shape) == 5: # (bs, length, channel, h, w)
-                    img = img.reshape(batch_size*img.shape[1],-1)
-                assert img.shape[2:] == self.key_shape_map[key] # bs, horizon
-                img = self.key_transform_map[key](img)
-                feature = self.key_model_map[key](img)
+        if len(self.rgb_keys):
+            if self.share_rgb_model:
+                # pass all rgb obs to rgb model
+                imgs = list()
+                for key in self.rgb_keys:
+                    img = obs_dict[key]
+                    if isinstance(img, list):
+                        img = img[0]
+                    if batch_size is None:
+                        batch_size = img.shape[0]
+                    else:
+                        assert batch_size == img.shape[0]
+                    if len(img.shape) == 5: # (B,L,C,H,W)
+                        assert img.shape[1] == horizon, "The input horizon {} is not the same as expected obs length {}!".format(img.shape[1], self.n_obs_steps)
+                        img = img.reshape(batch_size*horizon,*img.shape[2:]) # (B*L,C,H,W)
+                    assert img.shape[1:] == self.key_shape_map[key] # (C,H,W)
+                    img = self.key_transform_map[key](img)
+                    imgs.append(img)
+                # (N*B*L,C,H,W)
+                imgs = torch.cat(imgs, dim=0)
+                # (N*B*L,D)
+                feature = self.key_model_map['rgb'](imgs)
+                # (N,B*L,D)
+                feature = feature.reshape(-1,batch_size*horizon,*feature.shape[1:])
+                if horizon > 1:
+                    # (N,B,L,D)
+                    feature = feature.reshape(-1,batch_size,horizon,*feature.shape[2:])
+                # (B,N,D) or (B,N,L,D)
+                feature = torch.moveaxis(feature,0,1)
+                # (B,N*D) or (B,N*L*D)
+                feature = feature.reshape(batch_size,-1)
                 features.append(feature)
+            else:
+                # run each rgb obs to independent models
+                for key in self.rgb_keys:
+                    img = obs_dict[key]
+                    if isinstance(img, list):
+                        img = img[0]
+                    if batch_size is None:
+                        batch_size = img.shape[0]
+                    else:
+                        assert batch_size == img.shape[0]
+                    if len(img.shape) == 5: # (bs, length, channel, h, w)
+                        img = img.reshape(batch_size*img.shape[1], -1)
+                    assert img.shape[2:] == self.key_shape_map[key] # bs, horizon
+                    img = self.key_transform_map[key](img)
+                    feature = self.key_model_map[key](img)
+                    features.append(feature)
 
-        if self.use_pcd_model:
-            feature = self.key_model_map["pcd"](obs_dict[self.pcd_keys])
+        # process pcd input
+        if self.use_pcd_model and len(self.pcd_keys):
+            pcd_obs_dict = {k:v for k,v in obs_dict.items() if k in self.pcd_keys}
+            for key in pcd_obs_dict:
+                if batch_size is None:
+                        batch_size = pcd_obs_dict[key].shape[0]
+                pcd_obs_dict[key] = pcd_obs_dict[key].reshape(batch_size*horizon, *pcd_obs_dict[key].shape[2:])
+            feature = self.key_model_map["pcd"](pcd_obs_dict)
+            feature = feature.reshape(batch_size,-1)
             features.append(feature)
         
         # process lowdim input

@@ -65,7 +65,7 @@ def get_kwargs_from_shape(obs_shape, action_shape):
             replaceable_kwargs["pcd_xyz_rgb_channel"] = pcd_xyz_rgb_channel
             replaceable_kwargs["pcd_xyz_channel"] = 3
             for name in obs_shape:
-                replaceable_kwargs["pcd_{}_shape".format(name)] = obs_shape[name][1:]
+                replaceable_kwargs["pcd_{}_shape".format(name)] = obs_shape[name]
 
         elif visual_key in IMAGE_KEYS:
             # For new maniskill callback envs
