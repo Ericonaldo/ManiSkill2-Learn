@@ -78,5 +78,6 @@ def build_conv_layer(cfg, *args, **kwargs):
         raise KeyError(f"Unrecognized norm type {layer_type}")
     else:
         conv_layer = CONV_LAYERS.get(layer_type)
+    print(args, kwargs, cfg_)
     layer = conv_layer(*args, **kwargs, **cfg_)
     return layer

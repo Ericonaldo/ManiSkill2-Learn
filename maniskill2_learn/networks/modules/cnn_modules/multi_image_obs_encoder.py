@@ -9,6 +9,7 @@ from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodule
 from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
 from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
 from maniskill2_learn.networks.backbones.pointnet import PointNet
+from maniskill2_learn.networks import build_model
 from maniskill2_learn.utils.torch import no_grad
 from maniskill2_learn.networks.builder import MODELNETWORKS
 
@@ -48,7 +49,7 @@ class MultiImageObsEncoder(CNNBase):
     def __init__(self,
             shape_meta: dict,
             rgb_model: Union[nn.Module, Dict[str,nn.Module]]=get_resnet("resnet18"),
-            pcd_model: Union[nn.Module, Dict[str,nn.Module]]=PointNet(feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
+            pcd_cfg: dict=None,
             resize_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None,
             crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=[76,76],
             random_crop: bool=True,
@@ -56,7 +57,7 @@ class MultiImageObsEncoder(CNNBase):
             use_group_norm: bool=False,
             # use single rgb model for all rgb inputs
             share_rgb_model: bool=True,
-            use_pct_model: bool=False,
+            use_pcd_model: bool=False,
             # renormalize rgb input with imagenet normalization
             # assuming input in [0,1]
             imagenet_norm: bool=False,
@@ -81,9 +82,8 @@ class MultiImageObsEncoder(CNNBase):
             assert isinstance(rgb_model, nn.Module)
             key_model_map['rgb'] = rgb_model
 
-        if use_pct_model:
-            assert isinstance(pcd_model, nn.Module)
-            key_model_map['pct'] = pcd_model
+        if use_pcd_model and (pcd_cfg is not None):
+            key_model_map['pcd'] = build_model(pcd_cfg)
         
         for key, attr in obs_shape_meta.items():
             shape = attr['shape']
@@ -165,7 +165,7 @@ class MultiImageObsEncoder(CNNBase):
                 this_transform = nn.Sequential(this_resizer, this_randomizer, this_normalizer)
                 key_transform_map[key] = this_transform
             elif obs_type == 'pcd':
-                key_model_map[key] = key_model_map['pct']
+                key_model_map[key] = key_model_map['pcd']
             elif obs_type == 'low_dim':
                 low_dim_keys.append(key)
             else:

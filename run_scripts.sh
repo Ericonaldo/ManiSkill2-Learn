@@ -71,8 +71,14 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PlugCharger-v0-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PlugCharger-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
-python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PegInsertionSide-v0-v0-v0 \
---cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PegInsertionSide-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
+python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PandaAvoidObstacles-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PandaAvoidObstacles-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
+python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id LiftCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/LiftCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
 # Eval
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd_eval.py --g 0 --env-id PickCube-v0 \
