@@ -37,6 +37,7 @@ class DiffAgent(BaseAgent):
         env_params,
         action_seq_len,
         eval_action_len=1,
+        pcd_cfg=None,
         lr_scheduler_cfg=None,
         batch_size=128,
         n_timesteps=150,
@@ -58,7 +59,9 @@ class DiffAgent(BaseAgent):
     ):
         super(DiffAgent, self).__init__()
         self.batch_size = batch_size
-
+        
+        if pcd_cfg is not None:
+            visual_nn_cfg['pcd_model'] = build_model(pcd_cfg)
         visual_nn_cfg['n_obs_steps'] = n_obs_steps
         self.obs_encoder = build_model(visual_nn_cfg)
         self.obs_feature_dim = self.obs_encoder.out_feature_dim

@@ -1,27 +1,39 @@
 horizon = 16
 n_obs_steps = 8
 future_action_len = horizon - n_obs_steps
-workdir = "rgbd"
+workdir = "pcd"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=128,
     action_seq_len=horizon,
+    pcd_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
             obs=dict(
-                pointcloud=dict(
+                xyz=dict(
                     type="pcd",
-                    shape="image_size", # TODO
+                    shape="pcd_xyz_shape",
+                ),
+                rgb=dict(
+                    type="pcd",
+                    shape="pcd_rgb_shape",
                 ),
                 state=dict(
                     type="low_dim",
                     shape="agent_shape"
-                )
+                ),
+                frame_related_states=dict(
+                    type="low_dim",
+                    shape="pcd_frame_related_states_shape",
+                ),
+                to_frames=dict(
+                    type="low_dim",
+                    shape="pcd_to_frames_shape",
+                ),
             )
         ),
         use_pcd_model=True,
-        pcd_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
     ),
     actor_cfg=dict(
         type="ContDiffActor",

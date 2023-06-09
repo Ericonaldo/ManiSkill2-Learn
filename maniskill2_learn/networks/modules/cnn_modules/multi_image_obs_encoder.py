@@ -9,9 +9,8 @@ from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodule
 from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
 from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
 from maniskill2_learn.networks.backbones.pointnet import PointNet
-from maniskill2_learn.networks import build_model
 from maniskill2_learn.utils.torch import no_grad
-from maniskill2_learn.networks.builder import MODELNETWORKS
+from maniskill2_learn.networks.builder import MODELNETWORKS, build_model
 
 @MODELNETWORKS.register_module()
 class MultiImageObsEncoder(CNNBase):
@@ -84,6 +83,8 @@ class MultiImageObsEncoder(CNNBase):
 
         if use_pcd_model and (pcd_cfg is not None):
             key_model_map['pcd'] = build_model(pcd_cfg)
+
+        self.pcd_keys = list()
         
         for key, attr in obs_shape_meta.items():
             shape = attr['shape']
@@ -165,7 +166,7 @@ class MultiImageObsEncoder(CNNBase):
                 this_transform = nn.Sequential(this_resizer, this_randomizer, this_normalizer)
                 key_transform_map[key] = this_transform
             elif obs_type == 'pcd':
-                key_model_map[key] = key_model_map['pcd']
+                self.pcd_keys.append(key)
             elif obs_type == 'low_dim':
                 low_dim_keys.append(key)
             else:
@@ -188,7 +189,7 @@ class MultiImageObsEncoder(CNNBase):
         features = list()
         horizon = self.n_obs_steps
         # Preprocess img model
-        # obs_dict = self.preprocess(obs_dict)
+        obs_dict = self.preprocess(obs_dict)
         # process rgb input
         if self.share_rgb_model:
             # pass all rgb obs to rgb model
@@ -237,6 +238,10 @@ class MultiImageObsEncoder(CNNBase):
                 img = self.key_transform_map[key](img)
                 feature = self.key_model_map[key](img)
                 features.append(feature)
+
+        if self.use_pcd_model:
+            feature = self.key_model_map["pcd"](obs_dict[self.pcd_keys])
+            features.append(feature)
         
         # process lowdim input
         for key in self.low_dim_keys:
