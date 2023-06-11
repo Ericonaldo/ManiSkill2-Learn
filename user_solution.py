@@ -14,12 +14,24 @@ from maniskill2_learn.env import get_env_info, build_env
 from maniskill2_learn.networks.utils import get_kwargs_from_shape, replace_placeholder_with_args
 from maniskill2_learn.utils.data import GDict, is_not_null
 
+model_dict = {
+    "PickCube-v0": "PickCube-v0/DiffAgent/rgbd/models/model_195000.ckpt",
+    "PickSingleYCB-v0": "PickCube-v0/DiffAgent/rgbd/models/model_195000.ckpt",
+    "StackCube-v0": "StackCube-v0/DiffAgent/rgbd/models/model_130000.ckpt",
+    "AssemblingKits-v0": "AssemblingKits-v0/DiffAgent/rgbd/models/model_135000.ckpt",
+    "PandaAvoidObstacles-v0": "PandaAvoidObstacles-v0/DiffAgent/rgbd/models/model_100000.ckpt",
+    "PegInsertionSide-v0": "PegInsertionSide-v0/DiffAgent/rgbd/models/model_145000.ckpt",
+    "PickClutterYCB-v0": "PickClutterYCB-v0/DiffAgent/rgbd/models/model_160000.ckpt",
+    "PickSingleEGAD-v0": "PickSingleEGAD-v0/DiffAgent/rgbd/models/model_95000.ckpt",
+    "PlugCharger-v0": "PlugCharger-v0/DiffAgent/rgbd/models/model_135000.ckpt",
+}
+
 
 class UserPolicy(BasePolicy):
     def __init__(self, env_id: str, observation_space: spaces.Space, action_space: spaces.Space):
         super().__init__(env_id, observation_space, action_space)
         cfg = Config.fromfile("/root/ManiSkill2-Learn/configs/brl/diff/rgbd_eval.py") # Change this
-        model_path = f'/root/ManiSkill2-Learn/logs/{env_id}/DiffAgent/rgbd/model_50000.ckpt' # Change this
+        model_path = f'/root/ManiSkill2-Learn/logs/{model_dict[env_id]}' # Change this
         self.device = 'cuda:0'
 
         self.logger = get_logger()

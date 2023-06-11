@@ -384,7 +384,7 @@ def train_rl(
             # agent.recover_data_parallel()
 
             torch.cuda.empty_cache()
-            save_eval_statistics(eval_dir, **info)
+            save_eval_statistics(eval_dir, logger=logger, **info)
             agent.train()
             agent.set_mode(mode="train")
 

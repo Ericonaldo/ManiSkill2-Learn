@@ -45,6 +45,14 @@ def save_eval_statistics(folder, logger=None, **kwargs):
             f"Reward: {np.mean(rewards):.2f}\u00B1{np.std(rewards):.2f}, "
             f"Success or Early Stop Rate: {np.mean(finishes):.2f}\u00B1{np.std(finishes):.2f}"
         )
+        # Some times logger info can be refreshed
+        print(
+            "\n"
+            f"Num of trails: {len(lengths):.2f}, "
+            f"Length: {np.mean(lengths):.2f}\u00B1{np.std(lengths):.2f}, "
+            f"Reward: {np.mean(rewards):.2f}\u00B1{np.std(rewards):.2f}, "
+            f"Success or Early Stop Rate: {np.mean(finishes):.2f}\u00B1{np.std(finishes):.2f}"
+        )
         if folder is not None:
             table = [["length", "reward", "finish"]]
             table += [[num_to_str(__, precision=2) for __ in _] for _ in zip(lengths, rewards, finishes)]

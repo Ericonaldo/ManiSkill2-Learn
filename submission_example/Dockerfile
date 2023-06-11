@@ -51,18 +51,20 @@ FROM haosulab/mani-skill2:latest
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # Install additional python packages you need
-RUN conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.6 -c pytorch -c conda-forge && pip install pytransform3d
+# RUN conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.6 -c pytorch -c conda-forge
 
 # Copy your codes and model weights
 COPY ManiSkill2-Learn /root/ManiSkill2-Learn
 ENV PYTHONPATH /root/ManiSkill2-Learn:$PYTHONPATH
 
 # Install ManiSkill2-Learn
-RUN pip install pytorch3d \
-    && pip install ninja \
+RUN pip install pytorch3d -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
+    && pip install pytransform3d -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
+    && pip install ninja -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
+    && pip install protobuf==3.19.0 -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
+    && pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -i https://pypi.tuna.tsinghua.edu.cn/simple/ \
     && cd /root/ManiSkill2-Learn \
-    && pip install -e . \
-    && pip install protobuf==3.19.0 \
+    && pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple/  \
     && conda clean -ya && pip cache purge
 
 

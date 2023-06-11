@@ -222,8 +222,11 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         self.history_len = history_len
         self.action_dim = env.action_space.shape[0]
 
+        self.init_queue()
+
+    def init_queue(self):
         # For evaluation
-        self.obs_queue = None # For evaluation
+        self.obs_queue = None
         self.action_queue = None
 
         if self.history_len > 1:
@@ -231,6 +234,8 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             self.action_queue.extend([np.zeros(self.action_dim) for _ in range(self.history_len-1)])
 
     def reset(self, **kwargs):
+        self.init_queue()
+
         if self.fix_seed is not None:
             obs = self.env.reset(seed=self.fix_seed, **kwargs)
         else:

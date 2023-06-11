@@ -119,6 +119,8 @@ def parse_args():
 
 
 def build_work_dir():
+    if args.auto_resume:
+        return
     if is_null(args.work_dir):
         root_dir = "./logs"
         env_name = cfg.env_cfg.get("env_name", None) if is_not_null(cfg.env_cfg) else args.env_id
@@ -323,7 +325,7 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
         if is_not_null(evaluator):
             # For RL
             info = evaluator.run(agent, work_dir=work_dir, memory=replay, **cfg.eval_cfg)
-            save_eval_statistics(work_dir, **info)
+            save_eval_statistics(work_dir, logger, **info)
         agent.train()
         agent.set_mode("train")
 

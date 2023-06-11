@@ -190,6 +190,7 @@ class MultiImageObsEncoder(CNNBase):
         features = list()
         horizon = self.n_obs_steps
         # Preprocess img model
+        # !!!!!!!
         obs_dict = self.preprocess(obs_dict)
         # process rgb input
         if len(self.rgb_keys):
