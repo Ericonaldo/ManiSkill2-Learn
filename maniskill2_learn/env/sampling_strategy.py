@@ -207,7 +207,7 @@ class TStepTransition(SamplingStrategy):
         self.running_count += 1
         self.position = (self.position + 1) % self.capacity
 
-    def sample(self, batch_size, drop_last=True, auto_restart=True):
+    def sample(self, batch_size, drop_last=True, auto_restart=True, padded_size=None):
         # Ret: [B, H], indices for each trajectory in the (batch_size) number of trajectories sampled;
         # Mask: [B, H, 1], whether a timestep in a trajectory is valid (for padding purposes)
         query_size = np.cumsum([len(_) for _ in self.valid_seq])
@@ -229,7 +229,7 @@ class TStepTransition(SamplingStrategy):
             last_indices = 0 if j == 0 else query_size[j - 1]
             ret.append(self.valid_seq[j][i - last_indices])
         ret_len = [len(_) for _ in ret]
-        padded_size = max(ret_len)
+        padded_size = max(ret_len) if padded_size is None else padded_size
         # mask = np.zeros([len(ret), padded_size, 1], dtype=np.bool_)
         mask = np.ones([len(ret), padded_size, 1], dtype=np.bool_) # We set all true since we want to generate all except conditioned ones
         for i in range(len(ret)):
@@ -245,4 +245,5 @@ class TStepTransition(SamplingStrategy):
             #     padded_size - len(ret[i])
             # ) + ret[i] # padding zero before
         ret = np.array(ret, dtype=np.int)
+        print(">>>", ret.shape)
         return ret, mask, ret_len

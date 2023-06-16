@@ -437,11 +437,11 @@ def run_one_process(rank, world_size, args, cfg):
                     for k in obs_shape:
                         if isinstance(obs_shape[k], list):
                             obs_shape[k] = obs_shape[k][0]
-                        if replay.horizon > 1: # Remove the horizon dimension for multi-step replay buffer
-                            obs_shape[k] = obs_shape[k][1:]
-                        # if "rgb" in k and len(obs_shape[k]) == 4:
+                        # if replay.horizon > 1: # Remove the horizon dimension for multi-step replay buffer
                         #     obs_shape[k] = obs_shape[k][1:]
-                        if "rgbd" in k and cfg.replay_cfg.using_depth == False:
+                        if "rgb" in k and len(obs_shape[k]) == 4:
+                            obs_shape[k] = obs_shape[k][1:]
+                        if "rgbd" in k and "using_depth" in cfg.replay_cfg and cfg.replay_cfg.using_depth == False:
                             obs_shape[k][0] = min(obs_shape[k], 3)
                 break
         action_shape = None

@@ -228,7 +228,7 @@ class ReplayMemory:
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
 
-        batch_idx, is_valid, ret_len = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading)
+        batch_idx, is_valid, ret_len = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading, padded_size=self.horizon)
         if batch_idx is None:
             # without replacement only
             if auto_restart or self.dynamic_loading:
@@ -244,22 +244,30 @@ class ReplayMemory:
                 return None
            
         ret = self.memory.take(batch_idx)
-        assert self.horizon > 1 or self.using_depth, "we do not accept horizon == 1 and not using depth"
+        if not self.using_depth:
+            if "obs" in ret.keys(): # Concat obs
+                for key in ret["obs"].keys():
+                    if "rgbd" in key and (not self.using_depth):
+                        ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
+        batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
+        ret_flat_idx = [j for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
+        # print(ret_len, batch_flat_idx, ret_flat_idx)
         if self.horizon > 1:
-            for i in range(len(batch_idx)):
-                if self.horizon-ret_len[i]:
-                    if "obs" in ret.keys(): # Concat obs
-                        for key in ret["obs"].keys():
-                            if isinstance(ret["obs"][key], (list,tuple)):
-                                ret["obs"][key] = ret["obs"][key][0]
-                            if "rgbd" in key and (not self.using_depth):
-                                ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
-                            supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
-                            ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)
-                    if "actions" in ret.keys(): # Set zero actions
-                            supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
-                            ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
+            if "actions" in ret.keys(): # Set zero actions
+                ret["actions"][batch_flat_idx,ret_flat_idx,:] = 0
+            # for i in range(len(batch_idx)):
+            #     if self.horizon-ret_len[i]:
+                    # if "obs" in ret.keys(): # Concat obs
+                    #     for key in ret["obs"].keys():
+                    #         if isinstance(ret["obs"][key], (list,tuple)):
+                    #             ret["obs"][key] = ret["obs"][key][0]
+                    #         supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
+                    #         ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)
+                    # if "actions" in ret.keys(): # Set zero actions
+                            # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
+                            # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
+        # exit(0)
         return ret
 
     def mini_batch_sampler(self, batch_size, drop_last=False, auto_restart=False, max_num_batches=-1):

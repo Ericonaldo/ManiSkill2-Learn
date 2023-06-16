@@ -76,7 +76,7 @@ train_cfg = dict(
     n_steps=0,
     n_updates=500,
     n_eval=50000,
-    n_checkpoint=50000,
+    n_checkpoint=10000,
 )
 
 eval_cfg = dict(
