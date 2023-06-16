@@ -198,6 +198,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         ignore_dones=False,
         fix_seed=None,
         concat_rgbd=False,
+        using_depth=True,
         history_len=1,
     ):
         super().__init__(env)
@@ -216,6 +217,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
         self.ignore_dones = ignore_dones
         self.concat_rgbd = concat_rgbd
+        self.using_depth = using_depth
 
         self.fix_seed = fix_seed
 
@@ -283,6 +285,35 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             next_obs["actions"] = np.stack(self.action_queue, axis=0)
         
         return next_obs, reward, done, info
+    
+    def update_action_queue(self, action):
+        if self.history_len > 1 and self.obs_mode != "state":
+            if self.action_queue is not None:
+                self.action_queue.append(action)
+    
+    def update_observation_queue(self, observation):
+        if self.history_len > 1 and self.obs_mode != "state":
+            for obs_key in observation.keys():
+                if isinstance(observation[obs_key], (list,tuple)):
+                    observation[obs_key] = observation[obs_key][0]
+
+            if self.obs_queue is None:
+                self.obs_queue = {}
+                for obs_key in observation.keys():
+                    self.obs_queue[obs_key] = deque(maxlen=self.history_len)
+                    self.obs_queue[obs_key].extend([observation[obs_key] for _ in range(self.history_len)])
+            else:
+                for obs_key in observation.keys():
+                    if isinstance(observation[obs_key], (list,tuple)):
+                        observation[obs_key] = observation[obs_key][0]
+
+            for obs_key in observation.keys():
+                self.obs_queue[obs_key].append(observation[obs_key])
+                observation[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
+
+            observation["actions"] = np.stack(self.action_queue, axis=0)
+
+        return observation
 
     def get_obs(self):
         observation = self.observation(self.env.observation(self.env.get_obs()))
@@ -366,10 +397,13 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             # Process RGB and Depth images
             if self.concat_rgbd:
                 rgbd = {_:[] for _ in cam_names}
-                for cam_name in cam_names: 
-                    rgbd[cam_name].append(imgs[cam_name]["rgb"]) # each [H, W, 3]
-                    rgbd[cam_name].append(imgs[cam_name]["depth"]) # each [H, W, 1]
-                    rgbd[cam_name] = np.concatenate(rgbd[cam_name], axis=2)
+                for cam_name in cam_names:
+                    if self.using_depth:
+                        rgbd[cam_name].append(imgs[cam_name]["rgb"]) # each [H, W, 3]
+                        rgbd[cam_name].append(imgs[cam_name]["depth"]) # each [H, W, 1]
+                        rgbd[cam_name] = np.concatenate(rgbd[cam_name], axis=2)
+                    else:
+                        rgbd[cam_name] = imgs[cam_name]["rgb"] # each [H, W, 3]
                     assert imgs[cam_name]["rgb"].dtype == np.uint8
             else:
                 for cam_name in cam_names: 
@@ -419,11 +453,14 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 )
                 if goal_depth.ndim == 2:
                     goal_depth = goal_depth[:, :, None]
-                if self.concat_rgbd:
+                if not self.concat_rgbd:
                     depth = np.concatenate([depth, goal_depth], axis=2)
             goal_rgbd = None
             if goal_depth is not None and goal_rgb is not None and self.concat_rgbd:
-                goal_rgbd = np.concatenate([goal_rgb, goal_depth], axis=2)
+                if self.using_depth:
+                    goal_rgbd = np.concatenate([goal_rgb, goal_depth], axis=2)
+                else:
+                    goal_rgbd = goal_rgb
 
             # If goal info is provided, calculate the relative position between the robot fingers' tool-center-point (tcp) and the goal
             if "tcp_pose" in obs["extra"].keys() and "goal_pos" in obs["extra"].keys():

@@ -30,6 +30,7 @@ class ReplayMemory:
     def __init__(
         self,
         capacity,
+        using_depth=True,
         sampling_cfg=dict(type="OneStepTransition"),
         keys=None,
         keys_map=None,
@@ -49,6 +50,7 @@ class ReplayMemory:
         
         self.horizon = 1
         self.future_action_len = 0
+        self.using_depth = using_depth
         if buffer_filenames is not None and len(buffer_filenames) > 0:
             self.horizon = sampling_cfg.get("horizon", 1)
             self.future_action_len = sampling_cfg.get("future_action_len", 0)
@@ -242,13 +244,16 @@ class ReplayMemory:
                 return None
            
         ret = self.memory.take(batch_idx)
+        assert self.horizon > 1 or self.using_depth, "we do not accept horizon == 1 and not using depth"
         if self.horizon > 1:
             for i in range(len(batch_idx)):
                 if self.horizon-ret_len[i]:
                     if "obs" in ret.keys(): # Concat obs
                         for key in ret["obs"].keys():
                             if isinstance(ret["obs"][key], (list,tuple)):
-                                ret["obs"][key] = ret["obs"][key][0] 
+                                ret["obs"][key] = ret["obs"][key][0]
+                            if "rgb" in key and (not self.using_depth):
+                                ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
                             supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
                             ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)
                     if "actions" in ret.keys(): # Set zero actions

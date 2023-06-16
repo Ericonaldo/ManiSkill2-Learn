@@ -24,7 +24,7 @@ def combine_obs_with_action(obs, action=None):
 
 def get_kwargs_from_shape(obs_shape, action_shape):
     PCD_KEYS = ["pointcloud", "full_pcd", "no_robot", "handle_only", "fused_pcd", "fused_ball_pcd", "pointcloud_3d_ann", "particles"]
-    IMAGE_KEYS = ["rgb", "rgbd", "depth", "base_camera_rgbd", "hand_camera_rgbd"] # Add your own keys if you have different obs space
+    IMAGE_KEYS = ["rgb", "rgbd", "depth", "base_camera_rgbd", "hand_camera_rgbd", "base_camera_rgbd", "hand_camera_rgbd"] # Add your own keys if you have different obs space
     replaceable_kwargs = {}
     if action_shape is not None:
         replaceable_kwargs["action_shape"] = deepcopy(action_shape)

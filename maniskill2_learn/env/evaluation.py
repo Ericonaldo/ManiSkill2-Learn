@@ -111,6 +111,8 @@ class FastEvaluation:
         self.video_format = kwargs.get("video_format", "mp4")
         self.video_fps = kwargs.get("fps", 20)
 
+        self.render_mode = kwargs.get("render_mode", "cameras"), # "rgb_array",
+
         logger_name = get_logger_name()
         self.logger = get_logger("Evaluation-" + logger_name, with_stream=True)
         self.logger.info(f"Evaluation environments have seed in [{seed}, {seed + num_procs})!")
@@ -144,7 +146,7 @@ class FastEvaluation:
             shutil.rmtree(work_dir, ignore_errors=True)
         os.makedirs(work_dir, exist_ok=True)
 
-        if self.save_video:
+        if self.save_video and self.render_mode!="human":
             video_dir = osp.join(work_dir, "videos")
             self.logger.info(f"Save videos to {video_dir}.")
             os.makedirs(video_dir, exist_ok=True)
@@ -171,14 +173,16 @@ class FastEvaluation:
         obs_all = DictArray(obs_all).copy()
         self.reset_pi(pi, self.all_env_indices)
 
-        if self.save_video:
+        if self.save_video and self.render_mode!="human":
             video_writers = []
-            imgs = self.vec_env.render(mode="rgb_array", idx=np.arange(num_envs))[..., ::-1]
+            imgs = self.vec_env.render(mode=self.render_mode, idx=np.arange(num_envs))[..., ::-1]
             for i in range(num_envs):
                 video_file = osp.join(video_dir, f"{i}.{self.video_format}")
                 video_writers.append(
                     cv2.VideoWriter(video_file, CV_VIDEO_CODES[self.video_format], self.video_fps, (imgs[i].shape[1], imgs[i].shape[0]))
                 )
+        else:
+            self.vec_env.render(mode=self.render_mode)
         episodes = [[] for i in range(num_envs)]
         num_start = num_envs
         episode_lens, episode_rewards, episode_finishes = np.zeros(num, dtype=np.int32), np.zeros(num, dtype=np.float32), np.zeros(num, dtype=np.bool_)
@@ -210,10 +214,12 @@ class FastEvaluation:
                 self.logger.info(
                     f"Episode {traj_idx[0]}, Step {episode_lens[traj_idx[0]]}: Reward: {reward:.3f}, Early Stop or Finish: {done}, Info: {info_str}"
                 )
-            if self.save_video:
-                imgs = self.vec_env.render(mode="rgb_array", idx=idx)[..., ::-1]
+            if self.save_video and self.render_mode!="human":
+                imgs = self.vec_env.render(mode=self.render_mode, idx=idx)[..., ::-1]
                 for j, i in enumerate(idx):
                     video_writers[i].write(imgs[j])
+            else:
+                self.vec_env.render(mode=self.render_mode)[0, ..., ::-1]
             reset_idx = []
             reset_levels = []
             for j, i in enumerate(idx):
@@ -222,7 +228,7 @@ class FastEvaluation:
                 episode_rewards[traj_idx[i]] += to_item(infos["rewards"][j])
                 if to_item(episode_dones[j]):
                     num_finished += 1
-                    if self.save_video:
+                    if self.save_video and self.render_mode!="human":
                         video_writers[i].release()
 
                     episodes_i = GDict.stack(episodes[i], 0)
@@ -261,7 +267,7 @@ class FastEvaluation:
                 self.reset_pi(pi, reset_idx)
 
                 if self.save_traj:
-                    imgs = self.vec_env.render(mode="rgb_array", idx=reset_idx)[..., ::-1]
+                    imgs = self.vec_env.render(mode="cameras", idx=reset_idx)[..., ::-1]
                     for j, i in enumerate(reset_idx):
                         video_file = osp.join(video_dir, f"{traj_idx[i]}.{self.video_format}")
                         video_writers[i] = cv2.VideoWriter(
@@ -289,6 +295,8 @@ class Evaluation:
         save_video=True,
         use_hidden_state=False,
         sample_mode="eval",
+        render_mode="cameras", # "rgb_array",
+        # render_mode="human", # cameras", # "rgb_array",
         eval_levels=None,
         seed=None,
         **kwargs,
@@ -335,6 +343,8 @@ class Evaluation:
         self.video_writer = None
         self.video_file = None
 
+        self.render_mode = render_mode
+
         # restrict the levels as those randomly sampled from eval_levels_path, if eval_levels_path is not None
         if eval_levels is not None:
             if is_str(eval_levels):
@@ -350,17 +360,19 @@ class Evaluation:
         assert not (self.use_hidden_state and worker_id is not None), "Use hidden state is only for CEM evaluation!!"
         assert self.horizon is not None and self.horizon, f"{self.horizon}"
         assert self.worker_id is None or not use_hidden_state, "Parallel evaluation does not support hidden states!"
-        if save_video:
+        if save_video and self.render_mode!="human":
             # Use rendering with use additional 1Gi memory in sapien
-            image = self.vec_env.render("rgb_array")[0, ..., ::-1]
+            image = self.vec_env.render(self.render_mode)[0, ..., ::-1]
             self.logger.info(f"Size of image in the rendered video {image.shape}")
+        else:
+            self.vec_env.render(self.render_mode)
 
     def start(self, work_dir=None):
         if work_dir is not None:
             self.work_dir = work_dir if self.worker_id is None else os.path.join(work_dir, f"thread_{self.worker_id}")
             # shutil.rmtree(self.work_dir, ignore_errors=True)
             os.makedirs(self.work_dir, exist_ok=True)
-            if self.save_video:
+            if self.save_video and self.render_mode!="human":
                 self.video_dir = osp.join(self.work_dir, "videos")
                 os.makedirs(self.video_dir, exist_ok=True)
             if self.save_traj:
@@ -426,8 +438,11 @@ class Evaluation:
             env_state = self.vec_env.get_env_state()
             data_to_store.update(env_state)
 
-        if self.save_video:
-            image = self.vec_env.render(mode="rgb_array")[0, ..., ::-1]
+        if self.save_video and self.render_mode!="human":
+            image = self.vec_env.render(mode=self.render_mode)[0, ..., ::-1]
+            image = image.astype(np.uint8).copy()
+            image = cv2.putText(image, "Current action: " + str(action[0]), (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1, cv2.LINE_AA)
+
             if self.video_writer is None:
                 self.video_file = osp.join(self.video_dir, f"{self.episode_id}.{self.video_format}")
                 
@@ -435,6 +450,8 @@ class Evaluation:
                     self.video_file, CV_VIDEO_CODES[self.video_format], self.video_fps, (image.shape[1], image.shape[0])
                 )
             self.video_writer.write(image)
+        else:
+            self.vec_env.render(mode=self.render_mode)
         infos = self.vec_env.step_dict(action, restart=False)
 
         reward, done, info, episode_done = GDict([infos["rewards"], infos["dones"], infos["infos"], infos["episode_dones"]]).item(wrapper=False)
@@ -459,9 +476,13 @@ class Evaluation:
             self.data_episode.push_batch(data_to_store)
 
         if episode_done:
-            if self.save_video:
-                image = self.vec_env.render(mode="rgb_array")[0, ..., ::-1]
+            if self.save_video and self.render_mode!="human":
+                image = self.vec_env.render(mode=self.render_mode)[0, ..., ::-1]
+                image = image.astype(np.uint8).copy()
+                image = cv2.putText(image, "Current action: " + str(action[0]), (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1, cv2.LINE_AA)
                 self.video_writer.write(image)
+            else:
+                self.vec_env.render(mode=self.render_mode)
             if self.log_every_episode:
                 self.logger.info(
                     f"Episode {self.episode_id} ends: Length {self.episode_len}, Reward: {self.episode_reward}, Early Stop or Finish: {done}"
@@ -632,7 +653,7 @@ class BatchEvaluation:
             h5_files = [osp.join(self.work_dir, f"thread_{i}", "trajectory.h5") for i in range(num_threads)]
             merge_h5_trajectory(h5_files, self.trajectory_path)
             self.logger.info(f"Merge {len(h5_files)} trajectories to {self.trajectory_path}")
-        if self.save_video:
+        if self.save_video and self.render_mode!="human":
             index = 0
             os.makedirs(self.video_dir)
             for i in range(num_threads):

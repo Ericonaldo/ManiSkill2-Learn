@@ -1,6 +1,9 @@
 import torch.nn as nn
-import torchsparse
-import torchsparse.nn as spnn
+try:
+    from torchsparse import SparseTensor
+    import torchsparse.nn as spnn
+except:
+    print("Failed to import torchsparse!")
 
 
 def build_sparse_norm(channels, use_ln=True):

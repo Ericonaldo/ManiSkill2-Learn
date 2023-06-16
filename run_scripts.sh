@@ -80,14 +80,16 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PandaAvoidObstacles-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PandaAvoidObstacles-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5" \
---auto-resume --work-dir="./logs/PlugCharger-v0/DiffAgent/rgbd/20230609_222831"
+--auto-resume --work-dir="./logs/PandaAvoidObstacles-v0/DiffAgent/rgbd/20230609_012917"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PickClutterYCB-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickClutterYCB-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
 CUDA_VISIBLE_DEVICES=4,5,6,7 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PickSingleEGAD-v0 \
---cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickSingleEGAD-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickSingleEGAD-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5" \
+--auto-resume --work-dir="./logs/PickSingleEGAD-v0/DiffAgent/rgbd/20230610_150733"
 
+CUDA_VISIBLE_DEVICES=0,1,2,3 python ../void.py
 ## PCD
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/pcd.py --num-gpus 1 --env-id PickCube-v0 \

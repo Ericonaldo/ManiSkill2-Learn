@@ -171,7 +171,6 @@ class DiffAgent(BaseAgent):
     def get_loss_weights(self, action_weight, discount, weights_dict):
         """
         sets loss coefficients for trajectory
-model
         action_weight   : float
             coefficient on first action loss
         discount   : float
@@ -384,7 +383,7 @@ model
                 if isinstance(observation[key], list):
                     observation[key] = observation[key][0]
                 observation[key] = observation[key][:,obs_mask,...]
-
+        
         obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
         
         if self.action_seq_len-hist_len:
