@@ -78,7 +78,6 @@ def get_kwargs_from_shape(obs_shape, action_shape):
             # if isinstance(replaceable_kwargs["image_size"], list) and (not isinstance(replaceable_kwargs["image_size"][0], int)):
             #     replaceable_kwargs["image_size"] = replaceable_kwargs["image_size"][0]
             replaceable_kwargs["num_pixels"] = np.prod(replaceable_kwargs["image_size"])
-            print(visual_shape)
             replaceable_kwargs["image_channels"] = (
                 sum([visual_shape[name][-3] for name in IMAGE_KEYS if name in visual_shape]) * num_images # NOTE: Be careful!
             )

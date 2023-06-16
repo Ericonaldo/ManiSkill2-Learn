@@ -237,6 +237,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
     def reset(self, **kwargs):
         self.init_queue()
+        get_shape = kwargs.get("get_shape", False)
+        if get_shape:
+            kwargs.pop("get_shape")
 
         if self.fix_seed is not None:
             obs = self.env.reset(seed=self.fix_seed, **kwargs)
@@ -244,6 +247,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             obs = self.env.reset(**kwargs)
 
         observation = self.observation(obs)
+        
+        if get_shape:
+            return observation  
         
         if self.history_len > 1 and self.obs_mode != "state":
             for obs_key in observation.keys():
@@ -362,7 +368,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             except KeyError as e:
                 print("base_pose and/or tcp_pose not found in MS1 environment observations. Please see ManiSkill2_ObsWrapper in env/wrappers.py for more details.", flush=True)
                 raise e
-            
+        
         if self.obs_mode == "rgbd":
             """
             Example *input* observation keys and their respective shapes ('extra' keys don't necessarily match):

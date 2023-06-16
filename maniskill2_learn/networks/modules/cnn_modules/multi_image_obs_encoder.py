@@ -247,7 +247,7 @@ class MultiImageObsEncoder(CNNBase):
             pcd_obs_dict = {k:v for k,v in obs_dict.items() if k in self.pcd_keys}
             for key in pcd_obs_dict:
                 if batch_size is None:
-                        batch_size = pcd_obs_dict[key].shape[0]
+                    batch_size = pcd_obs_dict[key].shape[0]
                 pcd_obs_dict[key] = pcd_obs_dict[key].reshape(batch_size*horizon, *pcd_obs_dict[key].shape[2:])
             feature = self.key_model_map["pcd"](pcd_obs_dict)
             feature = feature.reshape(batch_size,-1)

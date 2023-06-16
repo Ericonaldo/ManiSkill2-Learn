@@ -68,19 +68,19 @@ env_cfg = dict(
 )
 
 
-replay_cfg = dict(
-    type="ReplayMemory",
-    sampling_cfg=dict(
-        type="TStepTransition",
-        horizon=horizon,
-    ),
-    capacity=-1,
-    num_samples=-1,
-    keys=["obs", "actions", "dones", "episode_dones"],
-    buffer_filenames=[
-        "SOME_DEMO_FILE",
-    ],
-)
+# replay_cfg = dict(
+#     type="ReplayMemory",
+#     sampling_cfg=dict(
+#         type="TStepTransition",
+#         horizon=horizon,
+#     ),
+#     capacity=-1,
+#     num_samples=-1,
+#     keys=["obs", "actions", "dones", "episode_dones"],
+#     buffer_filenames=[
+#         "SOME_DEMO_FILE",
+#     ],
+# )
 
 train_cfg = dict(
     on_policy=False,

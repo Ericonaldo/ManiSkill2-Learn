@@ -252,7 +252,7 @@ class ReplayMemory:
                         for key in ret["obs"].keys():
                             if isinstance(ret["obs"][key], (list,tuple)):
                                 ret["obs"][key] = ret["obs"][key][0]
-                            if "rgb" in key and (not self.using_depth):
+                            if "rgbd" in key and (not self.using_depth):
                                 ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
                             supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
                             ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)

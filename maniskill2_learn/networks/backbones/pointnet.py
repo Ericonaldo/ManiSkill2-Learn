@@ -82,7 +82,7 @@ class PointNet(ExtendedModule):
 
     def forward(self, inputs, object_feature=True, concat_state=None, **kwargs):
         xyz = inputs["xyz"] if isinstance(inputs, dict) else inputs
-
+        
         if 1 in self.feature_transform:
             trans = self.stn(xyz.transpose(2, 1).contiguous())
             xyz = torch.bmm(xyz, trans)
@@ -98,7 +98,7 @@ class PointNet(ExtendedModule):
                 feature = torch.cat(feature, dim=-1)
             else:
                 feature = xyz
-
+            
             feature = feature.permute(0, 2, 1).contiguous()
         input_feature = feature
         if 2 in self.feature_transform:
