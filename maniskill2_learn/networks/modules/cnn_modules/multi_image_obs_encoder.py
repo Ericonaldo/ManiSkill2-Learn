@@ -208,7 +208,7 @@ class MultiImageObsEncoder(CNNBase):
                     if len(img.shape) == 5: # (B,L,C,H,W)
                         assert img.shape[1] == horizon, "The input horizon {} is not the same as expected obs length {}!".format(img.shape[1], self.n_obs_steps)
                         img = img.reshape(batch_size*horizon,*img.shape[2:]) # (B*L,C,H,W)
-                    assert img.shape[1:] == self.key_shape_map[key] # (C,H,W)
+                    assert img.shape[1:] == self.key_shape_map[key], f"{img.shape[1:]} != {self.key_shape_map[key]}" # (C,H,W)
                     img = self.key_transform_map[key](img)
                     imgs.append(img)
                 # (N*B*L,C,H,W)

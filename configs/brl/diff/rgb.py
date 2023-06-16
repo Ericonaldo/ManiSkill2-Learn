@@ -11,14 +11,14 @@ agent_cfg = dict(
         shape_meta=dict(
             obs=dict(
                 base_camera_rgbd=dict(
-                    type="rgbd",
+                    type="rgb",
                     shape="image_size",
-                    channel=4
+                    channel=3
                 ),
                 hand_camera_rgbd=dict(
-                    type="rgbd",
+                    type="rgb",
                     shape="image_size",
-                    channel=4
+                    channel=3
                 ),
                 state=dict(
                     type="low_dim",

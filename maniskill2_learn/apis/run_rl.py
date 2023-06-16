@@ -442,7 +442,10 @@ def run_one_process(rank, world_size, args, cfg):
                         if "rgb" in k and len(obs_shape[k]) == 4:
                             obs_shape[k] = obs_shape[k][1:]
                         if "rgbd" in k and "using_depth" in cfg.replay_cfg and cfg.replay_cfg.using_depth == False:
-                            obs_shape[k][0] = min(obs_shape[k], 3)
+                            obs_shape[k] = list(obs_shape[k])
+                            obs_shape[k][0] = min(obs_shape[k][0], 3)
+                            obs_shape[k] = tuple(obs_shape[k])
+                        print(k, obs_shape[k])
                 break
         action_shape = None
         act_key = "actions"

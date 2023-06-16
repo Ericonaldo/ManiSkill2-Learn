@@ -36,7 +36,7 @@ class ReplayMemory:
         keys_map=None,
         data_coder_cfg=None,
         buffer_filenames=None,
-        cache_size=2048,
+        cache_size=4096,
         num_samples=-1,
         num_procs=4,
         synchronized=True,  # For debug only which is slower than asynchronized file loading and data augmentation
@@ -247,6 +247,8 @@ class ReplayMemory:
         if not self.using_depth:
             if "obs" in ret.keys(): # Concat obs
                 for key in ret["obs"].keys():
+                    if isinstance(ret["obs"][key], (list,tuple)):
+                        ret["obs"][key] = ret["obs"][key][0]
                     if "rgbd" in key and (not self.using_depth):
                         ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
         batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]

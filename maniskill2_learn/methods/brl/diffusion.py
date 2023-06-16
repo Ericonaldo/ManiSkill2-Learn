@@ -375,6 +375,8 @@ class DiffAgent(BaseAgent):
             else:
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
 
+        if act_mask.shape[0] < bs:
+            act_mask = act_mask.repeat(max(bs//act_mask.shape[0]+1, 2), 1, 1)
         if act_mask.shape[0] != bs:
             act_mask = act_mask[:action_history.shape[0]] # obs mask is int
         
