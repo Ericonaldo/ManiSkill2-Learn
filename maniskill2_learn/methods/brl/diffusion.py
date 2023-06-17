@@ -382,8 +382,6 @@ class DiffAgent(BaseAgent):
         
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                if isinstance(observation[key], list):
-                    observation[key] = observation[key][0]
                 observation[key] = observation[key][:,obs_mask,...]
         
         obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
@@ -441,8 +439,6 @@ class DiffAgent(BaseAgent):
         
         masked_obs = sampled_batch['obs']
         for key in masked_obs:
-            if isinstance(masked_obs[key], list):
-                masked_obs[key] = masked_obs[key][0]
             masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
         obs_fea = self.obs_encoder(masked_obs)

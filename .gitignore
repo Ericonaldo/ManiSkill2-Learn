@@ -6,6 +6,7 @@ demos/
 data/
 logs/
 *videos/
+key_frames/*
 
 # C extensions
 *.so

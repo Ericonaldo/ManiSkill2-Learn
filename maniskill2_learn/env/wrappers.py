@@ -504,7 +504,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                     "state": s,
                 }
                 for key in rgbd:
-                    rgbd[key] = rgbd[key].astype(np.uint8, copy=False).transpose(2, 0, 1), # [C, H, W]
+                    rgbd[key] = rgbd[key].astype(np.uint8, copy=False).transpose(2, 0, 1) # [C, H, W]
                     out_dict["{}_rgbd".format(key)] = rgbd[key]
                 if goal_rgbd is not None:
                     out_dict["goal_rgbd"] = goal_rgbd

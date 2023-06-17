@@ -1,7 +1,7 @@
 horizon = 16
 n_obs_steps = 8
 future_action_len = horizon - n_obs_steps
-workdir = "rgbd"
+workdir = "rgb"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=128,
@@ -78,7 +78,7 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=500000,
+    total_steps=100000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,

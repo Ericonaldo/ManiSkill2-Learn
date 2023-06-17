@@ -21,8 +21,6 @@ def convert_observation_to_space(observation):
     """Convert observation to OpenAI gym observation space (recursively).
     Modified from gym.envs.mujoco_env
     """
-    if isinstance(observation, (list)):
-        observation = observation[0]
     if isinstance(observation, (dict)):
         # if not isinstance(observation, OrderedDict):
         #     warn("observation is not an OrderedDict. Keys are {}".format(observation.keys()))
