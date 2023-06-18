@@ -142,7 +142,7 @@ def train_rl(
     expert_replay=None,
     recent_traj_replay=None,
 
-    total_steps=1000000,
+    total_steps=2000000,
     warm_steps=10000,
     resume_steps=0,
     use_policy_to_warm_up=False,

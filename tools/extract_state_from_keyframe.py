@@ -58,24 +58,32 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
         trajectory = GDict.from_hdf5(input_h5[key])
         trajectory = auto_fix_wrong_name(trajectory)
         traj_keyframe = GDict.from_hdf5(keyframe_h5[key])["keyframe"]
+        print(key, traj_keyframe)
 
         length = trajectory['actions'].shape[0]
 
         replay = ReplayMemory(length)
-        action_accumulated = np.zeros(trajectory['actions'].shape)
+        # action_accumulated = np.zeros(trajectory['actions'].shape)
 
         for i in range(length):
-            if i not in traj_keyframe:
-                action_accumulated += trajectory['actions']
-                continue
+            # if i not in traj_keyframe:
+            #     action_accumulated += trajectory['actions']
+            #     continue
             
-            action_accumulated = trajectory['actions']
+            # action_accumulated = trajectory['actions']
             item_i = recursive_get_from_dict(trajectory, i)
-            item_i["actions"] = action_accumulated
+            # item_i["actions"] = action_accumulated
+            difference_array = np.absolute(traj_keyframe-i)
+            index = difference_array.argmin()
+            if traj_keyframe[index] > i or (i == traj_keyframe[index] == length-1):
+                item_i["keyframe"] = traj_keyframe[index]
+            else:
+                print(len(traj_keyframe), index, traj_keyframe, traj_keyframe[index], i)
+                item_i["keyframe"] = traj_keyframe[index+1]
 
             item_i = GDict(item_i).f64_to_f32()
             replay.push(item_i)
-            action_accumulated = 0
+            # action_accumulated = 0
 
         if worker_id == 0:
             flush_print(f"Extract keyframe trajectory: completed {cnt + 1} / {len(keys)}; this trajectory has length {length}")

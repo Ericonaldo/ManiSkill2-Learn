@@ -78,7 +78,8 @@ def parse_args():
     parser.add_argument("--env-id", help="Env name", type=str, default='PickCube')
 
     parser.add_argument("--replay-filenames", help="Replay file names", nargs='*')
-    parser.add_argument("--threshold", help="Buffer file name", type=float, default=0.2)
+    parser.add_argument("--threshold", help="Buffer file name", type=float, default=0.5)
+    parser.add_argument("--control-mode", help="Control mode", type=str, default="pd_joint_pos") # pd_ee_delta_pose
     
     args = parser.parse_args()
 
@@ -89,9 +90,9 @@ if __name__ == "__main__":
 
     args = parse_args()
 
-    filenames = args.replay_filename
+    filenames = args.replay_filenames
     if filenames is None:
-        filenames = [f"../ManiSkill2/demos/rigid_body/{args.env_id}-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"]        
+        filenames = [f"../ManiSkill2/demos/rigid_body/{args.env_id}-v0/trajmslearn.rgbd.{args.control_mode}.h5"]        
 
     for filename in filenames:
         res_dict ={}
@@ -100,9 +101,10 @@ if __name__ == "__main__":
         traj_keys = list(current_file.keys())
         current_file.close()
         
-        perspective = ["base"] # , "hand"]
+        # perspective = ["base"] # , "hand"]
+        perspective = ["hand"]
 
-        res_file = h5py.File(f"../ManiSkill2/demos/rigid_body/{args.env_id}-v0/keyframes.h5", 'w')
+        res_file = h5py.File(f"../ManiSkill2/demos/rigid_body/{args.env_id}-v0/keyframes.{args.control_mode}.h5", 'w')
 
         for key in tqdm(traj_keys):
             g = res_file.create_group(key)
@@ -123,10 +125,11 @@ if __name__ == "__main__":
 
             frame_idxes = list(set(frame_idxes))
             frame_idxes.sort()
+            assert min(frame_idxes) >= 0, f"there are negative frame idxes!, {key}, {frame_idxes}"
 
             print(args.env_id, key, frame_idxes, len(frame_idxes))
 
             # res_dict[key] = np.array(frame_idxes).astype(np.int8)
-            g.create_dataset('keyframe',data=np.array(frame_idxes).astype(np.int8))
+            g.create_dataset('keyframe',data=np.array(frame_idxes).astype(int))
         
         res_file.close()

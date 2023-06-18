@@ -1,24 +1,26 @@
 horizon = 16
 n_obs_steps = 8
 future_action_len = horizon - n_obs_steps
-workdir = "rgbd"
+eval_action_len = 4 # how many actions to be executed in the following timesteps for one input
+workdir = "rgb"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=128,
     action_seq_len=horizon,
+    eval_action_len=eval_action_len,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
             obs=dict(
                 base_camera_rgbd=dict(
-                    type="rgbd",
+                    type="rgb",
                     shape="image_size",
-                    channel=4
+                    channel=3
                 ),
                 hand_camera_rgbd=dict(
-                    type="rgbd",
+                    type="rgb",
                     shape="image_size",
-                    channel=4
+                    channel=3
                 ),
                 state=dict(
                     type="low_dim",
@@ -48,14 +50,16 @@ agent_cfg = dict(
     ),
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-#     history_len=n_obs_steps,
-#     obs_mode="rgbd",
-#     control_mode="pd_ee_delta_pose"
-# )
+env_cfg = dict(
+    type="gym",
+    env_name="PickCube-v0",
+    unwrapped=False,
+    history_len=n_obs_steps,
+    obs_mode="rgbd",
+    control_mode="pd_ee_delta_pose",
+    concat_rgbd=True,
+    using_depth=False,
+)
 
 
 replay_cfg = dict(
@@ -63,33 +67,32 @@ replay_cfg = dict(
     sampling_cfg=dict(
         type="TStepTransition",
         horizon=horizon,
-        future_action_len=future_action_len,
     ),
+    using_depth=False,
     capacity=-1,
     num_samples=-1,
     keys=["obs", "actions", "dones", "episode_dones"],
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=8,
-    synchronized=False,
 )
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=200000,
+    total_steps=50000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
-    n_eval=10000,
+    n_eval=50000,
     n_checkpoint=10000,
 )
 
 eval_cfg = dict(
-    type="OfflineDiffusionEvaluation",
+    type="Evaluation",
     num=10,
     num_procs=1,
     use_hidden_state=False,
     save_traj=False,
+    save_video=True,
     use_log=False,
 )
