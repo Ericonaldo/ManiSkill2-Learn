@@ -747,6 +747,8 @@ class BatchEvaluation:
                     for i in range(n):
                         if len(self.eval_action_queue[i]):
                             actions[i] = self.eval_action_queue[i].popleft()
+                            if num_finished[i] < running_steps[i]:
+                                self.workers[i].call("step", to_np(actions[i:i+1]))
                 none_idx = [i for i,x in enumerate(actions) if x is None]
                 if len(none_idx):
                     with pi.no_sync(mode="actor"):
@@ -759,10 +761,12 @@ class BatchEvaluation:
                             for i in range(self.eval_action_len-1):
                                 self.eval_action_queue[j].append(tmp[j,i+1,:])
                             actions[j] = tmp[j,0,:]
-                actions = to_np(actions)
-            for i in range(n):
-                if num_finished[i] < running_steps[i]:
-                    self.workers[i].call("step", actions[i:i+1])
+                            if num_finished[j] < running_steps[j]:
+                                self.workers[j].call("step", to_np(actions[j:j+1]))
+            # actions = to_np(actions)
+            # for i in range(n):
+            #     if num_finished[i] < running_steps[i]:
+            #         self.workers[i].call("step", actions[i:i+1])
             for i in range(n):
                 if num_finished[i] < running_steps[i]:
                     obs_i, episode_done = GDict(self.workers[i].wait()).slice(0, wrapper=False)
