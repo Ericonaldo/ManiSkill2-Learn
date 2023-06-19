@@ -58,7 +58,8 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
         trajectory = GDict.from_hdf5(input_h5[key])
         trajectory = auto_fix_wrong_name(trajectory)
         traj_keyframe = GDict.from_hdf5(keyframe_h5[key])["keyframe"]
-        print(key, traj_keyframe)
+
+        max_keyframes_len = len(traj_keyframe) - 1
 
         length = trajectory['actions'].shape[0]
 
@@ -76,10 +77,11 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             difference_array = np.absolute(traj_keyframe-i)
             index = difference_array.argmin()
             if traj_keyframe[index] > i or (i == traj_keyframe[index] == length-1):
-                item_i["keyframe"] = traj_keyframe[index]
+                item_i["keyframes"] = np.pad(traj_keyframe[index:], (0, index), 'constant', constant_values=(-1, -1))
             else:
-                print(len(traj_keyframe), index, traj_keyframe, traj_keyframe[index], i)
-                item_i["keyframe"] = traj_keyframe[index+1]
+                item_i["keyframes"] = np.pad(traj_keyframe[index+1:], (0, index+1), 'constant', constant_values=(-1, -1))
+
+            assert item_i["keyframes"][0] >= i, "keyframe should after the frame, however {} < {}".format(item_i['keyframes'], i)
 
             item_i = GDict(item_i).f64_to_f32()
             replay.push(item_i)

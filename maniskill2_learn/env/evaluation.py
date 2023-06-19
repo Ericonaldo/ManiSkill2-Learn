@@ -5,6 +5,8 @@ import os
 import os.path as osp
 import shutil
 from copy import deepcopy
+from collections import deque
+import sys
 
 import cv2
 import numpy as np
@@ -91,7 +93,7 @@ def log_mem_info(logger):
 
 @EVALUATIONS.register_module()
 class FastEvaluation:
-    def __init__(self, env_cfg=None, num_procs=1, seed=None, **kwargs):
+    def __init__(self, env_cfg=None, num_procs=1, seed=None, eval_action_len=1, **kwargs):
         self.n = num_procs
         self.vec_env = build_vec_env(env_cfg, num_procs, **kwargs, seed=seed)
         self.vec_env.reset()
@@ -289,6 +291,7 @@ class Evaluation:
     def __init__(
         self,
         env_cfg,
+        logger=None,
         worker_id=None,
         save_traj=True,
         only_save_success_traj=False,
@@ -299,6 +302,7 @@ class Evaluation:
         # render_mode="human", # cameras", # "rgb_array",
         eval_levels=None,
         seed=None,
+        eval_action_len=1,
         **kwargs,
     ):
         
@@ -320,12 +324,14 @@ class Evaluation:
         self.log_every_episode = kwargs.get("log_every_episode", True)
         self.log_every_step = kwargs.get("log_every_step", False)
 
-        logger_name = get_logger_name()
-        log_level = logging.INFO if (kwargs.get("log_all", False) or self.worker_id is None or self.worker_id == 0) else logging.ERROR
-        worker_suffix = "-env" if self.worker_id is None else f"-env-{self.worker_id}"
-
-        self.logger = get_logger("Evaluation-" + logger_name + worker_suffix, log_level=log_level)
-        self.logger.info(f"The Evaluation environment has seed in {seed}!")
+        self.logger = logger
+        if logger is None:
+            logger_name = get_logger_name()
+            log_level = logging.INFO if (kwargs.get("log_all", False) or self.worker_id is None or self.worker_id == 0) else logging.ERROR
+            worker_suffix = "-env" if self.worker_id is None else f"-env-{self.worker_id}"
+    
+            self.logger = get_logger("Evaluation-" + logger_name + worker_suffix, log_level=log_level)
+            self.logger.info(f"The Evaluation environment has seed in {seed}!")
 
         self.use_hidden_state = use_hidden_state
         self.sample_mode = sample_mode
@@ -367,6 +373,11 @@ class Evaluation:
         else:
             self.vec_env.render(self.render_mode)
 
+        self.eval_action_queue = None
+        self.eval_action_len = eval_action_len
+        if self.eval_action_len > 1:
+            self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
+
     def start(self, work_dir=None):
         if work_dir is not None:
             self.work_dir = work_dir if self.worker_id is None else os.path.join(work_dir, f"thread_{self.worker_id}")
@@ -388,6 +399,8 @@ class Evaluation:
         self.video_writer = None
         self.level_index = -1
         self.logger.info(f"Begin to evaluate in worker {self.worker_id}")
+        if self.worker_id is not None:
+            print(f"Begin to evaluate in worker {self.worker_id}", flush=True)
 
         self.episode_id = -1
         self.reset()
@@ -431,6 +444,13 @@ class Evaluation:
             extra_output = "" if self.level_index is None else f"with level id {self.level_index}"
             self.logger.info(f"Episode {self.episode_id} begins, run on level {level} {extra_output}!")
 
+        self.init_eval()
+    
+    def init_eval(self):
+        if self.eval_action_queue is not None:
+            if self.eval_action_len > 1:
+                self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
+
     def step(self, action):
         data_to_store = {"obs": self.recent_obs}
 
@@ -463,6 +483,11 @@ class Evaluation:
             self.logger.info(
                 f"Episode {self.episode_id}, Step {self.episode_len}: Reward: {reward:.3f}, Early Stop or Finish: {done}, Info: {info_str}"
             )
+            if self.worker_id is not None:
+                print(
+                    f"Woker ID {self.worker_id}, Episode {self.episode_id}, Step {self.episode_len}: Reward: {reward:.3f}, Early Stop or Finish: {done}, Info: {info_str}",
+                    flush=True
+                )
 
         if self.save_traj:
             data_to_store.update(infos)
@@ -487,6 +512,11 @@ class Evaluation:
                 self.logger.info(
                     f"Episode {self.episode_id} ends: Length {self.episode_len}, Reward: {self.episode_reward}, Early Stop or Finish: {done}"
                 )
+                if self.worker_id is not None:
+                    print(
+                        f"Woker ID {self.worker_id}, Episode {self.episode_id} ends: Length {self.episode_len}, Reward: {self.episode_reward}, Early Stop or Finish: {done}",
+                        flush=True
+                    )
             self.episode_finish = done
             self.done()
             self.reset()
@@ -501,7 +531,7 @@ class Evaluation:
     def run(self, pi, num=1, work_dir=None, **kwargs):
         if self.eval_levels is not None:
             if num > len(self.eval_levels):
-                print(f"We do not need to select more than {len(self.eval_levels)} levels!")
+                print(f"We do not need to select more than {len(self.eval_levels)} levels!", flush=True)
                 num = min(num, len(self.eval_levels))
         self.start(work_dir)
         import torch
@@ -519,12 +549,20 @@ class Evaluation:
         recent_obs = self.recent_obs
 
         while self.episode_id < num:
-            if self.use_hidden_state:
-                recent_obs = self.vec_env.get_state()
-            with torch.no_grad():
-                with pi.no_sync(mode="actor"):
-                    action = pi(recent_obs, mode=self.sample_mode)
-                    action = to_np(action)
+            if self.eval_action_queue is not None and len(self.eval_action_queue):
+                action = self.eval_action_queue.popleft()
+            else:
+                if self.use_hidden_state:
+                    recent_obs = self.vec_env.get_state()
+                with torch.no_grad():
+                    with pi.no_sync(mode="actor"):
+                        action = pi(recent_obs, mode=self.sample_mode)
+                        action = to_np(action)
+                        if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0) and self.eval_action_len>1:
+                            for i in range(self.eval_action_len-1):
+                                self.eval_action_queue.append(action[:,i+1,:])
+                            action = action[:,0]
+                        
             recent_obs, episode_done = self.step(action)
 
             if episode_done:
@@ -556,6 +594,7 @@ class BatchEvaluation:
         sample_mode="eval",
         eval_levels=None,
         seed=None,
+        eval_action_len=1,
         **kwargs,
     ):
         self.work_dir = None
@@ -572,7 +611,8 @@ class BatchEvaluation:
 
         self.n = num_procs
         self.workers = []
-        self.logger = get_logger("Evaluation-" + get_logger_name())
+        log_level = logging.INFO
+        self.logger = get_logger("Evaluation-" + get_logger_name(), log_level=log_level)
 
         if eval_levels is None:
             eval_levels = [None for i in range(self.n)]
@@ -598,6 +638,7 @@ class BatchEvaluation:
                 Worker(
                     Evaluation,
                     i,
+                    logger=self.logger,
                     worker_seed=seed + i,
                     env_cfg=env_cfg,
                     save_traj=save_traj,
@@ -607,7 +648,18 @@ class BatchEvaluation:
                     eval_levels=eval_levels[i],
                     **kwargs,
                 )
-            )
+            )        
+        
+        self.eval_action_queue = None
+        self.eval_action_len = eval_action_len
+        if self.eval_action_len > 1:
+            self.eval_action_queue = {}
+            for i in range(self.n):
+                self.eval_action_queue[i] = deque(maxlen=self.eval_action_len-1)
+
+    def init_eval(self, i):
+        if self.eval_action_queue is not None:
+            self.eval_action_queue[i] = deque(maxlen=self.eval_action_len-1)
 
     def start(self, work_dir=None):
         self.work_dir = work_dir
@@ -678,16 +730,35 @@ class BatchEvaluation:
         if hasattr(pi, "reset"):
             pi.reset()
         import torch
-
+        
         while True:
+            sys.stdout.flush()
             finish = True
             for i in range(n):
                 finish = finish and (num_finished[i] >= running_steps[i])
             if finish:
                 break
+            if self.eval_action_queue is not None and self.eval_action_len > 1:
+                action_dim = self.recent_obs["actions"].shape[-1]
+                tmp = np.array([[[None] * action_dim] * self.eval_action_len] * self.n)
+                actions = np.array([None] * self.n)
             with torch.no_grad():
-                with pi.no_sync(mode="actor"):
-                    actions = pi(self.recent_obs, mode=self.sample_mode)
+                if self.eval_action_queue is not None:
+                    for i in range(n):
+                        if len(self.eval_action_queue[i]):
+                            actions[i] = self.eval_action_queue[i].popleft()
+                none_idx = [i for i,x in enumerate(actions) if x is None]
+                if len(none_idx):
+                    with pi.no_sync(mode="actor"):
+                        res = to_np(pi(dict(self.recent_obs.get(none_idx)), mode=self.sample_mode)[:,:self.eval_action_len,:])
+                        tmp[none_idx] = to_np(pi(dict(self.recent_obs.get(none_idx)), mode=self.sample_mode)[:,:self.eval_action_len,:])
+                if (self.eval_action_queue is not None):
+                    for j in range(self.n):
+                        if (actions[j] is None) and self.eval_action_len > 1:
+                            assert len(self.eval_action_queue[j]) == 0, "Why queue not empty?"
+                            for i in range(self.eval_action_len-1):
+                                self.eval_action_queue[j].append(tmp[j,i+1,:])
+                            actions[j] = tmp[j,0,:]
                 actions = to_np(actions)
             for i in range(n):
                 if num_finished[i] < running_steps[i]:
@@ -697,15 +768,17 @@ class BatchEvaluation:
                     obs_i, episode_done = GDict(self.workers[i].wait()).slice(0, wrapper=False)
                     self.recent_obs.assign((i,), obs_i)
                     num_finished[i] += int(episode_done)
+                    if episode_done:
+                        self.init_eval(i)
                     # Commenting this out for now; this causes pynvml.nvml.NVMLError_FunctionNotFound for some reason
                     # if i == 0 and bool(episode_done):
                     #     log_mem_info(self.logger)
         self.finish()
         if self.enable_merge:
             self.merge_results(n)
-        
+
         return dict(
-            lens=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+            lengths=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
         )
         # return self.episode_lens, self.episode_rewards, self.episode_finishes
 
@@ -786,7 +859,7 @@ class OfflineDiffusionEvaluation:
     def run(self, pi, memory, num=1, work_dir=None, **kwargs):
         if self.eval_levels is not None:
             if num > len(self.eval_levels):
-                print(f"We do not need to select more than {len(self.eval_levels)} levels!")
+                print(f"We do not need to select more than {len(self.eval_levels)} levels!", flush=True)
                 num = min(num, len(self.eval_levels))
         self.start(work_dir)
         import torch

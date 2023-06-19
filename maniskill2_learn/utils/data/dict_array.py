@@ -846,6 +846,9 @@ class DictArray(GDict):
             value = value.memory
         self.memory = self._assign(self.memory, indices, value)
 
+    def get(self, indices, wrapper=True):
+        return self._recursive_do(self.memory, take, indices=indices, axis=0, wrapper=wrapper)
+
     def gather(self, axis, index, wrapper=True):
         return self._recursive_do(self.memory, gather, axis=axis, index=index, wrapper=wrapper)
 
@@ -854,7 +857,6 @@ class DictArray(GDict):
 
     def __len__(self):
         return self.capacity
-
 
 class SharedGDict(GDict):
     def __init__(self, gdict=None, shape=None, dtype=None, name=None):

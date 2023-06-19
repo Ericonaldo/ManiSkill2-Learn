@@ -7,7 +7,6 @@ agent_cfg = dict(
     type="DiffAgent",
     batch_size=128,
     action_seq_len=horizon,
-    eval_action_len=eval_action_len,
     pcd_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
@@ -100,4 +99,5 @@ eval_cfg = dict(
     save_traj=False,
     save_video=True,
     use_log=False,
+    eval_action_len=eval_action_len,
 )

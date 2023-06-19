@@ -7,7 +7,6 @@ agent_cfg = dict(
     type="DiffAgent",
     batch_size=128,
     action_seq_len=horizon,
-    eval_action_len=eval_action_len,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
@@ -95,4 +94,5 @@ eval_cfg = dict(
     save_traj=False,
     save_video=True,
     use_log=False,
+    eval_action_len=eval_action_len
 )

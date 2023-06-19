@@ -9,7 +9,6 @@ from copy import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import defaultdict, deque
 
 from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
@@ -77,7 +76,6 @@ class DiffAgent(BaseAgent):
         self.model = build_model(nn_cfg)
 
         self.horizon = self.action_seq_len = action_seq_len
-        self.eval_action_len = eval_action_len
         self.observation_shape = env_params['obs_shape']
 
         self.returns_condition = returns_condition
@@ -163,10 +161,11 @@ class DiffAgent(BaseAgent):
         self.init_normalizer = False
 
         self.act_mask, self.obs_mask = None, None
-
-        self.eval_action_queue = None
-        if self.eval_action_len > 1:
-            self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
+        
+        # Only used for ms-skill challenge online evaluation
+        # self.eval_action_queue = None
+        # if self.eval_action_len > 1:
+        #     self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
 
     def get_loss_weights(self, action_weight, discount, weights_dict):
         """
@@ -346,9 +345,9 @@ class DiffAgent(BaseAgent):
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
 
-        if mode=="eval":
-            if self.eval_action_queue is not None and len(self.eval_action_queue):
-                return self.eval_action_queue.popleft()
+        # if mode=="eval": # Only used for ms-skill challenge online evaluation
+        #     if self.eval_action_queue is not None and len(self.eval_action_queue):
+        #         return self.eval_action_queue.popleft()
         
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         
@@ -359,10 +358,6 @@ class DiffAgent(BaseAgent):
         observation.pop("actions")
         
         self.set_mode(mode=mode)
-        
-        # for obs_key in observation.keys():
-        #     print(obs_key, observation[obs_key].shape)
-        # print(action_history.shape)
 
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
@@ -399,10 +394,12 @@ class DiffAgent(BaseAgent):
         pred_action = pred_action_seq
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
-            if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
-                for i in range(self.eval_action_len-1):
-                    self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,:])
+            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
+            # Only used for ms-skill challenge online evaluation
+            # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
+            # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
+            #     for i in range(self.eval_action_len-1):
+            #         self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,:])
         
         return pred_action
     
