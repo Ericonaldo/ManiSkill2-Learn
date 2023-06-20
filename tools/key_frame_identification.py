@@ -8,6 +8,7 @@ import argparse
 import h5py
 from tqdm import tqdm
 
+# install from https://github.com/joelibaceta/video-keyframe-detector
 from KeyFrameDetector.utils import convert_frame_to_grayscale, prepare_dirs, plot_metrics
 from maniskill2_learn.utils.file.cache_utils import *
 
@@ -113,7 +114,7 @@ if __name__ == "__main__":
             item = DictArray(item)
             # print(item["obs"]["base_camera_rgbd"].shape)
 
-            frame_idxes = [0, len(item["actions"])]
+            frame_idxes = [0, len(item["actions"])-1]
 
             for p in perspective:
                 tmp_frames = item["obs"][f"{p}_camera_rgbd"][:,:3,:,:].astype(np.float32) # (C,H,W)

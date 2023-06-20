@@ -2,7 +2,7 @@ from .mlp import LinearMLP, ConvMLP
 from .visuomotor import Visuomotor
 from .pointnet import PointNet
 
-from .transformer import TransformerEncoder
+# from .transformer import TransformerEncoder
 from .resnet import ResNet, ResNetV1c, ResNetV1d
 from .visuomotor import Visuomotor
 from .rl_cnn import IMPALA, NatureCNN

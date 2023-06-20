@@ -1,10 +1,10 @@
-horizon = 16
-n_obs_steps = 8
+horizon = 8
+n_obs_steps = 4
 future_action_len = horizon - n_obs_steps
-eval_action_len = 2 # how many actions to be executed in the following timesteps for one input
 workdir = "rgbd"
 agent_cfg = dict(
-    type="DiffAgent",
+    type="KeyDiffAgent",
+    train_diff_model=False,
     batch_size=128,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
@@ -23,7 +23,7 @@ agent_cfg = dict(
                 ),
                 state=dict(
                     type="low_dim",
-                    shape="agent_shape",
+                    shape="agent_shape"
                 )
             )
         ),
@@ -36,7 +36,7 @@ agent_cfg = dict(
     fix_obs_stepd=True,
     action_visible=True,
     optim_cfg=dict(type="Adam", lr=3e-4),
-    nn_cfg=dict(
+    diff_nn_cfg=dict(
         type="ConditionalUnet1D",
         input_dim="action_shape",
         local_cond_dim=None,
@@ -47,17 +47,33 @@ agent_cfg = dict(
         n_groups=8,
         cond_predict_scale=False,
     ),
+    keyframe_model_cfg=dict(
+        state_dim="agent_shape",
+        action_dim="action_shape",
+        model_type="s+a",
+        block_size=64,
+        n_layer=4,
+        n_head=8, 
+        n_embd=128,
+        max_timestep=200,
+        hist_horizon=n_obs_steps,
+        optim_cfg=dict(
+            init_lr=5e-4,
+            weight_decay=0,
+            beta1=0.9,
+            beta2=0.95,
+        ),
+    ),
 )
 
-env_cfg = dict(
-    type="gym",
-    env_name="PickCube-v0",
-    unwrapped=False,
-    history_len=n_obs_steps,
-    obs_mode="rgbd",
-    control_mode="pd_ee_delta_pose",
-    concat_rgbd=True,
-)
+# env_cfg = dict(
+#     type="gym",
+#     env_name="PickCube-v0",
+#     unwrapped=False,
+#     history_len=n_obs_steps,
+#     obs_mode="rgbd",
+#     control_mode="pd_ee_delta_pose"
+# )
 
 
 replay_cfg = dict(
@@ -65,32 +81,33 @@ replay_cfg = dict(
     sampling_cfg=dict(
         type="TStepTransition",
         horizon=horizon,
+        future_action_len=future_action_len,
     ),
     capacity=-1,
     num_samples=-1,
-    keys=["obs", "actions", "dones", "episode_dones"],
+    keys=["obs", "actions", "dones", "episode_dones", "keyframes", "keytime_differences", "keyframe_masks", "timesteps"],
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
+    num_procs=8,
+    synchronized=False,
 )
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=50000,
+    total_steps=200000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
-    n_eval=50000,
+    n_eval=10000,
     n_checkpoint=10000,
 )
 
 eval_cfg = dict(
-    type="Evaluation",
+    type="OfflineDiffusionEvaluation",
     num=10,
     num_procs=1,
     use_hidden_state=False,
     save_traj=False,
-    save_video=True,
     use_log=False,
-    eval_action_len=eval_action_len,
 )

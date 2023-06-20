@@ -167,6 +167,9 @@ class DiffAgent(BaseAgent):
         # if self.eval_action_len > 1:
         #     self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
 
+    def eval(self):
+        return super().eval()
+
     def get_loss_weights(self, action_weight, discount, weights_dict):
         """
         sets loss coefficients for trajectory

@@ -73,6 +73,7 @@ class MultiImageObsEncoder(CNNBase):
         key_model_map = nn.ModuleDict()
         key_transform_map = nn.ModuleDict()
         key_shape_map = dict()
+        self.feature_shape_map = dict()
         self.n_obs_steps = n_obs_steps
         self.use_pcd_model = use_pcd_model
 
@@ -215,6 +216,8 @@ class MultiImageObsEncoder(CNNBase):
                 imgs = torch.cat(imgs, dim=0)
                 # (N*B*L,D)
                 feature = self.key_model_map['rgb'](imgs)
+                if "rgb" in self.feature_shape_map:
+                    self.feature_shape_map['rgb'] = feature.shape[-1]
                 # (N,B*L,D)
                 feature = feature.reshape(-1,batch_size*horizon,*feature.shape[1:])
                 if horizon > 1:
@@ -240,6 +243,8 @@ class MultiImageObsEncoder(CNNBase):
                     assert img.shape[2:] == self.key_shape_map[key] # bs, horizon
                     img = self.key_transform_map[key](img)
                     feature = self.key_model_map[key](img)
+                    if "rgb" in self.feature_shape_map:
+                        self.feature_shape_map[key] = feature.shape[-1]
                     features.append(feature)
 
         # process pcd input

@@ -54,14 +54,18 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
     input_h5 = h5py.File(args.traj_name, "r")
     keyframe_h5 = h5py.File(args.keyframe_name, "r")
 
+    max_keyframes_len = - 1
+    for j, key in enumerate(keys):
+        traj_keyframe = GDict.from_hdf5(keyframe_h5[key])["keyframe"]
+        max_keyframes_len = max(len(traj_keyframe) - 1, max_keyframes_len)
+
     for j, key in enumerate(keys):
         trajectory = GDict.from_hdf5(input_h5[key])
         trajectory = auto_fix_wrong_name(trajectory)
         traj_keyframe = GDict.from_hdf5(keyframe_h5[key])["keyframe"]
 
-        max_keyframes_len = len(traj_keyframe) - 1
-
         length = trajectory['actions'].shape[0]
+        action_dim = trajectory['actions'].shape[-1]
 
         replay = ReplayMemory(length)
         # action_accumulated = np.zeros(trajectory['actions'].shape)
@@ -76,16 +80,34 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             # item_i["actions"] = action_accumulated
             difference_array = np.absolute(traj_keyframe-i)
             index = difference_array.argmin()
-            if traj_keyframe[index] > i or (i == traj_keyframe[index] == length-1):
-                item_i["keyframes"] = np.pad(traj_keyframe[index:], (0, index), 'constant', constant_values=(-1, -1))
-            else:
-                item_i["keyframes"] = np.pad(traj_keyframe[index+1:], (0, index+1), 'constant', constant_values=(-1, -1))
 
-            assert item_i["keyframes"][0] >= i, "keyframe should after the frame, however {} < {}".format(item_i['keyframes'], i)
+            keyframe_action = np.zeros((max_keyframes_len,action_dim))
+            keyframe_difference = np.zeros(max_keyframes_len)
+            keyframe_mask = np.zeros(max_keyframes_len)
+            if traj_keyframe[index] > i or (i == traj_keyframe[index] == length-1):
+                first_key_frame = traj_keyframe[index]
+                keyframe_difference[:traj_keyframe[index:].shape[0]] = traj_keyframe[index:]-i
+                keyframe_action[:traj_keyframe[index:].shape[0]] = trajectory['actions'][traj_keyframe[index:]]
+                keyframe_mask[:traj_keyframe[index:].shape[0]] = 1.
+                # keyfram e_action = np.pad(traj_keyframe[index:], (0, max_keyframes_len-(len(traj_keyframe)-index)), 'constant', constant_values=(-1, -1))
+            else:
+                first_key_frame = traj_keyframe[index+1]
+                keyframe_difference[:traj_keyframe[index+1:].shape[0]] = traj_keyframe[index+1:]-i
+                keyframe_action[:traj_keyframe[index+1:].shape[0]] = trajectory['actions'][traj_keyframe[index+1:]]
+                keyframe_mask[:traj_keyframe[index+1:].shape[0]] = 1.
+                # keyframe_action = np.pad(traj_keyframe[index+1:], (0, max_keyframes_len-(len(traj_keyframe)-index-1)), 'constant', constant_values=(-1, -1))
+            item_i["keyframes"] = keyframe_action
+            item_i["keyframe_masks"] = keyframe_mask
+            item_i["keytime_differences"] = keyframe_difference
+            item_i["timesteps"] = i
+
+            assert first_key_frame >= i, "keyframe should after the frame, however {} < {}".format(item_i['keyframes'], i)
 
             item_i = GDict(item_i).f64_to_f32()
             replay.push(item_i)
             # action_accumulated = 0
+            # print(item_i["obs"]['state'].shape)
+            # print(item_i["keyframes"].shape)
 
         if worker_id == 0:
             flush_print(f"Extract keyframe trajectory: completed {cnt + 1} / {len(keys)}; this trajectory has length {length}")

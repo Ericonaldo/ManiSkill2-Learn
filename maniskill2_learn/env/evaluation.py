@@ -592,6 +592,7 @@ class BatchEvaluation:
         save_video=True,
         enable_merge=True,
         sample_mode="eval",
+        render_mode="cameras",
         eval_levels=None,
         seed=None,
         eval_action_len=1,
@@ -604,6 +605,7 @@ class BatchEvaluation:
         self.num_procs = num_procs
         self.enable_merge = enable_merge
         self.sample_mode = sample_mode
+        self.render_mode=render_mode
 
         self.video_dir = None
         self.trajectory_path = None
@@ -644,6 +646,7 @@ class BatchEvaluation:
                     save_traj=save_traj,
                     seed=seed + i,
                     save_video=save_video,
+                    render_mode=render_mode,
                     sample_mode=sample_mode,
                     eval_levels=eval_levels[i],
                     **kwargs,
