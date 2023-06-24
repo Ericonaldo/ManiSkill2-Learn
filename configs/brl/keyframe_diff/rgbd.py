@@ -1,10 +1,10 @@
-horizon = 8
-n_obs_steps = 4
+horizon = 24
+n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
-    train_diff_model=False,
+    # train_diff_model=True,
     batch_size=128,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
@@ -103,11 +103,11 @@ train_cfg = dict(
     n_checkpoint=10000,
 )
 
-eval_cfg = dict(
-    type="OfflineDiffusionEvaluation",
-    num=10,
-    num_procs=1,
-    use_hidden_state=False,
-    save_traj=False,
-    use_log=False,
-)
+# eval_cfg = dict(
+#     type="OfflineDiffusionEvaluation",
+#     num=10,
+#     num_procs=1,
+#     use_hidden_state=False,
+#     save_traj=False,
+#     use_log=False,
+# )

@@ -97,9 +97,8 @@ class CausalSelfAttentionWithHist(nn.Module):
         self.model_type = config.model_type
         self.len_history = config.len_history
 
-        # For the learnable history query tokens, they are actually all-to-all, meaning
-        # they can access to all future tokens during inference, and up to a future step 
-        # randomly selected during training (see `history_mask` in forward(...)). 
+        # For the history query tokens, they are actually all-to-all, meaning
+        # they can access to all future tokens during inference. 
         self.mask[:,:,:self.len_history] = 0.0
 
     def forward(self, x):
@@ -115,6 +114,7 @@ class CausalSelfAttentionWithHist(nn.Module):
         att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float('-inf'))  # Masked attention
 
         att = F.softmax(att, dim=-1)
+        att = torch.where(torch.isnan(att), torch.full_like(att, 0), att) # replace nan with 0.
         att = self.attn_drop(att)
         y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
@@ -126,7 +126,7 @@ class CausalSelfAttentionWithHist(nn.Module):
 
 class Block(nn.Module):
     """
-    A Transformer block with masks specified for the learnable history query tokens.
+    A Transformer block with masks specified for the history query tokens.
     """
 
     def __init__(self, config):
@@ -249,7 +249,8 @@ class KeyframeGPTWithHist(nn.Module):
             token_embeddings[:,:T*2:2,:] = state_embeddings
             if actions is not None: 
                 # Assume the last action is not used as inputs during training.
-                token_embeddings[:,1:T*2-1:2,:] = self.action_encoder(actions[:,:T-1])
+                action_embeddings = self.action_encoder(actions[:,:T-1])
+                token_embeddings[:,1:T*2-1:2,:] = action_embeddings
                     
         else:
             token_embeddings[:,:T,:] = state_embeddings

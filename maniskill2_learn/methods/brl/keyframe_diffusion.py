@@ -108,8 +108,11 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe, info = self.keyframe_model(states, timesteps, actions) # (B, future_seq_len, act_dim+1)
         loss = ((pred_keyframe[:,:keyframes.shape[1]] - gt) ** 2)
         masked_loss = loss*keyframe_masks.unsqueeze(-1)
+        masked_loss = masked_loss.mean()
 
-        return masked_loss.mean(), info
+        info.update(dict(keyframe_loss=masked_loss.detach().cpu()))
+
+        return masked_loss, info
 
     def diff_loss(self, x, masks, cond_mask, local_cond=None, global_cond=None, returns=None):
         # x is the action, with shape (bs, horizon, act_dim)
@@ -226,6 +229,7 @@ class KeyDiffAgent(DiffAgent):
             diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=act_mask, global_cond=obs_fea) # TODO: local_cond, returns
             ret_dict.update(info)
             loss += diff_loss
+
         if self.train_keyframe_model:
             keyframes = sampled_batch["keyframes"]
             keytime_differences = sampled_batch["keytime_differences"]
