@@ -50,8 +50,9 @@ class MultiImageObsEncoder(CNNBase):
             rgb_model: Union[nn.Module, Dict[str,nn.Module]]=get_resnet("resnet18"),
             pcd_model: dict=None,
             resize_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None,
-            crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None, # [76,76],
+            crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=[104,104], # [76,76],
             random_crop: bool=True,
+            random_rotation: bool=True,
             # replace BatchNorm with GroupNorm
             use_group_norm: bool=False,
             # use single rgb model for all rgb inputs
@@ -159,13 +160,19 @@ class MultiImageObsEncoder(CNNBase):
                         this_normalizer = torchvision.transforms.CenterCrop(
                             size=(h,w)
                         )
+                # configure rotation
+                this_rotationer = nn.Identity()
+                if random_rotation:
+                     this_rotationer = torchvision.transforms.RandomRotation(
+                        degrees=180)
+
                 # configure normalizer
                 this_normalizer = nn.Identity()
                 if imagenet_norm:
                     this_normalizer = torchvision.transforms.Normalize(
                         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 
-                this_transform = nn.Sequential(this_resizer, this_randomizer, this_normalizer)
+                this_transform = nn.Sequential(this_resizer, this_randomizer, this_rotationer, this_normalizer)
                 key_transform_map[key] = this_transform
             elif obs_type == 'pcd':
                 self.pcd_keys.append(key)
