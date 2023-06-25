@@ -99,7 +99,7 @@ class KeyDiffAgent(DiffAgent):
         if not train_diff_model:
             self.actor_optim = None
 
-        self.max_horizon = self.action_seq_len - self.n_obs_steps + 1 # substract history but add the current step
+        self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
 
     def keyframe_loss(self, states, timesteps, actions, keyframes, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
@@ -139,11 +139,19 @@ class KeyDiffAgent(DiffAgent):
         observation.pop("actions")
         
         self.set_mode(mode=mode)
-        pred_keyframe, info = self.keyframe_model(states, timesteps, action_history)
-        pred_keyframe = pred_keyframe[:, 0] # take the first key frame for diffusion
+        pred_keyframe_seq, info = self.keyframe_model(states, timesteps, action_history)
+        pred_keyframe = pred_keyframe_seq[:, 0] # take the first key frame for diffusion
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
-        pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=1, a_max=self.max_horizon) - 1 # [B,]
+        pred_keytime_differences = (self.max_horizon * pred_keytime_differences).astype(int)
+
+        # Method 2: If bigger than max_horizon, then return keyframe util the keyframe is inside the prediction
+        if pred_keytime_differences > self.max_horizon:
+            return self.normalizer.unnormalize(pred_keyframe.unsqueeze(1)) # [B, len, action_dim]
+        
+        # Method 1: Clip the difference to be in the range of max_horizon
+        # pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=self.max_horizon) # [B,]
+        
         pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
 
         act_mask, obs_mask = None, None
@@ -184,7 +192,7 @@ class KeyDiffAgent(DiffAgent):
         pred_action = pred_action_seq
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,hist_len-1:hist_len-1+pred_keytime_differences[0]+1,:]
+            pred_action = pred_action_seq[:,hist_len-1:hist_len-1+pred_keytime_differences[0]+1,:] # not support batch evaluation
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
