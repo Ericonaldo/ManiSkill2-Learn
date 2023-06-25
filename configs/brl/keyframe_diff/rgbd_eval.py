@@ -1,10 +1,11 @@
-horizon = 16
-n_obs_steps = 8
+horizon = 28
+n_obs_steps = 4
 future_action_len = horizon - n_obs_steps
-eval_action_len = 8 # how many actions to be executed in the following timesteps for one input
+eval_action_len = 28 # how many actions to be executed in the following timesteps for one input
 workdir = "rgbd"
 agent_cfg = dict(
-    type="DiffAgent",
+    type="KeyDiffAgent",
+    # train_diff_model=True,
     batch_size=128,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
@@ -23,7 +24,7 @@ agent_cfg = dict(
                 ),
                 state=dict(
                     type="low_dim",
-                    shape="agent_shape",
+                    shape="agent_shape"
                 )
             )
         ),
@@ -36,7 +37,7 @@ agent_cfg = dict(
     fix_obs_stepd=True,
     action_visible=True,
     optim_cfg=dict(type="Adam", lr=3e-4),
-    nn_cfg=dict(
+    diff_nn_cfg=dict(
         type="ConditionalUnet1D",
         input_dim="action_shape",
         local_cond_dim=None,
@@ -47,6 +48,23 @@ agent_cfg = dict(
         n_groups=8,
         cond_predict_scale=False,
     ),
+    keyframe_model_cfg=dict(
+        state_dim="agent_shape",
+        action_dim="action_shape",
+        model_type="s+a",
+        block_size=64,
+        n_layer=4,
+        n_head=8, 
+        n_embd=128,
+        max_timestep=200,
+        hist_horizon=n_obs_steps,
+        optim_cfg=dict(
+            init_lr=5e-4,
+            weight_decay=0,
+            beta1=0.9,
+            beta2=0.95,
+        ),
+    ),
 )
 
 env_cfg = dict(
@@ -55,7 +73,7 @@ env_cfg = dict(
     unwrapped=False,
     history_len=n_obs_steps,
     obs_mode="rgbd",
-    control_mode="pd_ee_delta_pose",
+    control_mode="pd_joint_pos",
     concat_rgbd=True,
 )
 

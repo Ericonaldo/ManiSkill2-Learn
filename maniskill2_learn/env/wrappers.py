@@ -223,6 +223,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
         self.history_len = history_len
         self.action_dim = env.action_space.shape[0]
+        self.timestep = 0
 
         self.init_queue()
 
@@ -237,6 +238,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
     def reset(self, **kwargs):
         self.init_queue()
+        self.timestep = 0
         get_shape = kwargs.get("get_shape", False)
         if get_shape:
             kwargs.pop("get_shape")
@@ -250,6 +252,8 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         
         if get_shape:
             return observation  
+        
+        observation["timesteps"] = np.array([self.timestep,])
         
         if self.history_len > 1 and self.obs_mode != "state":
             for obs_key in observation.keys():
@@ -265,14 +269,17 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 observation[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
 
             observation["actions"] = np.stack(self.action_queue, axis=0)
-                
+ 
         return observation
 
     def step(self, action):
         next_obs, reward, done, info = super(ManiSkill2_ObsWrapper, self).step(action)
+        self.timestep += 1
         if self.ignore_dones:
             done = False
-          
+
+        next_obs["timesteps"] = np.array([self.timestep,])
+
         if self.history_len > 1 and self.obs_mode != "state":
             # if self.action_queue is None:
             #     self.action_queue = deque(maxlen=self.history_len-1)

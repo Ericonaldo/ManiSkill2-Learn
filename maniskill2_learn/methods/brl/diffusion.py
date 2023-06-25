@@ -469,38 +469,3 @@ class DiffAgent(BaseAgent):
     #         self.reset_parameters()
     #         return
     #     self.ema.update_model_average(self.ema_model, self.model)
-
-    def compute_test_loss(self, memory):
-        logger = get_logger()
-        logger.info(f"Begin to compute test loss with batch size {self.batch_size}!")
-        ret_dict = {}
-        num_samples = 0
-
-        from maniskill2_learn.utils.meta import TqdmToLogger
-        from tqdm import tqdm
-
-        tqdm_obj = tqdm(total=memory.data_size, file=TqdmToLogger(), mininterval=20)
-
-        batch_size = self.batch_size
-        for sampled_batch in memory.mini_batch_sampler(self.batch_size, drop_last=False):
-            sampled_batch = sampled_batch.to_torch(device="cuda", dtype="float32", non_blocking=True) # ["obs","actions"]
-
-            is_valid = sampled_batch["is_valid"].squeeze(-1)
-            loss, print_dict = self.compute_regression_loss(*sampled_batch)
-            for key in print_dict:
-                ret_dict[key] = ret_dict.get(key, 0) + print_dict[key] * len(sampled_batch)
-            num_samples += len(sampled_batch)
-            tqdm_obj.update(len(sampled_batch))
-
-        logger.info(f"We compute the test loss over {num_samples} samples!")
-
-        print_dict = {}
-        print_dict["memory"] = get_total_memory("G", False)
-        print_dict.update(get_cuda_info(device=torch.cuda.current_device(), number_only=False))
-        print_info = dict_to_str(print_dict)
-        logger.info(print_info)
-
-        for key in ret_dict:
-            ret_dict[key] /= num_samples
-
-        return ret_dict

@@ -1,11 +1,11 @@
-horizon = 24
-n_obs_steps = 6
+horizon = 28
+n_obs_steps = 4
 future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    batch_size=128,
+    batch_size=256,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
@@ -72,7 +72,7 @@ agent_cfg = dict(
 #     unwrapped=False,
 #     history_len=n_obs_steps,
 #     obs_mode="rgbd",
-#     control_mode="pd_ee_delta_pose"
+#     control_mode="pd_joint_pos"
 # )
 
 
@@ -95,7 +95,7 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=200000,
+    total_steps=500000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,

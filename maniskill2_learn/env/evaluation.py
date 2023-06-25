@@ -559,7 +559,8 @@ class Evaluation:
                         action = pi(recent_obs, mode=self.sample_mode)
                         action = to_np(action)
                         if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0) and self.eval_action_len>1:
-                            for i in range(self.eval_action_len-1):
+                            # for i in range(self.eval_action_len-1):
+                            for i in range(min(self.eval_action_len-1, action.shape[1]-1)): # Allow eval action len to be different with predicted action len
                                 self.eval_action_queue.append(action[:,i+1,:])
                             action = action[:,0]
                         
@@ -761,7 +762,8 @@ class BatchEvaluation:
                     for j in range(self.n):
                         if (actions[j] is None) and self.eval_action_len > 1:
                             assert len(self.eval_action_queue[j]) == 0, "Why queue not empty?"
-                            for i in range(self.eval_action_len-1):
+                            # for i in range(self.eval_action_len-1):
+                            for i in range(min(self.eval_action_len-1, tmp[j].shape[0]-1)): # Allow eval action len to be different with predicted action len
                                 self.eval_action_queue[j].append(tmp[j,i+1,:])
                             actions[j] = tmp[j,0,:]
                             if num_finished[j] < running_steps[j]:

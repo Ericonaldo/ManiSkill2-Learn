@@ -99,7 +99,7 @@ class KeyDiffAgent(DiffAgent):
         if not train_diff_model:
             self.actor_optim = None
 
-        self.max_horizon = self.action_seq_len
+        self.max_horizon = self.action_seq_len - self.n_obs_steps + 1 # substract history but add the current step
 
     def keyframe_loss(self, states, timesteps, actions, keyframes, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
@@ -130,6 +130,8 @@ class KeyDiffAgent(DiffAgent):
         
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         
+        states = observation["state"]
+        timesteps = observation["timesteps"]
         action_history = observation["actions"]
         action_history = self.normalizer.normalize(action_history)
         bs = action_history.shape[0]
@@ -137,6 +139,14 @@ class KeyDiffAgent(DiffAgent):
         observation.pop("actions")
         
         self.set_mode(mode=mode)
+        pred_keyframe, info = self.keyframe_model(states, timesteps, action_history)
+        pred_keyframe = pred_keyframe[:, 0] # take the first key frame for diffusion
+        pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
+        pred_keytime_differences = pred_keytime_differences.cpu().numpy()
+        pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=1, a_max=self.max_horizon) - 1 # [B,]
+        pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
+        pred_keyframe = self.normalizer.normalize(pred_keyframe)
+        # print(pred_keytime_differences, pred_keyframe)
 
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
@@ -152,11 +162,11 @@ class KeyDiffAgent(DiffAgent):
         if act_mask.shape[0] < bs:
             act_mask = act_mask.repeat(max(bs//act_mask.shape[0]+1, 2), 1, 1)
         if act_mask.shape[0] != bs:
-            act_mask = act_mask[:action_history.shape[0]] # obs mask is int
+            act_mask = act_mask[:action_history.shape[0]]
         
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:,obs_mask,...]
+                observation[key] = observation[key][:,obs_mask,...] # obs mask is for one dimension
         
         obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
         
@@ -167,13 +177,16 @@ class KeyDiffAgent(DiffAgent):
                 device=self.device,
             )
             action_history = torch.concat([action_history, supp], dim=1)
+        action_history[range(bs),pred_keytime] = pred_keyframe 
+        act_mask[range(bs),pred_keytime] = True
 
+        # Predict action seq based on key frames
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
         pred_action = pred_action_seq
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
+            pred_action = pred_action_seq[:,hist_len-1:hist_len-1+pred_keytime_differences[0]+1,:]
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
@@ -206,23 +219,24 @@ class KeyDiffAgent(DiffAgent):
 
         loss = 0.
         ret_dict = {}
-        if self.train_diff_model:
-            # generate impainting mask
-            traj_data = sampled_batch["actions"]
-            act_mask, obs_mask = None, None
-            if self.fix_obs_steps:
-                act_mask, obs_mask = self.act_mask, self.obs_mask
-            if act_mask is None or obs_mask is None:
-                if self.obs_as_global_cond:
-                    act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
-                    self.act_mask, self.obs_mask = act_mask, obs_mask
-                else:
-                    raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
-            
-            masked_obs = sampled_batch['obs']
-            for key in masked_obs:
-                masked_obs[key] = masked_obs[key][:,obs_mask,...]
+        
+        # generate impainting mask
+        traj_data = sampled_batch["actions"]
+        act_mask, obs_mask = None, None
+        if self.fix_obs_steps:
+            act_mask, obs_mask = self.act_mask, self.obs_mask
+        if act_mask is None or obs_mask is None:
+            if self.obs_as_global_cond:
+                act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
+                self.act_mask, self.obs_mask = act_mask, obs_mask
+            else:
+                raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+        
+        masked_obs = sampled_batch['obs']
+        for key in masked_obs:
+            masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
+        if self.train_diff_model:
             obs_fea = self.obs_encoder(masked_obs)
             traj_data = self.normalizer.normalize(traj_data)
 
@@ -231,14 +245,17 @@ class KeyDiffAgent(DiffAgent):
             loss += diff_loss
 
         if self.train_keyframe_model:
-            keyframes = sampled_batch["keyframes"]
+            keyframes = sampled_batch["keyframes"] # Not have been normalized!
             keytime_differences = sampled_batch["keytime_differences"]
             keyframe_masks = sampled_batch["keyframe_masks"]
 
             timesteps = sampled_batch["timesteps"]
-            observations = sampled_batch["obs"]
-            states = observations["state"]
-            actions = sampled_batch["actions"]
+            states = masked_obs["state"]
+            actions = sampled_batch["actions"][:,obs_mask,...]
+            keyframes = keyframes[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+            keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
+            keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
+
             keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframes, keytime_differences, keyframe_masks)
             ret_dict.update(info)
             loss += keyframe_loss
@@ -261,40 +278,5 @@ class KeyDiffAgent(DiffAgent):
         ret_dict = {'diffusion/' + key: val for key, val in ret_dict.items()}
         
         self.step += 1
-
-        return ret_dict
-    
-    def compute_test_loss(self, memory):
-        logger = get_logger()
-        logger.info(f"Begin to compute test loss with batch size {self.batch_size}!")
-        ret_dict = {}
-        num_samples = 0
-
-        from maniskill2_learn.utils.meta import TqdmToLogger
-        from tqdm import tqdm
-
-        tqdm_obj = tqdm(total=memory.data_size, file=TqdmToLogger(), mininterval=20)
-
-        batch_size = self.batch_size
-        for sampled_batch in memory.mini_batch_sampler(self.batch_size, drop_last=False):
-            sampled_batch = sampled_batch.to_torch(device="cuda", dtype="float32", non_blocking=True) # ["obs","actions"]
-
-            is_valid = sampled_batch["is_valid"].squeeze(-1)
-            loss, print_dict = self.compute_regression_loss(*sampled_batch)
-            for key in print_dict:
-                ret_dict[key] = ret_dict.get(key, 0) + print_dict[key] * len(sampled_batch)
-            num_samples += len(sampled_batch)
-            tqdm_obj.update(len(sampled_batch))
-
-        logger.info(f"We compute the test loss over {num_samples} samples!")
-
-        print_dict = {}
-        print_dict["memory"] = get_total_memory("G", False)
-        print_dict.update(get_cuda_info(device=torch.cuda.current_device(), number_only=False))
-        print_info = dict_to_str(print_dict)
-        logger.info(print_info)
-
-        for key in ret_dict:
-            ret_dict[key] /= num_samples
 
         return ret_dict
