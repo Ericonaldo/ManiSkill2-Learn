@@ -38,7 +38,7 @@ class DiffAgent(BaseAgent):
         eval_action_len=1,
         pcd_cfg=None,
         lr_scheduler_cfg=None,
-        batch_size=128,
+        batch_size=256,
         n_timesteps=150,
         loss_type="l1",
         clip_denoised=False,

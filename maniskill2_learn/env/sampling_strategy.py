@@ -232,17 +232,23 @@ class TStepTransition(SamplingStrategy):
         padded_size = max(ret_len) if padded_size is None else padded_size
         # mask = np.zeros([len(ret), padded_size, 1], dtype=np.bool_)
         mask = np.ones([len(ret), padded_size, 1], dtype=np.bool_) # We set all true since we want to generate all except conditioned ones
-        for i in range(len(ret)):
-            # mask[i, : len(ret[i])] = True
-            # ret[i] = ret[i] + [ret[i][0],] * (
-            #     padded_size - len(ret[i])
-            # )  # adding two lists
-            # mask[i, -len(ret[i]):] = True
-            ret[i] = [ret[i][0],] * (
-                padded_size - len(ret[i])
-            ) + ret[i]  # padding history before
-            # ret[i] = [-1,] * (
-            #     padded_size - len(ret[i])
-            # ) + ret[i] # padding zero before
-        ret = np.array(ret, dtype=np.int)
+        ret = np.array(map(lambda x:[x[0],] * (padded_size - len(x)) + x, ret), dtype=np.int)
+        # for i in range(len(ret)):
+        #     # print(i, np.array(ret[i]).shape)
+        #     # mask[i, : len(ret[i])] = True
+        #     # ret[i] = ret[i] + [ret[i][0],] * (
+        #     #     padded_size - len(ret[i])
+        #     # )  # adding two lists
+        #     # mask[i, -len(ret[i]):] = True
+        #     ret[i] = [ret[i][0],] * (
+        #         padded_size - len(ret[i])
+        #     ) + ret[i]  # padding history before
+        #     # ret[i] = np.pad(
+        #     #     ret[i],
+        #     #     (padded_size - len(ret[i]),0)
+        #     # ) # padding history before
+        #     # ret[i] = [-1,] * (
+        #     #     padded_size - len(ret[i])
+        #     # ) + ret[i] # padding zero before
+        # ret = np.array(ret, dtype=np.int)
         return ret, mask, ret_len

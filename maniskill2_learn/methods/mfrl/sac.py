@@ -23,7 +23,7 @@ class SAC(BaseAgent):
         actor_cfg,
         critic_cfg,
         env_params,
-        batch_size=128,
+        batch_size=256,
         gamma=0.99,
         update_coeff=0.005,
         alpha=0.2,

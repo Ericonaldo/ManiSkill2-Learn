@@ -27,7 +27,7 @@ class BC(BaseAgent):
         self,
         actor_cfg,
         env_params,
-        batch_size=128,
+        batch_size=256,
         loss_type="mse_loss",
         max_grad_norm=None,
         **kwargs,
