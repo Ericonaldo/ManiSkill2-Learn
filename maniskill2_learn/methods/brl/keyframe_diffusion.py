@@ -99,7 +99,7 @@ class KeyDiffAgent(DiffAgent):
         if not train_diff_model:
             self.actor_optim = None
 
-        self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
+        self.max_horizon = self.action_seq_len - self.n_obs_steps # range [1, self.action_seq_len - self.n_obs_steps-1]
 
     def keyframe_loss(self, states, timesteps, actions, keyframes, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
@@ -143,7 +143,7 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe = pred_keyframe_seq[:, 0] # take the first key frame for diffusion
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
-        pred_keytime_differences = (self.max_horizon * pred_keytime_differences).astype(int)
+        pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=1)
 
         # Method 2: If bigger than max_horizon, then return keyframe util the keyframe is inside the prediction
         if pred_keytime_differences > self.max_horizon and mode == "eval":
