@@ -146,7 +146,7 @@ class KeyDiffAgent(DiffAgent):
         pred_keytime_differences = (self.max_horizon * pred_keytime_differences).astype(int)
 
         # Method 2: If bigger than max_horizon, then return keyframe util the keyframe is inside the prediction
-        if pred_keytime_differences > self.max_horizon and mode=="eval"::
+        if pred_keytime_differences > self.max_horizon and mode=="eval":
             return self.normalizer.unnormalize(pred_keyframe.unsqueeze(1)) # [B, len, action_dim]
         
         # Method 1: Clip the difference to be in the range of max_horizon
