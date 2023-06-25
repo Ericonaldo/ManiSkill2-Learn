@@ -145,8 +145,6 @@ class KeyDiffAgent(DiffAgent):
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
         pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=1, a_max=self.max_horizon) - 1 # [B,]
         pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
-        pred_keyframe = self.normalizer.normalize(pred_keyframe)
-        # print(pred_keytime_differences, pred_keyframe)
 
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
@@ -246,6 +244,7 @@ class KeyDiffAgent(DiffAgent):
 
         if self.train_keyframe_model:
             keyframes = sampled_batch["keyframes"] # Not have been normalized!
+            keyframes = self.normalizer.normalize(keyframes)
             keytime_differences = sampled_batch["keytime_differences"]
             keyframe_masks = sampled_batch["keyframe_masks"]
 
