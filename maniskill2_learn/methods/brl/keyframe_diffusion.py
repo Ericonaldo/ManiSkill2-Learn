@@ -250,22 +250,22 @@ class KeyDiffAgent(DiffAgent):
             ret_dict.update(info)
             loss += diff_loss
 
-        # if self.train_keyframe_model:
-        #     keyframes = sampled_batch["keyframes"] # Need Normalize! (Already did in replay buffer)
-        #     # keyframes = self.normalizer.normalize(keyframes)
-        #     keytime_differences = sampled_batch["keytime_differences"]
-        #     keyframe_masks = sampled_batch["keyframe_masks"]
+        if self.train_keyframe_model:
+            keyframes = sampled_batch["keyframes"] # Need Normalize! (Already did in replay buffer)
+            # keyframes = self.normalizer.normalize(keyframes)
+            keytime_differences = sampled_batch["keytime_differences"]
+            keyframe_masks = sampled_batch["keyframe_masks"]
 
-        #     timesteps = sampled_batch["timesteps"]
-        #     states = masked_obs["state"]
-        #     actions = traj_data[:,obs_mask,...]
-        #     keyframes = keyframes[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
-        #     keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
-        #     keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
+            timesteps = sampled_batch["timesteps"]
+            states = masked_obs["state"]
+            actions = traj_data[:,obs_mask,...]
+            keyframes = keyframes[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+            keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
+            keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
 
-        #     keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframes, keytime_differences, keyframe_masks)
-        #     ret_dict.update(info)
-        #     loss += keyframe_loss
+            keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframes, keytime_differences, keyframe_masks)
+            ret_dict.update(info)
+            loss += keyframe_loss
         
         loss.backward()
         if self.actor_optim is not None:
