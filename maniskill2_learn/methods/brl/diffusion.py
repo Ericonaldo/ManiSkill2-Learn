@@ -414,8 +414,8 @@ class DiffAgent(BaseAgent):
             self.init_normalizer = True
 
         batch_size = self.batch_size
-        sampled_batch = memory.sample(batch_size)
-        sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"]
+        sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer)
+        # sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"] # Did in replay buffer
         
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
@@ -426,7 +426,8 @@ class DiffAgent(BaseAgent):
         # 'episode_dones': (bs, horizon, 1), 'worker_indices': (bs, 1), 'is_truncated': (bs, 1), 'is_valid': (bs, 1)}
 
         # generate impainting mask
-        traj_data = sampled_batch["actions"]
+        traj_data = sampled_batch["actions"] # Need Normalize! (Already did in replay buffer)
+        # traj_data = self.normalizer.normalize(traj_data)
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
             act_mask, obs_mask = self.act_mask, self.obs_mask
@@ -442,7 +443,6 @@ class DiffAgent(BaseAgent):
             masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
         obs_fea = self.obs_encoder(masked_obs)
-        traj_data = self.normalizer.normalize(traj_data)
 
         loss, ret_dict = self.loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=act_mask, global_cond=obs_fea) # TODO: local_cond, returns
         loss.backward()

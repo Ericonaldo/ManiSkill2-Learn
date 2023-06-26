@@ -4,6 +4,7 @@ from typing import Union
 from tqdm import tqdm
 from itertools import count
 from h5py import File
+import _thread
 
 from maniskill2_learn.utils.meta import get_filename_suffix, get_total_memory, get_memory_list, get_logger, TqdmToLogger, parse_files
 from maniskill2_learn.utils.data import is_seq_of, DictArray, GDict, is_h5, is_null, DataCoder, is_not_null
@@ -11,7 +12,7 @@ from maniskill2_learn.utils.file import load, load_items_from_record, get_index_
 from maniskill2_learn.utils.file.cache_utils import META_KEYS
 from .builder import REPLAYS, build_sampling
 from .sampling_strategy import TStepTransition
-
+from collections import deque
 
 @REPLAYS.register_module()
 class ReplayMemory:
@@ -116,6 +117,8 @@ class ReplayMemory:
         self.running_count = 0
         self.reset()
 
+        self.prefetched_data_queue = deque(maxlen=50)
+
         if buffer_filenames is not None and len(buffer_filenames) > 0:
             if self.dynamic_loading:
                 self.file_loader.run(auto_restart=False)
@@ -151,6 +154,12 @@ class ReplayMemory:
                         self.push_batch(data)
                 logger.info(f"Finish file loading! Buffer length: {len(self)}, buffer size {self.memory.nbytes_all / 1024 / 1024} MB!")
                 logger.info(f"Len of sampling buffer: {len(self.sampling)}")
+    
+    @property
+    def prefetched_data(self):
+        if len(self.prefetched_data_queue):
+            return self.prefetched_data_queue.popleft()
+        return None
 
     def __getitem__(self, key):
         return self.memory[key]
@@ -224,7 +233,7 @@ class ReplayMemory:
             data = GDict({"traj_0": data.memory})
         data.to_hdf5(file)
 
-    def sample(self, batch_size, auto_restart=True, drop_last=True):
+    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device="cpu", obs_mask=None, action_normalizer=None):
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
 
@@ -242,7 +251,7 @@ class ReplayMemory:
                 batch_idx, is_valid = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading)
             else:
                 return None
-           
+        
         ret = self.memory.take(batch_idx)
         if not self.using_depth:
             if "obs" in ret.keys(): # Concat obs
@@ -272,6 +281,27 @@ class ReplayMemory:
                             # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
                             # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
+        ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
+        if obs_mask is not None and "obs" in ret.keys():
+            for key in ret["obs"].keys():
+                ret["obs"][key] = ret["obs"][key][:,obs_mask,...]
+        if action_normalizer is not None:
+            for key in ["actions", "keyframes"]:
+                if key in ret:
+                    ret[key] = action_normalizer.normalize(ret[key])
+        self.prefetched_data_queue.append(ret)
+
+    def sample(self, batch_size, auto_restart=True, drop_last=True, device="cpu", obs_mask=None, require_mask=False, action_normalizer=None):
+        ret = self.prefetched_data
+        if ret is not None:
+            _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
+            return ret
+        
+        self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer)
+        ret = self.prefetched_data
+        if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch
+            _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
+
         return ret
 
     def mini_batch_sampler(self, batch_size, drop_last=False, auto_restart=False, max_num_batches=-1):

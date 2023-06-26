@@ -50,7 +50,7 @@ class MultiImageObsEncoder(CNNBase):
             rgb_model: Union[nn.Module, Dict[str,nn.Module]]=get_resnet("resnet18"),
             pcd_model: dict=None,
             resize_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None,
-            crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=[104,104], # [76,76],
+            crop_shape: Union[Tuple[int,int], Dict[str,tuple], None]=None, # [104,104], # [76,76],
             random_crop: bool=True,
             random_rotation: bool=True,
             # replace BatchNorm with GroupNorm
@@ -207,8 +207,6 @@ class MultiImageObsEncoder(CNNBase):
                 imgs = list()
                 for key in self.rgb_keys:
                     img = obs_dict[key]
-                    if isinstance(img, list):
-                        img = img[0]
                     if batch_size is None:
                         batch_size = img.shape[0]
                     else:

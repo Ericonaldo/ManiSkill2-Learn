@@ -210,8 +210,8 @@ class KeyDiffAgent(DiffAgent):
             self.init_normalizer = True
 
         batch_size = self.batch_size
-        sampled_batch = memory.sample(batch_size)
-        sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"]
+        sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer)
+        # sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"] # Did in replay buffer
         
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
@@ -228,8 +228,9 @@ class KeyDiffAgent(DiffAgent):
         ret_dict = {}
         
         # generate impainting mask
-        traj_data = sampled_batch["actions"]
-        traj_data = self.normalizer.normalize(traj_data)
+        traj_data = sampled_batch["actions"] # Need Normalize! (Already did in replay buffer)
+        # traj_data = self.normalizer.normalize(traj_data)
+        masked_obs = sampled_batch['obs']
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
             act_mask, obs_mask = self.act_mask, self.obs_mask
@@ -237,12 +238,10 @@ class KeyDiffAgent(DiffAgent):
             if self.obs_as_global_cond:
                 act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
+                for key in masked_obs:
+                    masked_obs[key] = masked_obs[key][:,obs_mask,...]
             else:
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
-        
-        masked_obs = sampled_batch['obs']
-        for key in masked_obs:
-            masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
         if self.train_diff_model:
             obs_fea = self.obs_encoder(masked_obs)
@@ -251,22 +250,22 @@ class KeyDiffAgent(DiffAgent):
             ret_dict.update(info)
             loss += diff_loss
 
-        if self.train_keyframe_model:
-            keyframes = sampled_batch["keyframes"] # Normalize!
-            keyframes = self.normalizer.normalize(keyframes)
-            keytime_differences = sampled_batch["keytime_differences"]
-            keyframe_masks = sampled_batch["keyframe_masks"]
+        # if self.train_keyframe_model:
+        #     keyframes = sampled_batch["keyframes"] # Need Normalize! (Already did in replay buffer)
+        #     # keyframes = self.normalizer.normalize(keyframes)
+        #     keytime_differences = sampled_batch["keytime_differences"]
+        #     keyframe_masks = sampled_batch["keyframe_masks"]
 
-            timesteps = sampled_batch["timesteps"]
-            states = masked_obs["state"]
-            actions = traj_data[:,obs_mask,...]
-            keyframes = keyframes[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
-            keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
-            keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
+        #     timesteps = sampled_batch["timesteps"]
+        #     states = masked_obs["state"]
+        #     actions = traj_data[:,obs_mask,...]
+        #     keyframes = keyframes[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+        #     keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
+        #     keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
 
-            keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframes, keytime_differences, keyframe_masks)
-            ret_dict.update(info)
-            loss += keyframe_loss
+        #     keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframes, keytime_differences, keyframe_masks)
+        #     ret_dict.update(info)
+        #     loss += keyframe_loss
         
         loss.backward()
         if self.actor_optim is not None:
