@@ -272,7 +272,6 @@ class ReplayMemory:
                             # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
                             # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
-        # exit(0)
         return ret
 
     def mini_batch_sampler(self, batch_size, drop_last=False, auto_restart=False, max_num_batches=-1):

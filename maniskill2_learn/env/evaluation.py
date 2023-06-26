@@ -881,6 +881,7 @@ class OfflineDiffusionEvaluation:
             if isinstance(observation[key], (list, tuple)):
                 observation[key] = observation[key][0]
         observation["actions"] = sampled_batch["actions"]
+        observation["timesteps"] = sampled_batch["timesteps"]
             
         with torch.no_grad():
             with pi.no_sync(mode="actor"):

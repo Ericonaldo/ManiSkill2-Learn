@@ -79,7 +79,7 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=8,
+    num_procs=32,
     synchronized=False,
 )
 

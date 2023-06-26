@@ -143,11 +143,11 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe = pred_keyframe_seq[:, 0] # take the first key frame for diffusion
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
-        pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=1)
+        pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=1, a_max=None)
 
         # Method 2: If bigger than max_horizon, then return keyframe util the keyframe is inside the prediction
-        if pred_keytime_differences > self.max_horizon and mode == "eval":
-            return self.normalizer.unnormalize(pred_keyframe.unsqueeze(1)) # [B, len, action_dim]
+        # if pred_keytime_differences[0] > self.max_horizon and mode == "eval": # Only support batch size = 1
+        #     return self.normalizer.unnormalize(pred_keyframe.unsqueeze(1)) # [B, len, action_dim]
         
         # Method 1: Clip the difference to be in the range of max_horizon
         pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=self.max_horizon) # [B,]
@@ -184,6 +184,7 @@ class KeyDiffAgent(DiffAgent):
             )
             action_history = torch.concat([action_history, supp], dim=1)
         action_history[range(bs),pred_keytime] = pred_keyframe 
+        act_mask = act_mask.clone()
         act_mask[range(bs),pred_keytime] = True
 
         # Predict action seq based on key frames
@@ -192,7 +193,7 @@ class KeyDiffAgent(DiffAgent):
         pred_action = pred_action_seq
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,hist_len-1:hist_len-1+pred_keytime_differences[0]+1,:] # not support batch evaluation
+            pred_action = pred_action_seq[:,hist_len-1:pred_keytime[0]+1,:] # do not support batch evaluation
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
@@ -228,6 +229,7 @@ class KeyDiffAgent(DiffAgent):
         
         # generate impainting mask
         traj_data = sampled_batch["actions"]
+        traj_data = self.normalizer.normalize(traj_data)
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
             act_mask, obs_mask = self.act_mask, self.obs_mask
@@ -244,21 +246,20 @@ class KeyDiffAgent(DiffAgent):
 
         if self.train_diff_model:
             obs_fea = self.obs_encoder(masked_obs)
-            traj_data = self.normalizer.normalize(traj_data)
 
             diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=act_mask, global_cond=obs_fea) # TODO: local_cond, returns
             ret_dict.update(info)
             loss += diff_loss
 
         if self.train_keyframe_model:
-            keyframes = sampled_batch["keyframes"] # Not have been normalized!
+            keyframes = sampled_batch["keyframes"] # Normalize!
             keyframes = self.normalizer.normalize(keyframes)
             keytime_differences = sampled_batch["keytime_differences"]
             keyframe_masks = sampled_batch["keyframe_masks"]
 
             timesteps = sampled_batch["timesteps"]
             states = masked_obs["state"]
-            actions = sampled_batch["actions"][:,obs_mask,...]
+            actions = traj_data[:,obs_mask,...]
             keyframes = keyframes[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
             keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
             keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]

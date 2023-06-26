@@ -80,7 +80,7 @@ replay_cfg = dict(
 
 rollout_cfg = dict(
     type="Rollout",
-    num_procs=8,
+    num_procs=32,
     with_info=True,
     multi_thread=False,
 )

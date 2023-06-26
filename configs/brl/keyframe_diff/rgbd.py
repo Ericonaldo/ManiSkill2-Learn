@@ -1,5 +1,5 @@
-horizon = 28
-n_obs_steps = 4
+horizon = 32
+n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
@@ -89,7 +89,7 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=8,
+    num_procs=32,
     synchronized=False,
 )
 
@@ -103,11 +103,11 @@ train_cfg = dict(
     n_checkpoint=10000,
 )
 
-# eval_cfg = dict(
-#     type="OfflineDiffusionEvaluation",
-#     num=10,
-#     num_procs=1,
-#     use_hidden_state=False,
-#     save_traj=False,
-#     use_log=False,
-# )
+eval_cfg = dict(
+    type="OfflineDiffusionEvaluation",
+    num=10,
+    num_procs=1,
+    use_hidden_state=False,
+    save_traj=False,
+    use_log=False,
+)
