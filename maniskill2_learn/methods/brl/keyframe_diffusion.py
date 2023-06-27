@@ -190,6 +190,7 @@ class KeyDiffAgent(DiffAgent):
         # Predict action seq based on key frames
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
+        print(pred_action_seq)
         pred_action = pred_action_seq
 
         if mode=="eval":
@@ -206,7 +207,7 @@ class KeyDiffAgent(DiffAgent):
         if not self.init_normalizer:
             # Fit normalizer
             data = memory.get_all("actions")
-            self.normalizer.fit(data, last_n_dims=1, mode='limits')
+            self.normalizer.fit(data, last_n_dims=1, mode='limits', range_eps=1e-7)
             self.init_normalizer = True
 
         batch_size = self.batch_size

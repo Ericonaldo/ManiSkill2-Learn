@@ -80,7 +80,7 @@ def parse_args():
 
     parser.add_argument("--replay-filenames", help="Replay file names", nargs='*')
     parser.add_argument("--threshold", help="Buffer file name", type=float, default=0.5)
-    parser.add_argument("--control-mode", help="Control mode", type=str, default="pd_joint_pos") # pd_ee_delta_pose
+    parser.add_argument("--control-mode", help="Control mode", type=str, default="pd_ee_pose") # pd_ee_delta_pose # pd_joint_pos
     
     args = parser.parse_args()
 

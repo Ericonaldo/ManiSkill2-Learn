@@ -130,7 +130,7 @@ def from_pd_joint_pos_to_ee(
         # Use target joint positions for arm only
         full_qpos[ori_arm_controller.joint_indices] = ori_arm_controller._target_qpos
         pin_model.compute_forward_kinematics(full_qpos)
-        target_ee_pose = pin_model.get_link_pose(arm_controller.ee_link_idx)
+        target_ee_pose = pin_model.get_link_pose(arm_controller.ee_link_idx) # target ee pose at base
 
         flag = True
 
