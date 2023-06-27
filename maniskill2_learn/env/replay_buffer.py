@@ -44,6 +44,7 @@ class ReplayMemory:
         dynamic_loading=None,
         auto_buffer_resize=True,
         deterministic_loading=False,
+        max_threads=10,
     ):
         # capacity: the size of replay buffer, -1 means we will recompute the buffer size with files for initial replay buffer.
         assert capacity > 0 or buffer_filenames is not None
@@ -117,7 +118,9 @@ class ReplayMemory:
         self.running_count = 0
         self.reset()
 
-        self.prefetched_data_queue = deque(maxlen=5)
+        self.prefetched_data_queue = deque(maxlen=max_threads)
+        self.max_threads = max_threads
+        self.thread_count = 0
 
         if buffer_filenames is not None and len(buffer_filenames) > 0:
             if self.dynamic_loading:
@@ -294,6 +297,7 @@ class ReplayMemory:
         if mode=="eval":
             return ret
         self.prefetched_data_queue.append(ret)
+        self.thread_count -= 1
 
     def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, mode="train"):
         if mode=="eval":
@@ -301,13 +305,17 @@ class ReplayMemory:
         
         ret = self.prefetched_data
         if ret is not None:
-            _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
+            if self.thread_count < self.max_threads:
+                self.thread_count += 1
+                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
             return ret
         
         self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer)
         ret = self.prefetched_data
         if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch
-            _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
+            if self.thread_count < self.max_threads:
+                self.thread_count += 1
+                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
 
         return ret
 
