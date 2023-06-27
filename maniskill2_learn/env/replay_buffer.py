@@ -117,7 +117,7 @@ class ReplayMemory:
         self.running_count = 0
         self.reset()
 
-        self.prefetched_data_queue = deque(maxlen=50)
+        self.prefetched_data_queue = deque(maxlen=5)
 
         if buffer_filenames is not None and len(buffer_filenames) > 0:
             if self.dynamic_loading:
@@ -233,7 +233,7 @@ class ReplayMemory:
             data = GDict({"traj_0": data.memory})
         data.to_hdf5(file)
 
-    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device="cpu", obs_mask=None, action_normalizer=None):
+    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, mode="train"):
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
 
@@ -281,17 +281,24 @@ class ReplayMemory:
                             # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
                             # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
-        ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
-        if obs_mask is not None and "obs" in ret.keys():
+        if (obs_mask is not None) and ("obs" in ret.keys()):
+            obs_mask = obs_mask.cpu().numpy()
             for key in ret["obs"].keys():
                 ret["obs"][key] = ret["obs"][key][:,obs_mask,...]
+        if device is not None:
+            ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
         if action_normalizer is not None:
             for key in ["actions", "keyframes"]:
                 if key in ret:
                     ret[key] = action_normalizer.normalize(ret[key])
+        if mode=="eval":
+            return ret
         self.prefetched_data_queue.append(ret)
 
-    def sample(self, batch_size, auto_restart=True, drop_last=True, device="cpu", obs_mask=None, require_mask=False, action_normalizer=None):
+    def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, mode="train"):
+        if mode=="eval":
+            return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode=mode)
+        
         ret = self.prefetched_data
         if ret is not None:
             _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))

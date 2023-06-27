@@ -873,15 +873,14 @@ class OfflineDiffusionEvaluation:
         self.start(work_dir)
         import torch
         
-        sampled_batch = memory.sample(num)
+        sampled_batch = memory.sample(num, mode="eval")
         # sampled_batch = sampled_batch.to_torch(device=pi.device, dtype="float32", non_blocking=True) # ["obs","actions"]
 
         observation = sampled_batch["obs"]
-        for key in observation:
-            if isinstance(observation[key], (list, tuple)):
-                observation[key] = observation[key][0]
-        observation["actions"] = sampled_batch["actions"]
-        observation["timesteps"] = sampled_batch["timesteps"]
+        if "actions" in sampled_batch:
+            observation["actions"] = sampled_batch["actions"]
+        if "timesteps" in sampled_batch:
+            observation["timesteps"] = sampled_batch["timesteps"]
             
         with torch.no_grad():
             with pi.no_sync(mode="actor"):
