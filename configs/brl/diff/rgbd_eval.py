@@ -1,7 +1,7 @@
 horizon = 16
 n_obs_steps = 8
 future_action_len = horizon - n_obs_steps
-eval_action_len = 8 # how many actions to be executed in the following timesteps for one input
+eval_action_len = 28 # how many actions to be executed in the following timesteps for one input
 workdir = "rgbd"
 agent_cfg = dict(
     type="DiffAgent",
@@ -9,6 +9,7 @@ agent_cfg = dict(
     action_seq_len=horizon,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
+        # random_rotation=False,
         shape_meta=dict(
             obs=dict(
                 base_camera_rgbd=dict(

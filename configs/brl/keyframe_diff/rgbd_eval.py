@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-eval_action_len = 28 # how many actions to be executed in the following timesteps for one input
+eval_action_len = 2 # how many actions to be executed in the following timesteps for one input
 workdir = "rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
@@ -9,7 +9,8 @@ agent_cfg = dict(
     batch_size=256,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
-        type="MultiImageObsEncoder", 
+        type="MultiImageObsEncoder",
+        random_rotation=False,
         shape_meta=dict(
             obs=dict(
                 base_camera_rgbd=dict(
@@ -73,7 +74,7 @@ env_cfg = dict(
     unwrapped=False,
     history_len=n_obs_steps,
     obs_mode="rgbd",
-    control_mode="pd_joint_pos",
+    control_mode="pd_joint_pos", # "pd_ee_pose", # 
     concat_rgbd=True,
 )
 

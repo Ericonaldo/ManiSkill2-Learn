@@ -276,14 +276,16 @@ class DiffAgent(BaseAgent):
         if return_diffusion:
             diffusion = [x]
 
+        x[cond_mask] = cond_data[cond_mask]
         progress = Progress(self.n_timesteps) if verbose else Silent()
         for i in reversed(range(0, self.n_timesteps)):
-            # 1. apply conditioning
-            x[cond_mask] = cond_data[cond_mask]
 
             timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
-            # 2. predict model output and replace sample
+            # 1. predict model output and replace sample
             x = self.p_sample(x, timesteps, local_cond, global_cond, returns)
+            
+            # 2. apply conditioning
+            x[cond_mask] = cond_data[cond_mask]
 
             progress.update({"t": i})
 
@@ -351,6 +353,7 @@ class DiffAgent(BaseAgent):
         # if mode=="eval": # Only used for ms-skill challenge online evaluation
         #     if self.eval_action_queue is not None and len(self.eval_action_queue):
         #         return self.eval_action_queue.popleft()
+        
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         
         action_history = observation["actions"]
@@ -427,7 +430,6 @@ class DiffAgent(BaseAgent):
         # generate impainting mask
         traj_data = sampled_batch["actions"] # Need Normalize! (Already did in replay buffer)
         # traj_data = self.normalizer.normalize(traj_data)
-        masked_obs = sampled_batch['obs']
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
             act_mask, obs_mask = self.act_mask, self.obs_mask
@@ -435,10 +437,12 @@ class DiffAgent(BaseAgent):
             if self.obs_as_global_cond:
                 act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
-                for key in masked_obs:
-                    masked_obs[key] = masked_obs[key][:,obs_mask,...]
             else:
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+        
+        masked_obs = sampled_batch['obs']
+        for key in masked_obs:
+            masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
         obs_fea = self.obs_encoder(masked_obs)
 

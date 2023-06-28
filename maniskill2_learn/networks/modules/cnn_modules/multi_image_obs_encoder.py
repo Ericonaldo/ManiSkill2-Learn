@@ -276,7 +276,7 @@ class MultiImageObsEncoder(CNNBase):
         
         # concatenate all features
         result = torch.cat(features, dim=-1)
-        return result
+        return result # B, feature_size (feature_size = resenet_fea+low_dim)
     
     @torch.no_grad()
     def output_shape(self):

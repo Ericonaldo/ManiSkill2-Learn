@@ -99,7 +99,7 @@ class KeyDiffAgent(DiffAgent):
         if not train_diff_model:
             self.actor_optim = None
 
-        self.max_horizon = self.action_seq_len - self.n_obs_steps # range [1, self.action_seq_len - self.n_obs_steps-1]
+        self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
 
     def keyframe_loss(self, states, timesteps, actions, keyframes, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
@@ -121,7 +121,7 @@ class KeyDiffAgent(DiffAgent):
         diffuse_loss, info = self.p_losses(x, t, cond_mask, local_cond, global_cond, returns)
         diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
         return diffuse_loss, info       
-
+    
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
 
         # if mode=="eval": # Only used for ms-skill challenge online evaluation
@@ -139,18 +139,20 @@ class KeyDiffAgent(DiffAgent):
         observation.pop("actions")
         
         self.set_mode(mode=mode)
+
         pred_keyframe_seq, info = self.keyframe_model(states, timesteps, action_history)
         pred_keyframe = pred_keyframe_seq[:, 0] # take the first key frame for diffusion
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
-        pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=1, a_max=None)
+        pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=0, a_max=None)
 
         # Method 2: If bigger than max_horizon, then return keyframe util the keyframe is inside the prediction
         # if pred_keytime_differences[0] > self.max_horizon and mode == "eval": # Only support batch size = 1
         #     return self.normalizer.unnormalize(pred_keyframe.unsqueeze(1)) # [B, len, action_dim]
         
         # Method 1: Clip the difference to be in the range of max_horizon
-        pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=self.max_horizon) # [B,]
+        # pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=self.max_horizon) # [B,]
+        pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=None) # [B,]
         
         pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
 
@@ -183,18 +185,25 @@ class KeyDiffAgent(DiffAgent):
                 device=self.device,
             )
             action_history = torch.concat([action_history, supp], dim=1)
-        action_history[range(bs),pred_keytime] = pred_keyframe 
-        act_mask = act_mask.clone()
-        act_mask[range(bs),pred_keytime] = True
+        if pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
+            action_history[range(bs),pred_keytime] = pred_keyframe 
+            act_mask = act_mask.clone()
+            act_mask[range(bs),pred_keytime] = True
 
         # Predict action seq based on key frames
         pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
-        print(pred_action_seq)
         pred_action = pred_action_seq
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,hist_len-1:pred_keytime[0]+1,:] # do not support batch evaluation
+            # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
+            if pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+                print("keyframe", pred_keytime_differences, self.max_horizon)
+                pred_action = pred_action_seq[:,hist_len:pred_keytime[0]+1,:] # do not support batch evaluation
+            else:
+                print("no keyframe", pred_keytime_differences, self.max_horizon)
+                # pred_action = pred_action_seq[:,hist_len:hist_len+4,:] # do not support batch evaluation
+                pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
