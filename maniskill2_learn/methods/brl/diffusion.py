@@ -336,9 +336,9 @@ class DiffAgent(BaseAgent):
         assert noise.shape == pred.shape
 
         if self.predict_epsilon:
-            loss = F.mse_loss(pred, noise reduction='none')
+            loss = F.mse_loss(pred, noise, reduction='none')
         else:
-            loss = F.mse_loss(pred, actions reduction='none')
+            loss = F.mse_loss(pred, actions, reduction='none')
 
         return loss, {"action_diff_loss": loss.detach().cpu()}
 

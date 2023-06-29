@@ -81,6 +81,9 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PegInsertionSide-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
+python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-gpus 8 --env-id PegInsertionSide-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5"
+
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PlugCharger-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PlugCharger-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
