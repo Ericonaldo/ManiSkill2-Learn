@@ -1,13 +1,10 @@
 """
 Diffusion Policy
 """
-from random import sample
-from itertools import chain
-from tqdm import tqdm
 import numpy as np
 from copy import copy
+import random
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 from maniskill2_learn.networks import build_model, build_reg_head
@@ -20,13 +17,14 @@ from maniskill2_learn.utils.torch import (
     get_cuda_info,
     build_optimizer,
 )
+from maniskill2_learn.utils.diffusion.jump_diff_utils import get_forward_rate
 from maniskill2_learn.utils.diffusion.helpers import (
     Losses,
     apply_conditioning,
     cosine_beta_schedule,
     extract,
 )
-from maniskill2_learn.utils.diffusion.arrays import to_torch
+from maniskill2_learn.utils.diffusion.arrays import to_torch, to_np
 from maniskill2_learn.utils.diffusion.progress import Progress, Silent
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
@@ -37,7 +35,7 @@ from ..builder import BRL
 
 
 @BRL.register_module()
-class DiffAgent(BaseAgent):
+class JumpDiffAgent(BaseAgent):
     def __init__(
         self,
         actor_cfg,
@@ -65,9 +63,11 @@ class DiffAgent(BaseAgent):
         fix_obs_steps=True,  # Randomly cond on certain obs steps or deterministicly
         n_obs_steps=3,
         normalizer=LinearNormalizer(),
+        jump_rate_function_name="step",
+        jump_rate_cur_t=0.1,
         **kwargs,
     ):
-        super(DiffAgent, self).__init__()
+        super(JumpDiffAgent, self).__init__()
         self.batch_size = batch_size
 
         if pcd_cfg is not None:
@@ -168,6 +168,13 @@ class DiffAgent(BaseAgent):
         self.action_visible = action_visible
         self.fix_obs_steps = fix_obs_steps
         self.n_obs_steps = n_obs_steps
+        self.n_future_steps = self.action_seq_len - self.n_obs_steps
+
+        self.jump_forward_rate = get_forward_rate(
+            jump_rate_function_name,
+            self.n_future_steps,
+            jump_rate_cur_t,
+        )
 
         self.init_normalizer = False
 
@@ -238,17 +245,17 @@ class DiffAgent(BaseAgent):
     def p_mean_variance(self, x, t, local_cond=None, global_cond=None, returns=None):
         if self.returns_condition:
             # epsilon could be epsilon or x0 itself
-            epsilon_cond = self.model(
+            epsilon_cond, *_ = self.model(
                 x, t, local_cond, global_cond, returns, use_dropout=False
             )
-            epsilon_uncond = self.model(
+            epsilon_uncond, *_ = self.model(
                 x, t, local_cond, global_cond, returns, force_dropout=True
             )
             epsilon = epsilon_uncond + self.condition_guidance_w * (
                 epsilon_cond - epsilon_uncond
             )
         else:
-            epsilon = self.model(x, t, local_cond, global_cond)
+            epsilon, *_ = self.model(x, t, local_cond, global_cond)
 
         t = t.detach().to(torch.int64)
         x_recon = self.predict_start_from_noise(x, t=t, noise=epsilon)
@@ -264,7 +271,7 @@ class DiffAgent(BaseAgent):
         return model_mean, posterior_variance, posterior_log_variance
 
     @torch.no_grad()
-    def p_sample(self, x, t, local_cond=None, global_cond=None, returns=None):
+    def p_sample(self, x, t, n_future_steps_xt, local_cond=None, global_cond=None, returns=None):
         b = x.shape[0]
         model_mean, _, model_log_variance = self.p_mean_variance(
             x=x, t=t, local_cond=local_cond, global_cond=global_cond, returns=returns
@@ -272,7 +279,10 @@ class DiffAgent(BaseAgent):
         noise = 0.5 * torch.randn_like(x)
         # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
-        return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
+        return (
+            model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise,
+            n_future_steps_xt,
+        )
 
     @torch.no_grad()
     def p_sample_loop(
@@ -291,6 +301,8 @@ class DiffAgent(BaseAgent):
         x = torch.randn(
             size=cond_data.shape, dtype=cond_data.dtype, device=cond_data.device
         )
+        n_future_steps_xt = torch.ones(batch_size, dtype=torch.long, device=device)
+        x = self.delete_steps(x, n_future_steps_xt * self.n_future_steps, n_future_steps_xt)
 
         if return_diffusion:
             diffusion = [x]
@@ -302,7 +314,7 @@ class DiffAgent(BaseAgent):
 
             timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
             # 2. predict model output and replace sample
-            x = self.p_sample(x, timesteps, local_cond, global_cond, returns)
+            x, n_future_steps_xt = self.p_sample(x, timesteps, n_future_steps_xt, local_cond, global_cond, returns)
 
             progress.update({"t": i})
 
@@ -352,35 +364,120 @@ class DiffAgent(BaseAgent):
 
         return sample
 
+    def delete_steps(self, actions, n_future_steps, new_n_future_steps, return_deleted=False):
+        if return_deleted:
+            deleted_actions, deleted_index = [], []
+
+        batch_size = len(actions)
+        new_actions = torch.zeros_like(actions)
+        new_actions[:, :self.n_obs_steps] = actions[:, :self.n_obs_steps]
+        for idx in range(batch_size):
+            if new_n_future_steps[idx] == n_future_steps[idx]:
+                new_actions[idx][self.n_obs_steps:] = actions[idx][self.n_obs_steps:]
+                if return_deleted:
+                    deleted_actions.append([])
+                    deleted_index.append(None)
+                continue
+
+            remain_pred_steps = torch.tensor(random.sample(range(n_future_steps[idx]), new_n_future_steps[idx]))
+            new_actions[idx][self.n_obs_steps: self.n_obs_steps + new_n_future_steps[idx]] = actions[idx][remain_pred_steps + self.n_obs_steps]
+            new_actions[idx][self.n_obs_steps + new_n_future_steps[idx]:] = new_actions[idx][self.n_obs_steps + new_n_future_steps[idx] - 1]
+            if return_deleted:
+                delete_pred_steps = torch.tensor(list(set(range(n_future_steps[idx])) - set(to_np(remain_pred_steps).tolist())), device=self.device) + self.n_obs_steps
+                deleted_actions.append(actions[idx][delete_pred_steps])
+                deleted_index.append(delete_pred_steps)
+        if return_deleted:
+            return new_actions, deleted_actions, deleted_index
+        else:
+            return new_actions
+
+    def delete_one_step(self, actions, n_future_steps):
+        new_n_future_steps = torch.clamp(n_future_steps - 1, min=1)
+        del_one_actions, deleted_actions, deleted_index = self.delete_steps(actions, n_future_steps, new_n_future_steps, return_deleted=True)
+        deleted_actions = torch.cat(
+            [act if len(act) > 0 else torch.zeros_like(actions[0, :1]) for act in deleted_actions], dim=0
+        )
+        deleted_index = torch.cat(
+            [idx if idx is not None else torch.zeros_like(n_future_steps[:1]) for idx in deleted_index], dim=0
+        )
+        return del_one_actions, new_n_future_steps, deleted_actions, deleted_index
+
     def p_losses(
-        self, actions, t, cond_mask, local_cond=None, global_cond=None, returns=None
+        self, actions, t, cond_mask, x0_n_future_steps, local_cond=None, global_cond=None, returns=None
     ):
+        n_future_steps_xt = self.jump_forward_rate.get_dims_at_t(
+            start_dims=x0_n_future_steps, ts=t / self.n_timesteps,
+        ).int().to(self.device)
+        actions = self.delete_steps(actions, x0_n_future_steps, new_n_future_steps=n_future_steps_xt)
+
         noise = torch.randn_like(actions)
+        noise = self.delete_steps(noise, x0_n_future_steps, new_n_future_steps=n_future_steps_xt)
         action_noisy = self.q_sample(x_start=actions, t=t, noise=noise)
         # apply conditioning
         action_noisy[cond_mask] = actions[cond_mask]
 
-        pred = self.model(action_noisy, t, local_cond, global_cond, returns)
+        # first network pass
+        pred, _, x0_step_logits, _ = self.model(action_noisy, t, local_cond, global_cond, returns)
+        assert noise.shape == pred.shape, f"{noise.shape} != {pred.shape}"
 
-        assert noise.shape == pred.shape
+        # second network pass
+        del_one_action_noisy = copy(action_noisy)
+        del_one_action_noisy, del_one_n_future_steps, deleted_action_noisy, deleted_index = self.delete_one_step(del_one_action_noisy, n_future_steps_xt)
+        _, index_logits, _, pred_add_value = self.model(action_noisy, t, local_cond, global_cond, returns)
 
+        # f_rate_vs_t = self.jump_forward_rate.get_rate(n_future_steps_xt, ts=t / self.n_timesteps).to(self.device)  # (B,)
+        add_loss_masks = (del_one_n_future_steps != n_future_steps_xt).unsqueeze(-1)
+        # pred_add_loss = F.mse_loss(pred_add_value, deleted_action_noisy, reduction="none") * f_rate_vs_t.unsqueeze(-1)
+        pred_add_loss = F.mse_loss(pred_add_value, deleted_action_noisy, reduction="none")
+        pred_add_loss = (pred_add_loss * add_loss_masks).mean(dim=-1).sum() / add_loss_masks.sum()
+
+        x0_step_ce_loss = F.cross_entropy(x0_step_logits, x0_n_future_steps - 1)
+
+        target_index = torch.clamp(deleted_index - self.n_obs_steps, min=0)
+        index_loss_masks = add_loss_masks.squeeze(-1)
+        # index_loss = F.cross_entropy(index_logits, target_index, reduction="none") * f_rate_vs_t
+        index_loss = F.cross_entropy(index_logits, target_index, reduction="none")
+        index_loss = (index_loss * index_loss_masks).sum() / index_loss_masks.sum()
+
+        pred_masks = torch.ones_like(pred)
+        pred_masks[:, : self.n_obs_steps - 1] = 0.0  # '-1' since we need to diffuse actions for current step
+        for idx in range(len(pred_masks)):
+            pred_masks[idx][self.n_obs_steps + n_future_steps_xt[idx]:] = 0.0
         if self.predict_epsilon:
-            loss = F.mse_loss(pred, noise)
+            diff_loss = F.mse_loss(pred, noise, reduction="none")
         else:
-            loss = F.mse_loss(pred, actions)
+            diff_loss = F.mse_loss(pred, actions, reduction="none")
+        diff_loss = (diff_loss * pred_masks).sum() / pred_masks.sum()
 
-        return loss, {"action_diff_loss": loss.detach().cpu()}
+        # loss = diff_loss + (pred_add_loss + x0_step_ce_loss + index_loss) / actions.shape[1]
+        loss = diff_loss + pred_add_loss + x0_step_ce_loss + index_loss
+
+        return loss, {
+            "action_diff_loss": diff_loss.detach().cpu(),
+            "pred_add_loss": pred_add_loss.detach().cpu(),
+            "x0_step_ce_loss": x0_step_ce_loss.detach().cpu(),
+            "index_loss": index_loss.detach().cpu(),
+        }
 
     def loss(
         self, x, masks, cond_mask, local_cond=None, global_cond=None, returns=None
     ):
         # x is the action, with shape (bs, horizon, act_dim)
         batch_size = len(x)
+        # pred_len = (cond_mask[..., 0] == False).sum(dim=-1)
+        # history_len = x.shape[1] - pred_len
+        # XXX(zbzhu): check this
+        cropped_n_pred_steps = (torch.rand(batch_size, device=self.device) * (self.n_future_steps - 1)).to(int) + 1
+        cropped_x = copy(x)
+        for idx in range(len(cropped_x)):
+            remain_len = cropped_n_pred_steps[idx] + self.n_obs_steps
+            cropped_x[idx][remain_len:] = cropped_x[idx][remain_len - 1]
+
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x.device).long()
         diffuse_loss, info = self.p_losses(
-            x, t, cond_mask, local_cond, global_cond, returns
+            cropped_x, t, cond_mask, cropped_n_pred_steps, local_cond, global_cond, returns
         )
-        diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
+        # diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
         return diffuse_loss, info
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
@@ -494,7 +591,11 @@ class DiffAgent(BaseAgent):
                 act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
-                    masked_obs[key] = masked_obs[key][:, obs_mask, ...]
+                    # HACK(zbzhu)
+                    if isinstance(masked_obs[key], list):
+                        masked_obs[key] = masked_obs[key][0][:, obs_mask, ...]
+                    else:
+                        masked_obs[key] = masked_obs[key][:, obs_mask, ...]
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
@@ -511,7 +612,7 @@ class DiffAgent(BaseAgent):
         loss.backward()
         self.actor_optim.step()
 
-        ## Not implement yet
+        # Not implement yet
         # if self.step % self.update_ema_every == 0:
         #     self.step_ema()
         ret_dict["grad_norm_diff_model"] = np.mean(
@@ -537,10 +638,3 @@ class DiffAgent(BaseAgent):
         self.step += 1
 
         return ret_dict
-
-    ## Not implement yet
-    # def step_ema(self):
-    #     if self.step < self.step_start_ema:
-    #         self.reset_parameters()
-    #         return
-    #     self.ema.update_model_average(self.ema_model, self.model)

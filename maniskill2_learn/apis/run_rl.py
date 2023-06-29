@@ -359,10 +359,10 @@ def run_one_process(rank, world_size, args, cfg):
 
     logger.info(f"Config:\n{cfg.pretty_text}")
     logger.info(f"Set random seed to {args.seed}")
-    
+
     # Create replay buffer for RL
     if is_not_null(cfg.replay_cfg) and ((not (args.evaluation and not args.build_replay)) or (args.reg_loss and cfg.replay_cfg.get("buffer_filenames", None) is not None)):
-        logger.info(f"Build replay buffer!")
+        logger.info("Build replay buffer!")
         from maniskill2_learn.env import build_replay
 
         replay = build_replay(cfg.replay_cfg)

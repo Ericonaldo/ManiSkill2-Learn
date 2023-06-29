@@ -1,18 +1,41 @@
 import numpy as np
-import os.path as osp
 from typing import Union
 from tqdm import tqdm
 from itertools import count
 from h5py import File
 import _thread
 
-from maniskill2_learn.utils.meta import get_filename_suffix, get_total_memory, get_memory_list, get_logger, TqdmToLogger, parse_files
-from maniskill2_learn.utils.data import is_seq_of, DictArray, GDict, is_h5, is_null, DataCoder, is_not_null
-from maniskill2_learn.utils.file import load, load_items_from_record, get_index_filenames, get_total_size, FileCache, is_h5_traj, decode_items
+from maniskill2_learn.utils.meta import (
+    get_filename_suffix,
+    get_total_memory,
+    get_memory_list,
+    get_logger,
+    TqdmToLogger,
+    parse_files,
+)
+from maniskill2_learn.utils.data import (
+    is_seq_of,
+    DictArray,
+    GDict,
+    is_h5,
+    is_null,
+    DataCoder,
+    is_not_null,
+)
+from maniskill2_learn.utils.file import (
+    load,
+    load_items_from_record,
+    get_index_filenames,
+    get_total_size,
+    FileCache,
+    is_h5_traj,
+    decode_items,
+)
 from maniskill2_learn.utils.file.cache_utils import META_KEYS
 from .builder import REPLAYS, build_sampling
 from .sampling_strategy import TStepTransition
 from collections import deque
+
 
 @REPLAYS.register_module()
 class ReplayMemory:
@@ -49,7 +72,7 @@ class ReplayMemory:
         # capacity: the size of replay buffer, -1 means we will recompute the buffer size with files for initial replay buffer.
         assert capacity > 0 or buffer_filenames is not None
         # assert sampling_cfg is not None, "Please provide a valid sampling strategy over replay buffer!"
-        
+
         self.horizon = 1
         self.future_action_len = 0
         self.using_depth = using_depth
@@ -70,7 +93,9 @@ class ReplayMemory:
             logger.info(f"Load {len(buffer_filenames)} files!")
             data_size = get_total_size(buffer_filenames, num_samples=num_samples)
             self.data_size = data_size
-            logger.info(f"Load {len(buffer_filenames)} files with {data_size} samples in total!")
+            logger.info(
+                f"Load {len(buffer_filenames)} files with {data_size} samples in total!"
+            )
 
             # For supervised learning with variable number of points.
             without_cache = data_coder is not None and data_coder.var_len_item
@@ -78,12 +103,20 @@ class ReplayMemory:
             if capacity < 0:
                 capacity = data_size
                 logger.info(f"Recomputed replay buffer size is {capacity}!")
-            self.dynamic_loading = dynamic_loading if dynamic_loading is not None else (capacity < data_size)
+            self.dynamic_loading = (
+                dynamic_loading
+                if dynamic_loading is not None
+                else (capacity < data_size)
+            )
             if self.dynamic_loading and cache_size != capacity:
-                logger.warning("You should use same the cache_size as the capacity when dynamically loading files!")
+                logger.warning(
+                    "You should use same the cache_size as the capacity when dynamically loading files!"
+                )
                 cache_size = capacity
             if not self.dynamic_loading and keys is not None:
-                logger.warning("Some important keys may be dropped in buffer and the buffer cannot be extended!")
+                logger.warning(
+                    "Some important keys may be dropped in buffer and the buffer cannot be extended!"
+                )
             if not without_cache:
                 self.file_loader = FileCache(
                     buffer_filenames,
@@ -131,7 +164,9 @@ class ReplayMemory:
             else:
                 logger.info("Load all the data at one time!")
                 if not without_cache:
-                    tqdm_obj = tqdm(file=TqdmToLogger(), mininterval=10, total=self.data_size)
+                    tqdm_obj = tqdm(
+                        file=TqdmToLogger(), mininterval=10, total=self.data_size
+                    )
                     while True:
                         self.file_loader.run(auto_restart=False)
                         items = self.file_loader.get()
@@ -141,10 +176,14 @@ class ReplayMemory:
                         self.push_batch(items)
                         tqdm_obj.update(len(items))
                 else:
-                    logger.info(f"Loading full dataset without cache system!")
-                    for filename in tqdm(file=TqdmToLogger(), mininterval=60)(buffer_filenames):
+                    logger.info("Loading full dataset without cache system!")
+                    for filename in tqdm(file=TqdmToLogger(), mininterval=60)(
+                        buffer_filenames
+                    ):
                         file = File(filename, "r")
-                        traj_keys = [key for key in list(file.keys()) if key not in META_KEYS]
+                        traj_keys = [
+                            key for key in list(file.keys()) if key not in META_KEYS
+                        ]
                         traj_keys = sorted(traj_keys)
                         if num_samples > 0:
                             traj_keys = traj_keys[:num_samples]
@@ -155,9 +194,11 @@ class ReplayMemory:
                             data = data_coder.decode(data)
                         data = data.to_two_dims()
                         self.push_batch(data)
-                logger.info(f"Finish file loading! Buffer length: {len(self)}, buffer size {self.memory.nbytes_all / 1024 / 1024} MB!")
+                logger.info(
+                    f"Finish file loading! Buffer length: {len(self)}, buffer size {self.memory.nbytes_all / 1024 / 1024} MB!"
+                )
                 logger.info(f"Len of sampling buffer: {len(self.sampling)}")
-    
+
     @property
     def prefetched_data(self):
         if len(self.prefetched_data_queue):
@@ -236,11 +277,25 @@ class ReplayMemory:
             data = GDict({"traj_0": data.memory})
         data.to_hdf5(file)
 
-    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, mode="train"):
+    def pre_fetch(
+        self,
+        batch_size,
+        auto_restart=True,
+        drop_last=True,
+        device=None,
+        obs_mask=None,
+        action_normalizer=None,
+        mode="train",
+    ):
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
 
-        batch_idx, is_valid, ret_len = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading, padded_size=self.horizon)
+        batch_idx, is_valid, ret_len = self.sampling.sample(
+            batch_size,
+            drop_last=drop_last,
+            auto_restart=auto_restart and not self.dynamic_loading,
+            padded_size=self.horizon,
+        )
         if batch_idx is None:
             # without replacement only
             if auto_restart or self.dynamic_loading:
@@ -251,75 +306,131 @@ class ReplayMemory:
                 self.sampling.reset()
                 self.push_batch(items)
                 self.file_loader.run(auto_restart=auto_restart)
-                batch_idx, is_valid = self.sampling.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading)
+                batch_idx, is_valid = self.sampling.sample(
+                    batch_size,
+                    drop_last=drop_last,
+                    auto_restart=auto_restart and not self.dynamic_loading,
+                )
             else:
                 return None
-        
+
         ret = self.memory.take(batch_idx)
         if not self.using_depth:
-            if "obs" in ret.keys(): # Concat obs
+            if "obs" in ret.keys():  # Concat obs
                 for key in ret["obs"].keys():
-                    if isinstance(ret["obs"][key], (list,tuple)):
+                    if isinstance(ret["obs"][key], (list, tuple)):
                         ret["obs"][key] = ret["obs"][key][0]
                     if "rgbd" in key and (not self.using_depth):
-                        ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
-        batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
-        ret_flat_idx = [j for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
+                        ret["obs"][key] = ret["obs"][key][
+                            :, :, :3, :, :
+                        ]  # Take the first 3 channel
+
+        batch_flat_idx = [
+            i for i in range(batch_size) for j in range(self.horizon - ret_len[i])
+        ]
+        ret_flat_idx = [
+            j for i in range(batch_size) for j in range(self.horizon - ret_len[i])
+        ]
         # print(ret_len, batch_flat_idx, ret_flat_idx)
         # for key in ret.keys():
         #     if "keyframe" in key or "keytime" in key:
         #         ret[key] = ret[key][:, -1] # We only take the last step of the horizon since we want to train the key frame model
         if self.horizon > 1:
-            if "actions" in ret.keys(): # Set zero actions
-                ret["actions"][batch_flat_idx,ret_flat_idx,:] = 0
+            if "actions" in ret.keys():  # Set zero actions
+                ret["actions"][batch_flat_idx, ret_flat_idx, :] = 0
             # for i in range(len(batch_idx)):
             #     if self.horizon-ret_len[i]:
-                    # if "obs" in ret.keys(): # Concat obs
-                    #     for key in ret["obs"].keys():
-                    #         if isinstance(ret["obs"][key], (list,tuple)):
-                    #             ret["obs"][key] = ret["obs"][key][0]
-                    #         supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
-                    #         ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)
-                    # if "actions" in ret.keys(): # Set zero actions
-                            # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
-                            # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
+            # if "obs" in ret.keys(): # Concat obs
+            #     for key in ret["obs"].keys():
+            #         if isinstance(ret["obs"][key], (list,tuple)):
+            #             ret["obs"][key] = ret["obs"][key][0]
+            #         supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
+            #         ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)
+            # if "actions" in ret.keys(): # Set zero actions
+            # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
+            # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
+
         ret["is_valid"] = is_valid
         if (obs_mask is not None) and ("obs" in ret.keys()):
             obs_mask = obs_mask.cpu().numpy()
             for key in ret["obs"].keys():
-                ret["obs"][key] = ret["obs"][key][:,obs_mask,...]
+                ret["obs"][key] = ret["obs"][key][:, obs_mask, ...]
         if device is not None:
             ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
         if action_normalizer is not None:
             for key in ["actions", "keyframes"]:
                 if key in ret:
                     ret[key] = action_normalizer.normalize(ret[key])
-        if mode=="eval":
+        if mode == "eval":
             return ret
         self.prefetched_data_queue.append(ret)
         self.thread_count -= 1
 
-    def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, mode="train"):
-        if mode=="eval":
-            return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode=mode)
-        
+    def sample(
+        self,
+        batch_size,
+        auto_restart=True,
+        drop_last=True,
+        device=None,
+        obs_mask=None,
+        require_mask=False,
+        action_normalizer=None,
+        mode="train",
+    ):
+        if mode == "eval":
+            return self.pre_fetch(
+                batch_size,
+                auto_restart,
+                drop_last,
+                device,
+                obs_mask,
+                action_normalizer,
+                mode=mode,
+            )
+
         ret = self.prefetched_data
         if ret is not None:
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
-                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
+                _thread.start_new_thread(
+                    self.pre_fetch,
+                    (
+                        batch_size,
+                        auto_restart,
+                        drop_last,
+                        device,
+                        obs_mask,
+                        action_normalizer,
+                    ),
+                )
             return ret
-        
-        self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer)
+
+        self.pre_fetch(
+            batch_size, auto_restart, drop_last, device, obs_mask, action_normalizer
+        )
         ret = self.prefetched_data
-        if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch
+        if (obs_mask is not None) or (
+            not require_mask
+        ):  # If we don't need mask or the mask is provided, we can pre-fetch the next batch
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
-                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer))
+                _thread.start_new_thread(
+                    self.pre_fetch,
+                    (
+                        batch_size,
+                        auto_restart,
+                        drop_last,
+                        device,
+                        obs_mask,
+                        action_normalizer,
+                    ),
+                )
 
         return ret
 
-    def mini_batch_sampler(self, batch_size, drop_last=False, auto_restart=False, max_num_batches=-1):
+    def mini_batch_sampler(
+        self, batch_size, drop_last=False, auto_restart=False, max_num_batches=-1
+    ):
         if self.sampling is not None:
             old_replacement = self.sampling.with_replacement
             self.sampling.with_replacement = False

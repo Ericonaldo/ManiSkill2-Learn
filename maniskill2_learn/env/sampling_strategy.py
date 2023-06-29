@@ -231,8 +231,8 @@ class TStepTransition(SamplingStrategy):
         ret_len = [len(_) for _ in ret]
         padded_size = max(ret_len) if padded_size is None else padded_size
         # mask = np.zeros([len(ret), padded_size, 1], dtype=np.bool_)
-        mask = np.ones([len(ret), padded_size, 1], dtype=np.bool_) # We set all true since we want to generate all except conditioned ones
-        ret = np.array(list(map(lambda x:[x[0],] * (padded_size - len(x)) + x, ret)), dtype=np.int)
+        mask = np.ones([len(ret), padded_size, 1], dtype=np.bool_)  # We set all true since we want to generate all except conditioned ones
+        ret = np.array(list(map(lambda x: [x[0],] * (padded_size - len(x)) + x, ret)), dtype=int)
         # for i in range(len(ret)):
         #     # print(i, np.array(ret[i]).shape)
         #     # mask[i, : len(ret[i])] = True

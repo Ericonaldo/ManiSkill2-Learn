@@ -138,7 +138,7 @@ def train_rl(
     replay,
     on_policy,
     work_dir,
-    
+
     expert_replay=None,
     recent_traj_replay=None,
 
@@ -260,7 +260,6 @@ def train_rl(
         update_time = 0
         time_begin_episode = time.time()
         tmp_steps = 0
-
 
         if n_steps > 0:
             # For online RL
