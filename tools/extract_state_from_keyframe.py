@@ -66,6 +66,7 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
 
         length = trajectory['actions'].shape[0]
         action_dim = trajectory['actions'].shape[-1]
+        state_dim = trajectory['obs']['state'].shape[-1]
 
         replay = ReplayMemory(length)
         # action_accumulated = np.zeros(trajectory['actions'].shape)
@@ -82,21 +83,25 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             index = difference_array.argmin()
 
             keyframe_action = np.zeros((max_keyframes_len,action_dim))
+            keyframe_state = np.zeros((max_keyframes_len,state_dim))
             keyframe_difference = np.zeros(max_keyframes_len)
             keyframe_mask = np.zeros(max_keyframes_len)
             if traj_keyframe[index] > i or (i == traj_keyframe[index] == length-1):
                 first_key_frame = traj_keyframe[index]
                 keyframe_difference[:traj_keyframe[index:].shape[0]] = traj_keyframe[index:]-i
                 keyframe_action[:traj_keyframe[index:].shape[0]] = trajectory['actions'][traj_keyframe[index:]]
+                keyframe_state[:traj_keyframe[index:].shape[0]] = trajectory['obs']['state'][traj_keyframe[index:]]
                 keyframe_mask[:traj_keyframe[index:].shape[0]] = 1.
                 # keyfram e_action = np.pad(traj_keyframe[index:], (0, max_keyframes_len-(len(traj_keyframe)-index)), 'constant', constant_values=(-1, -1))
             else:
                 first_key_frame = traj_keyframe[index+1]
                 keyframe_difference[:traj_keyframe[index+1:].shape[0]] = traj_keyframe[index+1:]-i
                 keyframe_action[:traj_keyframe[index+1:].shape[0]] = trajectory['actions'][traj_keyframe[index+1:]]
+                keyframe_state[:traj_keyframe[index+1:].shape[0]] = trajectory['obs']['state'][traj_keyframe[index+1:]]
                 keyframe_mask[:traj_keyframe[index+1:].shape[0]] = 1.
                 # keyframe_action = np.pad(traj_keyframe[index+1:], (0, max_keyframes_len-(len(traj_keyframe)-index-1)), 'constant', constant_values=(-1, -1))
-            item_i["keyframes"] = keyframe_action
+            item_i["keyframe_actions"] = keyframe_action
+            item_i["keyframe_states"] = keyframe_state
             item_i["keyframe_masks"] = keyframe_mask
             item_i["keytime_differences"] = keyframe_difference
             item_i["timesteps"] = i
@@ -121,7 +126,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Extract key frames")
     parser.add_argument("--env-id", help="Env name", type=str, default='PickCube')
     # Configurations
-    parser.add_argument("--num-procs", default=1, type=int, help="Number of parallel processes to run")
+    parser.add_argument("--num-procs", default=1, type=int, help="Number of parallel processes to run, must be 1")
     parser.add_argument("--output-name", required=True, help="Output trajectory path, e.g. pickcube_pd_joint_delta_pos_pcd.h5")
     parser.add_argument("--traj-name", required=True, help="Input traj file name", type=str)
     parser.add_argument("--keyframe-name", required=True, help="Keyframe file name", type=str)

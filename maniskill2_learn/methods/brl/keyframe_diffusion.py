@@ -101,14 +101,19 @@ class KeyDiffAgent(DiffAgent):
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
 
-    def keyframe_loss(self, states, timesteps, actions, keyframes, keytime_differences, keyframe_masks):
+    def keyframe_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
 
-        gt = torch.cat([keyframes, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
-        pred_keyframe, info = self.keyframe_model(states, timesteps, actions) # (B, future_seq_len, act_dim+1)
-        loss = ((pred_keyframe[:,:keyframes.shape[1]] - gt) ** 2)
-        masked_loss = loss*keyframe_masks.unsqueeze(-1)
-        masked_loss = masked_loss.mean()
+        gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
+        gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
+        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, actions) # (B, future_seq_len, act_dim+1)
+        act_loss = ((pred_keyframe_actions[:,:keyframe_actions.shape[1]] - gt_actions) ** 2).sum(-1)
+        state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
+
+        masked_act_loss = act_loss*keyframe_masks
+        masked_state_loss = state_loss*keyframe_masks
+
+        masked_loss = masked_act_loss.sum(-1).mean() + masked_state_loss.sum(-1).mean()
 
         info.update(dict(keyframe_loss=masked_loss.detach().cpu()))
 
@@ -261,7 +266,8 @@ class KeyDiffAgent(DiffAgent):
             loss += diff_loss
 
         if self.train_keyframe_model:
-            keyframes = sampled_batch["keyframes"] # Need Normalize! (Already did in replay buffer)
+            keyframe_actions = sampled_batch["keyframe_actions"] # Need Normalize! (Already did in replay buffer)
+            keyframe_states = sampled_batch["keyframe_states"]
             # keyframes = self.normalizer.normalize(keyframes)
             keytime_differences = sampled_batch["keytime_differences"]
             keyframe_masks = sampled_batch["keyframe_masks"]
@@ -269,11 +275,12 @@ class KeyDiffAgent(DiffAgent):
             timesteps = sampled_batch["timesteps"]
             states = masked_obs["state"]
             actions = traj_data[:,obs_mask,...]
-            keyframes = keyframes[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+            keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+            keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]
             keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
             keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
 
-            keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframes, keytime_differences, keyframe_masks)
+            keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks)
             ret_dict.update(info)
             loss += keyframe_loss
         

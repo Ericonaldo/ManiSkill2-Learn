@@ -217,6 +217,7 @@ class KeyframeGPTWithHist(nn.Module):
         # Keyframe Action predictor.
         self.ln = nn.LayerNorm(self.config.n_embd)
         self.key_frame_action_predictor = MLP(self.config.n_embd, action_dim+1, hidden_dims=[256,256]) # Action + timestep diffrence
+        self.key_frame_state_predictor = MLP(self.config.n_embd, state_dim, hidden_dims=[256,256])
 
         self.apply(self._init_weights)
         print(f"Total # of parameters: {sum(p.numel() for p in self.parameters())}")
@@ -268,17 +269,23 @@ class KeyframeGPTWithHist(nn.Module):
         
         x = self.drop(x)
         x, intermediate_feats = self.blocks(x)
-        x = self.ln(x)
-        key_act_preds = self.key_frame_action_predictor(x)
+        key_state_act_preds = self.ln(x)
+        #### key_act_preds = self.key_frame_action_predictor(x)
+        #### if '+a' in self.model_type:
+        ####     # Remove the extra tokens when in eval mode.
+        ####     key_state_act_preds = key_state_act_preds[:,T*2-1:] # The next tokens after s+a history, should be s,a,s,a,s,...
+        #### else:
+        ####     key_state_act_preds = key_state_act_preds[:,T:] 
 
         # Remove the extra tokens (history) when in eval mode.
-        if '+a' in self.model_type:
-            # Remove the extra tokens when in eval mode.
-            key_act_preds = key_act_preds[:,T*2-1:] # The next tokens after s+a history 
-        else:
-            key_act_preds = key_act_preds[:,T:] # The next tokens after s history
+        if '+a' in self.model_type:  # The next tokens after s+a history should be s,a,s,a,s,...
+            key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T*2-1:self.block_size:2]) # The next tokens after s+a history
+            key_act_preds = self.key_frame_action_predictor(key_state_act_preds[:,T*2:self.block_size:2])
+        else: # The next tokens after s history, should be s,a,s,a,s,..
+            key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T:self.block_size:2]) # The next tokens after s history
+            key_act_preds = self.key_frame_action_predictor(key_state_act_preds[:,T+1:self.block_size:2])
 
-        return key_act_preds, {}  # Action + timestep diffrence
+        return key_state_preds, key_act_preds, {}  # Action + timestep diffrence
 
     def configure_adamw_optimizers(self):
         """

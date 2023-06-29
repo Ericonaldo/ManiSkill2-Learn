@@ -241,6 +241,7 @@ class FileCacheWorker:
         self.record_indices = load_record_indices(self.filenames)
         self.len_files = self._compute_len_files()
         compatible_with_horizon(self.filetypes, horizon)
+        self.horizon = horizon
 
         self.keys = keys
         self.keys_map = keys_map
@@ -350,6 +351,19 @@ class FileCacheWorker:
         record_indices = self.record_indices[self.file_index]
         filesuffix = self.filesuffix[file_index]
 
+
+        def recursive_repeat_dict(dict_to_do, repeat_num):
+            for key in dict_to_do.keys():
+                if isinstance(dict_to_do[key], dict):
+                    recursive_repeat_dict(dict_to_do[key], repeat_num)
+                else:
+                    supp = np.repeat([dict_to_do[key][-1]], self.horizon, 0)
+                    if key == "actions":
+                        supp[...,:-1] = 0
+                    if key == "timesteps":
+                        supp = np.array(range(dict_to_do[key][-1][0]+1, dict_to_do[key][-1][0]+self.horizon+1))[:, np.newaxis]
+                    dict_to_do[key] = np.vstack([dict_to_do[key], supp])
+
         if filesuffix == "record":
             num = min(min(len(record_indices), self.num_samples) - self.item_index, max_num)
             items = load_items_from_record(self.current_file, record_indices, self.item_index, self.item_index + num, True)
@@ -367,9 +381,11 @@ class FileCacheWorker:
                 # Trajectory dataset
                 key = self.current_keys[self.traj_index]
                 items = DictArray.from_hdf5(self.current_file[key])
+                recursive_repeat_dict(items, self.horizon) # We append a set of last states to the traj end with the number of horizon
             elif filesuffix == "record_episode":
                 items = load_items_from_record(self.current_file, record_indices, self.traj_index, None, True)
                 items = DictArray(items)
+                recursive_repeat_dict(items, self.horizon) # We append a set of last states to the traj end with the number of horizon
             else:
                 raise NotImplementedError
             num_samples = len(items)

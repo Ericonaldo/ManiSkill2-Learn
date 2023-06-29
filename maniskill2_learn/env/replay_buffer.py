@@ -126,6 +126,7 @@ class ReplayMemory:
             if self.dynamic_loading:
                 self.file_loader.run(auto_restart=False)
                 items = self.file_loader.get()
+                print("!!!!!!!!!!!!!!!!", len(items))
                 self.push_batch(items)
                 self.file_loader.run(auto_restart=False)
             else:
@@ -291,7 +292,7 @@ class ReplayMemory:
         if device is not None:
             ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
         if action_normalizer is not None:
-            for key in ["actions", "keyframes"]:
+            for key in ["actions", "keyframe_actions"]:
                 if key in ret:
                     ret[key] = action_normalizer.normalize(ret[key])
         if mode=="eval":
