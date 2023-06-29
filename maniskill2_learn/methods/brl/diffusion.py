@@ -331,12 +331,14 @@ class DiffAgent(BaseAgent):
 
         pred = self.model(action_noisy, t, local_cond, global_cond, returns)
 
+        pred[cond_mask] = actions[cond_mask]
+
         assert noise.shape == pred.shape
 
         if self.predict_epsilon:
-            loss = F.mse_loss(pred, noise)
+            loss = F.mse_loss(pred, noise reduction='none')
         else:
-            loss = F.mse_loss(pred, actions)
+            loss = F.mse_loss(pred, actions reduction='none')
 
         return loss, {"action_diff_loss": loss.detach().cpu()}
 
@@ -345,7 +347,8 @@ class DiffAgent(BaseAgent):
         batch_size = len(x)
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x.device).long()
         diffuse_loss, info = self.p_losses(x, t, cond_mask, local_cond, global_cond, returns)
-        diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
+        # diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
+        diffuse_loss = diffuse_loss.mean()
         return diffuse_loss, info
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):

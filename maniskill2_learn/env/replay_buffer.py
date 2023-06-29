@@ -126,7 +126,6 @@ class ReplayMemory:
             if self.dynamic_loading:
                 self.file_loader.run(auto_restart=False)
                 items = self.file_loader.get()
-                print("!!!!!!!!!!!!!!!!", len(items))
                 self.push_batch(items)
                 self.file_loader.run(auto_restart=False)
             else:

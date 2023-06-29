@@ -145,8 +145,8 @@ class KeyDiffAgent(DiffAgent):
         
         self.set_mode(mode=mode)
 
-        pred_keyframe_seq, info = self.keyframe_model(states, timesteps, action_history)
-        pred_keyframe = pred_keyframe_seq[:, 0] # take the first key frame for diffusion
+        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history)
+        pred_keyframe = pred_keyframe_actions[:, 0] # take the first key frame for diffusion
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
         pred_keytime_differences = np.clip((self.max_horizon * pred_keytime_differences).astype(int), a_min=0, a_max=None)
