@@ -20,7 +20,7 @@ from maniskill2_learn.utils.diffusion.arrays import to_torch
 from maniskill2_learn.utils.diffusion.progress import Progress, Silent
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
-# from maniskill2_learn.networks.modules.cnn_modules.multi_image_obs_encoder import MultiImageObsEncoder
+# from maniskill2_learn.networks.modules.multi_image_obs_encoder import MultiImageObsEncoder
 
 from ..builder import BRL
 
@@ -340,7 +340,7 @@ class DiffAgent(BaseAgent):
         else:
             loss = F.mse_loss(pred, actions, reduction='none')
 
-        return loss, {"action_diff_loss": loss.detach().cpu()}
+        return loss, {"action_diff_loss": loss.detach().cpu().numpy()}
 
     def loss(self, x, masks, cond_mask, local_cond=None, global_cond=None, returns=None):
         # x is the action, with shape (bs, horizon, act_dim)

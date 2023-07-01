@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
-from .crop_randomizer import CropRandomizer
+from maniskill2_learn.networks.modules.cnn_modules.crop_randomizer import CropRandomizer
 from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodules
 from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
 from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
@@ -89,6 +89,7 @@ class MultiImageObsEncoder(CNNBase):
 
         self.pcd_keys = list()
         
+        # init key_model_map & key_transform_map
         for key, attr in obs_shape_meta.items():
             shape = attr['shape']
             if isinstance(shape, list):

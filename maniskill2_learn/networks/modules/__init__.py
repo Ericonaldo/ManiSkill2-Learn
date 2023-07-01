@@ -16,3 +16,6 @@ except ImportError as e:
 
 from .attention import AttentionPooling, MultiHeadSelfAttention, MultiHeadAttention, ATTENTION_LAYERS, build_attention_layer
 from .plugin import PLUGIN_LAYERS, build_plugin_layer
+
+from .expert_transformer_encoder import MultiImageObsEncoderWithDemo
+from .multi_image_obs_encoder import MultiImageObsEncoder

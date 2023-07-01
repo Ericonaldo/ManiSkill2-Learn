@@ -115,7 +115,7 @@ class KeyDiffAgent(DiffAgent):
 
         masked_loss = masked_act_loss.sum(-1).mean() + masked_state_loss.sum(-1).mean()
 
-        info.update(dict(keyframe_loss=masked_loss.detach().cpu()))
+        info.update(dict(keyframe_loss=masked_loss.detach().cpu().numpy()))
 
         return masked_loss, info
 
@@ -124,7 +124,8 @@ class KeyDiffAgent(DiffAgent):
         batch_size = len(x)
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x.device).long()
         diffuse_loss, info = self.p_losses(x, t, cond_mask, local_cond, global_cond, returns)
-        diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
+        # diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
+        diffuse_loss = diffuse_loss.mean()
         return diffuse_loss, info       
     
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
@@ -207,8 +208,8 @@ class KeyDiffAgent(DiffAgent):
                 pred_action = pred_action_seq[:,hist_len:pred_keytime[0]+1,:] # do not support batch evaluation
             else:
                 print("no keyframe", pred_keytime_differences, self.max_horizon)
-                # pred_action = pred_action_seq[:,hist_len:hist_len+4,:] # do not support batch evaluation
-                pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
+                pred_action = pred_action_seq[:,hist_len:hist_len+2,:] # do not support batch evaluation
+                # pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):

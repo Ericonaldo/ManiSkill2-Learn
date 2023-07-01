@@ -7,7 +7,7 @@ from ..modules import build_attention_layer
 from maniskill2_learn.utils.torch import ExtendedModule
 from maniskill2_learn.utils.data import split_dim, GDict
 from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
-from maniskill2_learn.networks.modules.cnn_modules.multi_image_obs_encoder import MultiImageObsEncoder
+from maniskill2_learn.networks.modules.multi_image_obs_encoder import MultiImageObsEncoder
 
 from pytorch3d.transforms import quaternion_to_matrix
 
