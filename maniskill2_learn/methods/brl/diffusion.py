@@ -432,6 +432,7 @@ class DiffAgent(BaseAgent):
 
         # generate impainting mask
         traj_data = sampled_batch["actions"] # Need Normalize! (Already did in replay buffer)
+        masked_obs = sampled_batch['obs']
         # traj_data = self.normalizer.normalize(traj_data)
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
@@ -440,12 +441,10 @@ class DiffAgent(BaseAgent):
             if self.obs_as_global_cond:
                 act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
+                for key in masked_obs:
+                    masked_obs[key] = masked_obs[key][:,obs_mask,...]
             else:
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
-        
-        masked_obs = sampled_batch['obs']
-        for key in masked_obs:
-            masked_obs[key] = masked_obs[key][:,obs_mask,...]
 
         obs_fea = self.obs_encoder(masked_obs)
 

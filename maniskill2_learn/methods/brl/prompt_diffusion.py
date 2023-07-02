@@ -20,13 +20,13 @@ from maniskill2_learn.utils.diffusion.arrays import to_torch
 from maniskill2_learn.utils.diffusion.progress import Progress, Silent
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
-# from maniskill2_learn.networks.modules.multi_image_obs_encoder import MultiImageObsEncoder
+from . import DiffAgent
 
 from ..builder import BRL
 
 
 @BRL.register_module()
-class PromptDiffAgent(BaseAgent):
+class PromptDiffAgent(DiffAgent):
     def __init__(
         self,
         actor_cfg,
@@ -59,7 +59,7 @@ class PromptDiffAgent(BaseAgent):
         super().__init__(
             actor_cfg=actor_cfg,
             visual_nn_cfg=visual_nn_cfg,
-            nn_cfg=diff_nn_cfg,
+            nn_cfg=nn_cfg,
             optim_cfg=optim_cfg,
             env_params=env_params,
             action_seq_len=action_seq_len,
@@ -94,7 +94,7 @@ class PromptDiffAgent(BaseAgent):
         batch_size = self.batch_size
         sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer)
         # sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"] # Did in replay buffer
-        sampled_demo =  memory.sample(1, , device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer, whole_traj=True)
+        sampled_demo = memory.sample(1, device=self.device, action_normalizer=self.normalizer, whole_traj=True)
         
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
@@ -107,24 +107,26 @@ class PromptDiffAgent(BaseAgent):
         # generate impainting mask
         traj_data = sampled_batch["actions"] # Need Normalize! (Already did in replay buffer)
         # traj_data = self.normalizer.normalize(traj_data)
+        obs_keys = list(sampled_batch['obs'].keys())
         act_mask, obs_mask = None, None
+        masked_obs_dict = sampled_batch['obs']
         if self.fix_obs_steps:
             act_mask, obs_mask = self.act_mask, self.obs_mask
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
                 act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
+                for key in obs_keys:
+                    masked_obs_dict[key] = sampled_batch['obs'][key][:,obs_mask,...]
             else:
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+         
+        for key in obs_keys:
+            masked_obs_dict["demo_{}".format(key)] = sampled_demo["obs"][key]
         
-        masked_obs_dict = sampled_batch['obs']
-        for key in masked_obs_dict:
-            masked_obs_dict[key] = masked_obs_dict[key][:,obs_mask,...]
-        masked_obs_dict["demo"] = sampled_demo["obs"]
-
         act_dict = dict(
-            "actions": sampled_batch['actions'],
-            "demo": sampled_demo["actions"]
+            actions= sampled_batch['actions'][:,obs_mask,...],
+            demo_actions = sampled_demo["actions"]
         )
 
         obs_fea = self.obs_encoder(masked_obs_dict, act_dict)

@@ -264,7 +264,7 @@ class FileCacheWorker:
             self.output_buffers = [SharedDictArray(self.cache_buffer.to_dict_array().slice(slice(0, 1))) for i in range(num_procs)]
 
         logger.info(
-            f"Lenght of cache: {capacity}, cache size {self.cache_buffer.nbytes_all / 1024 / 1024} MB, cache shape {self.cache_buffer.shape}!"
+            f"Length of cache: {capacity}, cache size {self.cache_buffer.nbytes_all / 1024 / 1024} MB, cache shape {self.cache_buffer.shape}!"
         )
         self.reset()
 

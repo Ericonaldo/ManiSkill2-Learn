@@ -191,7 +191,7 @@ class KeyDiffAgent(DiffAgent):
                 device=self.device,
             )
             action_history = torch.concat([action_history, supp], dim=1)
-        if pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
+        if self.n_obs_steps//2 <= pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
             action_history[range(bs),pred_keytime] = pred_keyframe 
             act_mask = act_mask.clone()
             act_mask[range(bs),pred_keytime] = True

@@ -8,7 +8,7 @@ agent_cfg = dict(
     batch_size=256,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
-        type="MultiImageObsEncoder", 
+        type="MultiImageObsEncoderWithDemo", 
         shape_meta=dict(
             obs=dict(
                 base_camera_rgbd=dict(
@@ -24,6 +24,30 @@ agent_cfg = dict(
                 state=dict(
                     type="low_dim",
                     shape="agent_shape"
+                ),
+                demo_base_camera_rgbd=dict(
+                    type="rgbd",
+                    shape="image_size",
+                    channel=4
+                ),
+                demo_hand_camera_rgbd=dict(
+                    type="rgbd",
+                    shape="image_size",
+                    channel=4
+                ),
+                demo_state=dict(
+                    type="low_dim",
+                    shape="agent_shape",
+                )
+            ),
+            actions=dict(
+                actions=dict(
+                    type="action",
+                    shape="action_shape"
+                ),
+                demo_actions=dict(
+                    type="action",
+                    shape="action_shape"
                 )
             )
         ),
@@ -36,7 +60,7 @@ agent_cfg = dict(
     fix_obs_stepd=True,
     action_visible=True,
     optim_cfg=dict(type="Adam", lr=3e-4),
-    diff_nn_cfg=dict(
+    nn_cfg=dict(
         type="ConditionalUnet1D",
         input_dim="action_shape",
         local_cond_dim=None,
@@ -46,23 +70,6 @@ agent_cfg = dict(
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,
-    ),
-    keyframe_model_cfg=dict(
-        state_dim="agent_shape",
-        action_dim="action_shape",
-        model_type="s+a",
-        block_size=64,
-        n_layer=4,
-        n_head=8, 
-        n_embd=128,
-        max_timestep=200,
-        hist_horizon=n_obs_steps,
-        optim_cfg=dict(
-            init_lr=5e-4,
-            weight_decay=0,
-            beta1=0.9,
-            beta2=0.95,
-        ),
     ),
 )
 
@@ -75,7 +82,6 @@ agent_cfg = dict(
 #     control_mode="pd_joint_pos"
 # )
 
-
 replay_cfg = dict(
     type="ReplayMemory",
     sampling_cfg=dict(
@@ -85,7 +91,7 @@ replay_cfg = dict(
     ),
     capacity=-1,
     num_samples=-1,
-    keys=["obs", "actions", "dones", "episode_dones", "timesteps"],
+    keys=["obs", "actions", "dones", "episode_dones"],
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],

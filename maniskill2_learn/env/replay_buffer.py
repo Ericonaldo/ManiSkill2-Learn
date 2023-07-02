@@ -113,9 +113,11 @@ class ReplayMemory:
         if self.dynamic_loading:
             self.sampling.with_replacement = False
 
+        self.traj_sampling = None
         if self.sample_traj:
-            sampling_cfg["capacity"] = -1
+            sampling_cfg["horizon"] = -1
             self.traj_sampling = build_sampling(sampling_cfg)
+            self.prefetched_traj_queue = deque(maxlen=max_threads)
 
         self.capacity = capacity
         self.auto_buffer_resize = auto_buffer_resize
@@ -164,10 +166,12 @@ class ReplayMemory:
                 logger.info(f"Finish file loading! Buffer length: {len(self)}, buffer size {self.memory.nbytes_all / 1024 / 1024} MB!")
                 logger.info(f"Len of sampling buffer: {len(self.sampling)}")
     
-    @property
-    def prefetched_data(self):
-        if len(self.prefetched_data_queue):
-            return self.prefetched_data_queue.popleft()
+    def prefetched_data(self, whole_traj=False):
+        data_queue = self.prefetched_data_queue
+        if self.sample_traj and whole_traj:
+            data_queue = self.prefetched_traj_queue
+        if len(data_queue):
+            return data_queue.popleft()
         return None
 
     def __getitem__(self, key):
@@ -220,6 +224,8 @@ class ReplayMemory:
             self.position = (self.position + len(items)) % self.capacity
             if self.sampling is not None:
                 self.sampling.push_batch(items)
+            if self.traj_sampling is not None:
+                self.traj_sampling.push_batch(items)
 
     def update_all_items(self, items):
         self.memory.assign(slice(0, len(items)), items)
@@ -242,9 +248,15 @@ class ReplayMemory:
             data = GDict({"traj_0": data.memory})
         data.to_hdf5(file)
 
-    def pre_fetch(self, batch_size, sampler, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, mode="train"):
+    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, mode="train", whole_traj=False):
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
+
+        sampler = self.sampling
+        data_queue = self.prefetched_data_queue
+        if self.sample_traj and whole_traj:
+            sampler = self.traj_sampling
+            data_queue = self.prefetched_traj_queue
 
         batch_idx, is_valid, ret_len = sampler.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading, padded_size=self.horizon)
         if batch_idx is None:
@@ -302,30 +314,26 @@ class ReplayMemory:
                     ret[key] = action_normalizer.normalize(ret[key])
         if mode=="eval":
             return ret
-        self.prefetched_data_queue.append(ret)
+        data_queue.append(ret)
         self.thread_count -= 1
 
     def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, mode="train", whole_traj=False):
-        sampler = self.sampling
-        if self.sample_traj and whole_traj:
-            sampler = self.traj_sampling
-        
         if mode=="eval":
-            return self.pre_fetch(batch_size,sampler,auto_restart,drop_last,device,obs_mask,action_normalizer,mode=mode)
+            return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode=mode, whole_traj=whole_traj)
         
-        ret = self.prefetched_data
+        ret = self.prefetched_data(whole_traj)
         if ret is not None:
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
-                _thread.start_new_thread(self.pre_fetch, (batch_size,sampler,auto_restart,drop_last,device,obs_mask,action_normalizer))
+                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
             return ret
         
-        self.pre_fetch(batch_size,sampler,auto_restart,drop_last,device,obs_mask,action_normalizer)
-        ret = self.prefetched_data
+        self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj)
+        ret = self.prefetched_data(whole_traj)
         if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
-                _thread.start_new_thread(self.pre_fetch, (batch_size,sampler,auto_restart,drop_last,device,obs_mask,action_normalizer))
+                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
 
         return ret
 

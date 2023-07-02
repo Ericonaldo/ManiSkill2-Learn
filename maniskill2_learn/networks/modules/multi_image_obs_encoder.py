@@ -62,6 +62,7 @@ class MultiImageObsEncoder(CNNBase):
             # assuming input in [0,1]
             imagenet_norm: bool=False,
             n_obs_steps: int=1,
+            get_output_dim=True,
         ):
         """
         Assumes rgb input: B,C,H,W
@@ -192,7 +193,8 @@ class MultiImageObsEncoder(CNNBase):
         self.rgb_keys = rgb_keys
         self.low_dim_keys = low_dim_keys
         self.key_shape_map = key_shape_map
-        self.out_feature_dim = self.output_shape()
+        if get_output_dim:
+            self.out_feature_dim = self.output_shape()
 
     def forward(self, obs_dict):
         batch_size = None
