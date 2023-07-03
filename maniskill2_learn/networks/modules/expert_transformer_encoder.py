@@ -106,7 +106,7 @@ class MultiImageObsEncoderWithDemo(MultiImageObsEncoder):
                  imagenet_norm: bool = False,
                  n_obs_steps: int = 1,
                  max_demo_steps: int = 1,
-                 token_dim=512
+                 token_dim=256,
                  ):
         """
         Assumes rgb input: B,C,H,W
@@ -269,7 +269,7 @@ class MultiImageObsEncoderWithDemo(MultiImageObsEncoder):
             else:
                 if "demo" not in key:
                     assert batch_size == data.shape[0], f"{batch_size}, {data.shape}"
-            assert data.shape[2:] == self.key_shape_map[key], f"{data.shape}, {self.key_shape_map[key]}"  # bs, horizon
+            assert data.shape[2:] == self.key_shape_map[key], f"{key}, {data.shape}, {self.key_shape_map[key]}"  # bs, horizon
             seq_len = data.shape[1]
             if 'demo' in key:
                 data = data.view(demo_batch, seq_len, -1)  # (B,L,D)
@@ -325,7 +325,8 @@ class MultiImageObsEncoderWithDemo(MultiImageObsEncoder):
         hist_tokens[:,1:T*2-1:2,:] = hist_act_tokens[:,:T-1] # Remove the last one (ground truth)
 
         res = self.cross_att(hist_tokens, demo_tokens)
-        res = self.global_1d_max_pool(res.permute(0, 2, 1)).squeeze(-1)  # max pooling over the sequence length dim
+        res = res.reshape(res.shape[0], -1)  # max pooling over the sequence length dim
+        # res = self.global_1d_max_pool(res.permute(0, 2, 1)).squeeze(-1)  # max pooling over the sequence length dim
 
         return res  # B, feature_size (feature_size = resenet_fea+low_dim)
     

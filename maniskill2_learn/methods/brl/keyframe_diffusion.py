@@ -191,7 +191,8 @@ class KeyDiffAgent(DiffAgent):
                 device=self.device,
             )
             action_history = torch.concat([action_history, supp], dim=1)
-        if self.n_obs_steps//2 <= pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
+        if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
+        # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
             action_history[range(bs),pred_keytime] = pred_keyframe 
             act_mask = act_mask.clone()
             act_mask[range(bs),pred_keytime] = True
@@ -203,13 +204,14 @@ class KeyDiffAgent(DiffAgent):
 
         if mode=="eval":
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
-            if pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-                print("keyframe", pred_keytime_differences, self.max_horizon)
+            if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+            # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+                # print("keyframe", pred_keytime_differences, self.max_horizon)
                 pred_action = pred_action_seq[:,hist_len:pred_keytime[0]+1,:] # do not support batch evaluation
             else:
-                print("no keyframe", pred_keytime_differences, self.max_horizon)
-                pred_action = pred_action_seq[:,hist_len:hist_len+2,:] # do not support batch evaluation
-                # pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
+                # print("no keyframe", pred_keytime_differences, self.max_horizon)
+                # pred_action = pred_action_seq[:,hist_len:hist_len+2,:] # do not support batch evaluation
+                pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):

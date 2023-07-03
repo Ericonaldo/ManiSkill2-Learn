@@ -262,7 +262,7 @@ class DiffAgent(BaseAgent):
 
     @torch.no_grad()
     def p_sample_loop(
-        self, cond_data, cond_mask, local_cond=None, global_cond=None, returns=None, verbose=True, return_diffusion=False
+        self, cond_data, cond_mask, local_cond=None, global_cond=None, returns=None, verbose=True, return_diffusion=False, **kwargs
     ):
         device = self.betas.device
 

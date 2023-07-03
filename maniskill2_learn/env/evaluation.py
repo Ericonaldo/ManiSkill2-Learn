@@ -536,6 +536,10 @@ class Evaluation:
         self.start(work_dir)
         import torch
 
+        replay = None
+        if "memory" in kwargs:
+            replay = kwargs["memory"]
+
         def reset_pi():
             if hasattr(pi, "reset"):
                 assert self.worker_id is None, "Reset policy only works for single thread!"
@@ -556,7 +560,7 @@ class Evaluation:
                     recent_obs = self.vec_env.get_state()
                 with torch.no_grad():
                     with pi.no_sync(mode="actor"):
-                        action = pi(recent_obs, mode=self.sample_mode)
+                        action = pi(recent_obs, mode=self.sample_mode, memory=replay)
                         action = to_np(action)
                         if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0) and self.eval_action_len>1:
                             # for i in range(self.eval_action_len-1):

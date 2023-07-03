@@ -122,7 +122,8 @@ class PromptDiffAgent(DiffAgent):
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
          
         for key in obs_keys:
-            masked_obs_dict["demo_{}".format(key)] = sampled_demo["obs"][key]
+            if key in sampled_demo["obs"].keys():
+                masked_obs_dict["demo_{}".format(key)] = sampled_demo["obs"][key]
         
         act_dict = dict(
             actions= sampled_batch['actions'][:,obs_mask,...],
@@ -149,3 +150,78 @@ class PromptDiffAgent(DiffAgent):
         self.step += 1
 
         return ret_dict
+    
+    def forward(self, observation, memory=None, eturns_rate=0.9, mode="eval", *args, **kwargs):
+
+        # if mode=="eval": # Only used for ms-skill challenge online evaluation
+        #     if self.eval_action_queue is not None and len(self.eval_action_queue):
+        #         return self.eval_action_queue.popleft()
+        
+        observation = to_torch(observation, device=self.device, dtype=torch.float32)
+        
+        action_history = observation["actions"]
+        action_history = self.normalizer.normalize(action_history)
+        bs = action_history.shape[0]
+        hist_len = action_history.shape[1]
+        observation.pop("actions")
+        
+        assert memory is not None, "memory should not be none!"
+        sampled_demo = memory.sample(1, device=self.device, action_normalizer=self.normalizer, whole_traj=True)
+        
+        self.set_mode(mode=mode)
+
+        act_mask, obs_mask = None, None
+        if self.fix_obs_steps:
+            act_mask, obs_mask = self.act_mask, self.obs_mask
+
+        if act_mask is None or obs_mask is None:
+            if self.obs_as_global_cond:
+                act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim), self.device)
+                self.act_mask, self.obs_mask = act_mask, obs_mask
+            else:
+                raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+
+        if act_mask.shape[0] < bs:
+            act_mask = act_mask.repeat(max(bs//act_mask.shape[0]+1, 2), 1, 1)
+        if act_mask.shape[0] != bs:
+            act_mask = act_mask[:action_history.shape[0]] # obs mask is int
+        
+        obs_keys = list(observation.keys())
+        for key in obs_keys:
+            if key in sampled_demo["obs"].keys():
+                observation["demo_{}".format(key)] = sampled_demo["obs"][key]
+
+        masked_action_history = action_history
+        if action_history.shape[1] == self.horizon:
+            for key in observation:
+                observation[key] = observation[key][:,obs_mask,...]
+            masked_action_history = masked_action_history[:,obs_mask,...]
+
+        act_dict = dict(
+            actions=masked_action_history,
+            demo_actions = sampled_demo["actions"]
+        )
+
+        obs_fea = self.obs_encoder(observation, act_dict) # No need to mask out since the history is set as the desired length
+        
+        if self.action_seq_len-hist_len:
+            supp = torch.zeros(
+                bs, self.action_seq_len-hist_len, self.action_dim, 
+                dtype=action_history.dtype,
+                device=self.device,
+            )
+            action_history = torch.concat([action_history, supp], dim=1)
+
+        pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
+        pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
+        pred_action = pred_action_seq
+
+        if mode=="eval":
+            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
+            # Only used for ms-skill challenge online evaluation
+            # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
+            # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
+            #     for i in range(self.eval_action_len-1):
+            #         self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,:])
+        
+        return pred_action

@@ -56,6 +56,9 @@ python maniskill2_learn/apis/run_rl.py configs/brl/bc/rgbd.py --num-gpus 8 --env
 
 # RUN DiffPolicy
 
+python maniskill2_learn/apis/run_rl.py configs/brl/prompt_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_joint_pos.h5"
 --auto-resume --work-dir="./logs/PickCube-v0/DiffAgent/rgbd-pd_joint_pos/20230618_162723"
@@ -71,6 +74,9 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id StackCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/StackCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
+python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-gpus 8 --env-id StackCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/StackCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id AssemblingKits-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/AssemblingKits-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"

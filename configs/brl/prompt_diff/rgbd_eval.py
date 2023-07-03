@@ -26,6 +26,30 @@ agent_cfg = dict(
                 state=dict(
                     type="low_dim",
                     shape="agent_shape"
+                ),
+                demo_base_camera_rgbd=dict(
+                    type="rgbd",
+                    shape="image_size",
+                    channel=4
+                ),
+                demo_hand_camera_rgbd=dict(
+                    type="rgbd",
+                    shape="image_size",
+                    channel=4
+                ),
+                demo_state=dict(
+                    type="low_dim",
+                    shape="agent_shape",
+                )
+            ),
+            actions=dict(
+                actions=dict(
+                    type="action",
+                    shape="action_shape"
+                ),
+                demo_actions=dict(
+                    type="action",
+                    shape="action_shape"
                 )
             )
         ),
@@ -67,6 +91,7 @@ replay_cfg = dict(
     sampling_cfg=dict(
         type="TStepTransition",
         horizon=horizon,
+        future_action_len=future_action_len,
     ),
     capacity=-1,
     num_samples=-1,
@@ -74,6 +99,9 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
+    num_procs=32,
+    synchronized=False,
+    sample_traj=True,
 )
 
 train_cfg = dict(
