@@ -4,7 +4,7 @@ future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
     type="ClipAgent",
-    batch_size=4,
+    batch_size=32,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder",
@@ -26,6 +26,9 @@ agent_cfg = dict(
                 )
             )
         ),
+    ),
+    actor_cfg=dict(
+        type="ContDiffActor",
     ),
     action_hidden_dims=[1024, 1024],
     temperature=1.0,
