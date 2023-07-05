@@ -2,12 +2,9 @@ workdir = "vae-rgbd"
 agent_cfg = dict(
     type="BC",
     batch_size=256,
+    loss_type="vae",
     actor_cfg=dict(
         type="ContinuousActor",
-        head_cfg=dict(
-            type="TanhHead",
-            noise_std=1e-5,
-        ),
         nn_cfg=dict(
             type="Visuomotor",
             visual_nn_cfg=dict(
@@ -30,15 +27,14 @@ agent_cfg = dict(
                         )
                     )
                 ),
-                output_mlp=True,
+                output_vae=True,
                 output_dim=128,
             ),
-            mlp_cfg=dict(
-                type="GaussianMLP", norm_cfg=None, mlp_spec=[128, 64, "action_shape"], bias=True, inactivated_output=True
-            ),
+        ),
+        mlp_cfg=dict(
+            type="GaussianMLP", norm_cfg=None, mlp_spec=[128, 64, "action_shape"], bias=True, inactivated_output=True
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
-        loss_type="vae",
     ),
 )
 

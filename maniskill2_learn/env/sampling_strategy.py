@@ -89,7 +89,7 @@ class OneStepTransition(SamplingStrategy):
         self.running_count += 1
         self.position = (self.position + 1) % self.capacity
 
-    def sample(self, batch_size, drop_last=True, auto_restart=True):
+    def sample(self, batch_size, drop_last=True, auto_restart=True, *args, **kwargs):
         # Return: index and valid masks
         index = self.get_index(batch_size, len(self), drop_last=drop_last, auto_restart=auto_restart)
         if index is None:
@@ -207,7 +207,7 @@ class TStepTransition(SamplingStrategy):
         self.running_count += 1
         self.position = (self.position + 1) % self.capacity
 
-    def sample(self, batch_size, drop_last=True, auto_restart=True, padded_size=None):
+    def sample(self, batch_size, drop_last=True, auto_restart=True, padded_size=None, *args, **kwargs):
         # Ret: [B, H], indices for each trajectory in the (batch_size) number of trajectories sampled;
         # Mask: [B, H, 1], whether a timestep in a trajectory is valid (for padding purposes)
         query_size = np.cumsum([len(_) for _ in self.valid_seq])

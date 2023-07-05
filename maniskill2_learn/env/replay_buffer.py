@@ -281,13 +281,13 @@ class ReplayMemory:
                         ret["obs"][key] = ret["obs"][key][0]
                     if "rgbd" in key and (not self.using_depth):
                         ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
-        batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
-        ret_flat_idx = [j for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
-        # print(ret_len, batch_flat_idx, ret_flat_idx)
-        # for key in ret.keys():
-        #     if "keyframe" in key or "keytime" in key:
-        #         ret[key] = ret[key][:, -1] # We only take the last step of the horizon since we want to train the key frame model
         if self.horizon > 1:
+            batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
+            ret_flat_idx = [j for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
+            # print(ret_len, batch_flat_idx, ret_flat_idx)
+            # for key in ret.keys():
+            #     if "keyframe" in key or "keytime" in key:
+            #         ret[key] = ret[key][:, -1] # We only take the last step of the horizon since we want to train the key frame model
             if "actions" in ret.keys(): # Set zero actions
                 ret["actions"][batch_flat_idx,ret_flat_idx,:] = 0
             # for i in range(len(batch_idx)):

@@ -59,7 +59,10 @@ class BC(BaseAgent):
 
     def forward(self, obs, **kwargs):
         obs = GDict(obs).to_torch(dtype="float32", device=self.device, non_blocking=True, wrapper=False)
-        return self.actor(obs, **kwargs)
+        act = self.actor(obs, **kwargs)
+        if isinstance(act, torch.distributions.Normal):
+            act = act.mean()
+        return act
 
     def compute_regression_loss(self, pred_dist, pred_action, target_action, mask=None):
         if mask is None:
@@ -106,6 +109,9 @@ class BC(BaseAgent):
             [pred_dist, pred_action] = self.actor(sampled_batch["obs"], mode="dist_mean")
             loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
         else:
+            for key in sampled_batch["obs"].keys():
+                sampled_batch["obs"][key] = sampled_batch["obs"][key].unsqueeze(dim=1) # horizon = 1
+            ret_dict = defaultdict(list)
             q_z = self.actor.backbone(sampled_batch["obs"])
             z = q_z.rsample()
             p_x = self.actor.final_mlp(z)
@@ -115,6 +121,7 @@ class BC(BaseAgent):
                 torch.distributions.Normal(0, 1.)
             ).sum(-1).mean()
             loss = -(log_likelihood - kl)
+            ret_dict["vae_loss"] = loss.item()
 
         loss.backward()
         if self.max_grad_norm is not None:

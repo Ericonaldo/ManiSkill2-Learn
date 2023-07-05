@@ -24,7 +24,7 @@ class Visuomotor(ExtendedModule):
     def __init__(
         self,
         visual_nn_cfg,
-        mlp_cfg,
+        mlp_cfg=None,
         visual_nn=None,
         freeze_visual_nn=False,
         freeze_mlp=False,
@@ -80,12 +80,12 @@ class Visuomotor(ExtendedModule):
                 assert (
                     robot_state is None
                 ), f"Please provide only one robot state! Obs Keys: {obs_keys}"
-                robot_state = obs.pop(key)
-        if not ("xyz" in obs or "rgb" in obs or "rgbd" in obs):
-            assert (
-                len(obs) == 1
-            ), f"Observations need to contain only one visual element! Obs Keys: {obs.keys()}!"
-            obs = obs[list(obs.keys())[0]]
+                # robot_state = obs.pop(key) # Do not pop for multi_image_obs_encoder
+        # if not ("xyz" in obs or "rgb" in obs or "rgbd" in obs):
+        #     assert (
+        #         len(obs) == 1
+        #     ), f"Observations need to contain only one visual element! Obs Keys: {obs.keys()}!"
+        #     obs = obs[list(obs.keys())[0]]
 
         if feature is None:
             if visual_feature is None:
