@@ -101,8 +101,21 @@ class BC(BaseAgent):
 
         sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True)
         self.actor_optim.zero_grad()
-        [pred_dist, pred_action] = self.actor(sampled_batch["obs"], mode="dist_mean")
-        loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
+
+        if self.loss_type != "vae":
+            [pred_dist, pred_action] = self.actor(sampled_batch["obs"], mode="dist_mean")
+            loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
+        else:
+            q_z = self.actor.backbone(sampled_batch["obs"])
+            z = q_z.rsample()
+            p_x = self.actor.final_mlp(z)
+            log_likelihood = p_x.log_prob(sampled_batch["actions"]).sum(-1).mean()
+            kl = torch.distributions.kl_divergence(
+                q_z, 
+                torch.distributions.Normal(0, 1.)
+            ).sum(-1).mean()
+            loss = -(log_likelihood - kl)
+
         loss.backward()
         if self.max_grad_norm is not None:
             nn.utils.clip_grad_norm_(chain(self.actor.parameters(), self.critic.parameters()), self.max_grad_norm)

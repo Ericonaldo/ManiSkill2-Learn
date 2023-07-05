@@ -1,4 +1,4 @@
-from .mlp import LinearMLP, ConvMLP
+from .mlp import LinearMLP, ConvMLP, GussianMLP
 from .visuomotor import Visuomotor
 from .pointnet import PointNet
 

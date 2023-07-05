@@ -404,7 +404,9 @@ def run_one_process(rank, world_size, args, cfg):
             eval_cfg["env_cfg"] = deepcopy(cfg.env_cfg)
             eval_cfg["env_cfg"].update(tmp)
         get_logger().info(f"Building evaluation: eval_cfg: {eval_cfg}")
-        eval_cfg['seed'] = np.random.randint(0, int(1E9))
+        eval_cfg['seed'] = args.seed
+        if args.seed is None:
+            eval_cfg['seed'] = np.random.randint(0, int(1E9))
         evaluator = build_evaluation(eval_cfg)
     else:
         evaluator = None

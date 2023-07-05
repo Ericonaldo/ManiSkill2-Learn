@@ -61,10 +61,9 @@ python maniskill2_learn/apis/run_rl.py configs/brl/prompt_diff/rgbd.py --num-gpu
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_joint_pos.h5"
---auto-resume --work-dir="./logs/PickCube-v0/DiffAgent/rgbd-pd_joint_pos/20230618_162723"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
---cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.keyframes.rgbd.pd_joint_pos.h5"
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
@@ -88,7 +87,7 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-gpus 8 --env-id PegInsertionSide-v0 \
---cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5"
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose-h128"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PlugCharger-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PlugCharger-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"

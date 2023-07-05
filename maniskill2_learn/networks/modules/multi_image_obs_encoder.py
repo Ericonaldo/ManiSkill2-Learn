@@ -11,6 +11,7 @@ from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
 from maniskill2_learn.networks.backbones.pointnet import PointNet
 from maniskill2_learn.utils.torch import no_grad
 from maniskill2_learn.networks.builder import MODELNETWORKS, build_model
+from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
 
 @MODELNETWORKS.register_module()
 class MultiImageObsEncoder(CNNBase):
@@ -63,6 +64,10 @@ class MultiImageObsEncoder(CNNBase):
             imagenet_norm: bool=False,
             n_obs_steps: int=1,
             get_output_dim=True,
+            output_mlp=False,
+            output_vae=False,
+            output_dim=128,
+            output_hidden_dims=[512,512],
         ):
         """
         Assumes rgb input: B,C,H,W
@@ -193,9 +198,24 @@ class MultiImageObsEncoder(CNNBase):
         self.rgb_keys = rgb_keys
         self.low_dim_keys = low_dim_keys
         self.key_shape_map = key_shape_map
-        if get_output_dim:
+        
+        self.output_mlp = None
+        self.output_vae = None
+
+        if get_output_dim or output_mlp:
             self.out_feature_dim = self.output_shape()
 
+        
+        if output_mlp:
+            self.output_mlp = MLP(input_dim=self.out_feature_dim, output_dim=output_dim, hidden_dims=output_hidden_dims)
+            self.out_feature_dim = self.out_feature_dim
+
+            assert self.output_shape() == self.out_feature_dim, "output shape not the same as expected"   
+        elif output_vae:
+            self.output_vae = [MLP(input_dim=self.out_feature_dim, output_dim=output_dim, hidden_dims=output_hidden_dims), 
+                               MLP(input_dim=self.out_feature_dim, output_dim=output_dim, hidden_dims=output_hidden_dims)
+                               ]
+            
     def forward(self, obs_dict):
         batch_size = None
         features = list()
@@ -278,8 +298,16 @@ class MultiImageObsEncoder(CNNBase):
             features.append(data)
         
         # concatenate all features
-        result = torch.cat(features, dim=-1)
-        return result # B, feature_size (feature_size = resenet_fea+low_dim)
+        result = torch.cat(features, dim=-1) # B, feature_size (feature_size = resenet_fea+low_dim)
+
+        if self.output_mlp is not None:
+            result = self.output_mlp(result)
+        elif self.output_vae is not None:
+            mu, log_sigma = self.output_vae[0](result), self.output_vae[1](result)
+            sigma = torch.exp(log_sigma)
+            return torch.distributions.Normal(loc=mu, scale=sigma)
+        
+        return result # B, feature_size
     
     @torch.no_grad()
     def output_shape(self):

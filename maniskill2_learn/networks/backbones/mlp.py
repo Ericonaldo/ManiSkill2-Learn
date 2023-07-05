@@ -1,4 +1,5 @@
 from maniskill2_learn.networks.modules.norm import need_bias
+import torch
 import torch.nn as nn, torch.nn.functional as F
 from torch.nn.modules.batchnorm import _BatchNorm
 from einops.layers.torch import Rearrange
@@ -57,6 +58,68 @@ class LinearMLP(ExtendedModule):
 
     def forward(self, input, **kwargs):
         return self.mlp(input)
+
+    def init_weights(self, pretrained=None, linear_init_cfg=None, norm_init_cfg=None):
+        if isinstance(pretrained, str):
+            logger = get_logger()
+            load_checkpoint(self, pretrained, strict=False, logger=logger)
+        elif pretrained is None:
+            linear_init = build_init(linear_init_cfg) if linear_init_cfg else None
+            norm_init = build_init(norm_init_cfg) if norm_init_cfg else None
+
+            for m in self.modules():
+                if isinstance(m, nn.Linear) and linear_init:
+                    linear_init(m)
+                elif isinstance(m, (_BatchNorm, nn.GroupNorm)) and norm_init:
+                    norm_init(m)
+        else:
+            raise TypeError("pretrained must be a str or None")
+
+@BACKBONES.register_module()
+class GussianMLP(LinearMLP):
+    def __init__(
+        self,
+        mlp_spec,
+        norm_cfg=dict(type="LN1d"), # Change BN -> LN
+        bias="auto",
+        act_cfg=dict(type="ReLU"),
+        inactivated_output=True,
+        zero_init_output=False,
+        pretrained=None,
+        linear_init_cfg=None,
+        norm_init_cfg=None,
+    ):
+        super(LinearMLP, self).__init__()
+        self.mlp = nn.Sequential()
+        for i in range(len(mlp_spec) - 1):
+            if i == len(mlp_spec) - 2 and inactivated_output:
+                act_cfg = None
+                norm_cfg = None
+            bias_i = need_bias(norm_cfg) if bias == "auto" else bias
+            self.mlp.add_module(f"linear{i}", nn.Linear(mlp_spec[i], mlp_spec[i + 1], bias=bias_i))
+            if norm_cfg:
+                self.mlp.add_module(f"norm{i}", build_norm_layer(norm_cfg, mlp_spec[i + 1])[1])
+            if act_cfg:
+                self.mlp.add_module(f"act{i}", build_activation_layer(act_cfg))
+        self.init_weights(pretrained, linear_init_cfg, norm_init_cfg)
+        if zero_init_output:
+            last_linear = self.last_linear
+            if last_linear is not None:
+                nn.init.zeros_(last_linear.bias)
+                last_linear.weight.data.copy_(0.01 * last_linear.weight.data)
+
+    @property
+    def last_linear(self):
+        last_linear = None
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                last_linear = m
+        return last_linear
+
+    def forward(self, input, **kwargs):
+        x = F.relu(self.mlp(input))
+        mu = F.tanh(self.mlp(x))
+        return torch.distributions.Normal(mu, torch.ones_like(mu))
 
     def init_weights(self, pretrained=None, linear_init_cfg=None, norm_init_cfg=None):
         if isinstance(pretrained, str):

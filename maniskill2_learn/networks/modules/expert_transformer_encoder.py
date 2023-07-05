@@ -11,27 +11,10 @@ from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
 from maniskill2_learn.networks.backbones.pointnet import PointNet
 from maniskill2_learn.utils.torch import no_grad
 from maniskill2_learn.networks.builder import MODELNETWORKS, build_model
+from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
 from einops import rearrange, repeat
 from einops_exts import rearrange_many
 from torch import einsum
-
-
-class MLP(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dims=[], act_fn='relu'):
-        super().__init__()
-        assert act_fn in ['relu', 'tanh', None, '']
-        dims = [input_dim] + hidden_dims + [output_dim]
-        layers = []
-        for i, j in zip(dims[:-1], dims[1:]):
-            layers.append(nn.Linear(i, j))
-            if act_fn == 'relu':
-                layers.append(nn.ReLU())
-            if act_fn == 'tanh':
-                layers.append(nn.Tanh())
-        self.net = nn.Sequential(*layers[:-1])
-
-    def forward(self, x):
-        return self.net(x)
 
 
 class MaskedCrossAttention(nn.Module):

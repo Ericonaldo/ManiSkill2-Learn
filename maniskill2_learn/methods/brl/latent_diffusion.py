@@ -25,9 +25,32 @@ from .keyframe_gpt import KeyframeGPTWithHist
 
 from ..builder import BRL
 
+import torch
+from torch.autograd import Variable
+import numpy as np
+import torch.nn.functional as F
+import torchvision
+from torchvision import transforms
+import torch.optim as optim
+from torch import nn
+import matplotlib.pyplot as plt
+from torch import distributions
+
+
+class VAE(torch.nn.Module):
+    def __init__(self, encoder, decoder):
+        super(VAE, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def forward(self, state):
+        q_z = self.encoder(state)
+        z = q_z.rsample()
+        return self.decoder(z), q_z
+
 
 @BRL.register_module()
-class KeyDiffAgent(DiffAgent):
+class LatentDiffAgent(DiffAgent):
     def __init__(
         self,
         actor_cfg,
