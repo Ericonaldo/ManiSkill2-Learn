@@ -30,9 +30,7 @@ def cross_entropy(preds, targets, reduction="none"):
 class ClipAgent(BaseAgent):
     def __init__(
         self,
-        actor_cfg,
         visual_nn_cfg,
-        nn_cfg,
         optim_cfg,
         env_params,
         action_seq_len,
@@ -159,7 +157,8 @@ class ClipAgent(BaseAgent):
         act_loss = cross_entropy(logits, targets, reduction="none")
         obs_loss = cross_entropy(logits.T, targets.T, reduction="none")
         loss = (obs_loss + act_loss) / 2.0  # shape: (batch_size)
-        return loss.mean(), {}
+        loss = loss.mean()
+        return loss, {"clip_loss": loss.detach().cpu().numpy()}
 
     def update_parameters(self, memory, updates):
         if not self.init_normalizer:

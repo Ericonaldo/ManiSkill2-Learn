@@ -27,9 +27,6 @@ agent_cfg = dict(
             )
         ),
     ),
-    actor_cfg=dict(
-        type="ContDiffActor",
-    ),
     action_hidden_dims=[1024, 1024],
     temperature=1.0,
     n_obs_steps=n_obs_steps,  # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
