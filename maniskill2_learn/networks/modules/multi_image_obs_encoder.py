@@ -212,9 +212,9 @@ class MultiImageObsEncoder(CNNBase):
 
             assert self.output_shape() == self.out_feature_dim, "output shape not the same as expected"   
         elif output_vae:
-            self.output_vae = [MLP(input_dim=self.out_feature_dim, output_dim=output_dim, hidden_dims=output_hidden_dims), 
-                               MLP(input_dim=self.out_feature_dim, output_dim=output_dim, hidden_dims=output_hidden_dims)
-                               ]
+            self.output_vae_mu = MLP(input_dim=self.out_feature_dim, output_dim=output_dim, hidden_dims=output_hidden_dims)
+            self.output_vae_sigma = MLP(input_dim=self.out_feature_dim, output_dim=output_dim, hidden_dims=output_hidden_dims)
+            self.output_vae = [self.output_vae_mu, self.output_vae_sigma]
             
     def forward(self, obs_dict):
         batch_size = None

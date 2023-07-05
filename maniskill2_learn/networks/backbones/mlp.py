@@ -76,7 +76,7 @@ class LinearMLP(ExtendedModule):
             raise TypeError("pretrained must be a str or None")
 
 @BACKBONES.register_module()
-class GussianMLP(LinearMLP):
+class GaussianMLP(LinearMLP):
     def __init__(
         self,
         mlp_spec,
@@ -117,8 +117,7 @@ class GussianMLP(LinearMLP):
         return last_linear
 
     def forward(self, input, **kwargs):
-        x = F.relu(self.mlp(input))
-        mu = F.tanh(self.mlp(x))
+        mu = F.tanh(self.mlp(input))
         return torch.distributions.Normal(mu, torch.ones_like(mu))
 
     def init_weights(self, pretrained=None, linear_init_cfg=None, norm_init_cfg=None):
