@@ -95,7 +95,7 @@ class ClipAgent(BaseAgent):
             )
         else:
             self.actor_optim = build_optimizer(
-                self.obs_encoder, optim_cfg
+                [self.obs_encoder, self.action_model], optim_cfg
             )
         if lr_scheduler_cfg is None:
             self.lr_scheduler = None
