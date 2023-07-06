@@ -47,6 +47,7 @@ class ClipAgent(BaseAgent):
         action_hidden_dims=[256, 512],
         temperature=1.0,
         normalizer=LinearNormalizer(),
+        model_type="representation", # ["representation", "policy"]
         **kwargs,
     ):
         super(ClipAgent, self).__init__()
@@ -62,12 +63,16 @@ class ClipAgent(BaseAgent):
         lr_scheduler_cfg = lr_scheduler_cfg
         self.action_dim = env_params["action_shape"]
         self.normalizer = normalizer
+        self.model_type = model_type
 
-        self.act_encoder = MLP(
-            input_dim=self.action_dim * action_seq_len,
-            output_dim=self.obs_feature_dim,
-            hidden_dims=action_hidden_dims,
-        )
+        self.act_encoder = lambda x:x
+        if model_type == "representation":
+            self.act_encoder = MLP(
+                input_dim=self.action_dim * action_seq_len,
+                output_dim=self.obs_feature_dim,
+                hidden_dims=action_hidden_dims,
+            )
+            
 
         # actor_cfg["action_seq_len"] = action_seq_len
         # actor_cfg.update(env_params)
@@ -82,9 +87,14 @@ class ClipAgent(BaseAgent):
 
         self.step = 0
 
-        self.actor_optim = build_optimizer(
-            [self.act_encoder, self.obs_encoder], optim_cfg
-        )
+        if model_type == "representation":
+            self.actor_optim = build_optimizer(
+                [self.act_encoder, self.obs_encoder], optim_cfg
+            )
+        else:
+            self.actor_optim = build_optimizer(
+                self.obs_encoder, optim_cfg
+            )
         if lr_scheduler_cfg is None:
             self.lr_scheduler = None
         else:
@@ -206,7 +216,12 @@ class ClipAgent(BaseAgent):
                 )
 
         obs_fea = self.obs_encoder(masked_obs)
-        act_fea = self.act_encoder(traj_data.reshape(traj_data.shape[0], -1))
+        if self.model_type == "representation":
+            act_fea = self.act_encoder(traj_data.reshape(traj_data.shape[0], -1))
+        elif self.model_type == "policy":
+            act_fea = traj_data[:, obs_mask, ...][:,-1] # (B, action_dim)
+        else:
+            raise NotImplementedError
         loss, ret_dict = self.loss(obs_fea, act_fea)
         loss.backward()
         self.actor_optim.step()

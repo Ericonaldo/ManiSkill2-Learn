@@ -80,6 +80,7 @@ def parse_args():
 
     parser.add_argument("--replay-filenames", help="Replay file names", nargs='*')
     parser.add_argument("--threshold", help="Buffer file name", type=float, default=0.5)
+    parser.add_argument("--body", help="Body", type=str, default="rigid") # soft
     parser.add_argument("--control-mode", help="Control mode", type=str, default="pd_ee_delta_pose") # pd_ee_pose # pd_joint_pos
     
     args = parser.parse_args()
@@ -93,7 +94,7 @@ if __name__ == "__main__":
 
     filenames = args.replay_filenames
     if filenames is None:
-        filenames = [f"../ManiSkill2/demos/rigid_body/{args.env_id}-v0/trajmslearn.rgbd.{args.control_mode}.h5"]        
+        filenames = [f"../ManiSkill2/demos/{args.body}_body/{args.env_id}-v0/trajmslearn.rgbd.{args.control_mode}.h5"]        
 
     for filename in filenames:
         res_dict ={}
@@ -105,7 +106,7 @@ if __name__ == "__main__":
         # perspective = ["base"] # , "hand"]
         perspective = ["hand"]
 
-        res_file = h5py.File(f"../ManiSkill2/demos/rigid_body/{args.env_id}-v0/keyframes.{args.control_mode}.h5", 'w')
+        res_file = h5py.File(f"../ManiSkill2/demos/{args.body}_body/{args.env_id}-v0/keyframes.{args.control_mode}.h5", 'w')
 
         for key in tqdm(traj_keys):
             g = res_file.create_group(key)

@@ -4,7 +4,7 @@ from typing import Union
 from tqdm import tqdm
 from itertools import count
 from h5py import File
-import _thread
+import _thread, threading
 
 from maniskill2_learn.utils.meta import get_filename_suffix, get_total_memory, get_memory_list, get_logger, TqdmToLogger, parse_files
 from maniskill2_learn.utils.data import is_seq_of, DictArray, GDict, is_h5, is_null, DataCoder, is_not_null
@@ -325,7 +325,10 @@ class ReplayMemory:
         if ret is not None:
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
-                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
+                # _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
+                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
+                new_thread.setDaemon(True)
+                new_thread.start()
             return ret
         
         self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj)
@@ -333,8 +336,10 @@ class ReplayMemory:
         if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
-                _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
-
+                # _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
+                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
+                new_thread.setDaemon(True)
+                new_thread.start()
         return ret
 
     def mini_batch_sampler(self, batch_size, drop_last=False, auto_restart=False, max_num_batches=-1):

@@ -43,7 +43,7 @@ agent_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=50000000,
+    total_steps=25000000,
     warm_steps=8000,
     n_eval=20000000,
     n_checkpoint=2000000,

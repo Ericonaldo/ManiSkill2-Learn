@@ -121,7 +121,9 @@ class BC(BaseAgent):
                 torch.distributions.Normal(0, 1.)
             ).sum(-1).mean()
             loss = -(log_likelihood - kl)
-            ret_dict["vae_loss"] = loss.item()
+            ret_dict["likelihood_loss"] = log_likelihood.item()
+            ret_dict["kl_loss"] = kl.item()
+            ret_dict["total_loss"] = loss.item()
 
         loss.backward()
         if self.max_grad_norm is not None:
@@ -138,7 +140,7 @@ class BC(BaseAgent):
         ret_dict = {'bc/' + key: val for key, val in ret_dict.items()}
         return ret_dict
 
-    def compute_test_loss(self, memory):
+    def compute_test_loss(self, memory): # Currently not used
         logger = get_logger()
         logger.info(f"Begin to compute test loss with batch size {self.batch_size}!")
         ret_dict = {}

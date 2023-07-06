@@ -67,7 +67,7 @@ python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-g
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
-# "train_cfg.n_eval=50000" "train_cfg.total_steps=500000" "train_cfg.n_checkpoint=50000" "train_cfg.n_updates=500" \
+# "train_cfg.n_eval=50000" "train_cfg.total_steps=250000" "train_cfg.n_checkpoint=50000" "train_cfg.n_updates=500" \
 # "env_cfg.env_name=PickCube-v0" "env_cfg.obs_mode=rgbd" "env_cfg.n_points=1200" "env_cfg.control_mode=pd_ee_delta_pose" \
 # "eval_cfg.num=100" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
 
@@ -75,7 +75,7 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/StackCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-gpus 8 --env-id StackCube-v0 \
---cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/StackCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5"
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/StackCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose-longhorizon"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id AssemblingKits-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/AssemblingKits-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
@@ -106,7 +106,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python ../void.py
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/pcd.py --num-gpus 1 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.pcd.pd_ee_delta_pose.h5"
-# "train_cfg.n_eval=50000" "train_cfg.total_steps=500000" "train_cfg.n_checkpoint=50000" "train_cfg.n_updates=500" \
+# "train_cfg.n_eval=50000" "train_cfg.total_steps=250000" "train_cfg.n_checkpoint=50000" "train_cfg.n_updates=500" \
 # "env_cfg.env_name=PickCube-v0" "env_cfg.obs_mode=rgbd" "env_cfg.n_points=1200" "env_cfg.control_mode=pd_ee_delta_pose" \
 # "eval_cfg.num=100" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
 
@@ -143,3 +143,10 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd_eval.py --g 0 --bui
 "env_cfg.control_mode=pd_ee_delta_pose" "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5" \
 "eval_cfg.num=100" "eval_cfg.num_procs=5" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
 --evaluation --resume-from logs/DiffAgent/rgbd/20230606_021803/models/model_30000.ckpt
+
+
+python maniskill2_learn/apis/run_rl.py configs/brl/bc_vae/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
+python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-policy.py --num-gpus 8 --env-id PickCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"

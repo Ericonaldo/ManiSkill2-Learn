@@ -57,7 +57,7 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=50000,
+    total_steps=250000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
