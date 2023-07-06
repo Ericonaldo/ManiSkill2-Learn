@@ -1,4 +1,4 @@
-horizon = 32
+horizon = 7
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
@@ -27,8 +27,18 @@ agent_cfg = dict(
                 )
             )
         ),
-        output_mlp=True,
-        output_dim="action_shape",
+        # output_mlp=True,
+        # output_dim="action_shape",
+    ),
+    nn_cfg=dict(
+        type="LinearMLP",
+        norm_cfg=None,
+        mlp_spec=["feature_shape", 2048, 512, 256, "action_shape"],
+        inactivated_output=True,
+        zero_init_output=True,
+    ),
+    actor_cfg=dict(
+        type="ContDiffActor",
     ),
     action_hidden_dims=[1024, 1024],
     temperature=1.0,

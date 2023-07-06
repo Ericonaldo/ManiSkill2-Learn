@@ -115,7 +115,7 @@ class KeyDiffAgent(DiffAgent):
 
         masked_loss = masked_act_loss.sum(-1).mean() + masked_state_loss.sum(-1).mean()
 
-        info.update(dict(keyframe_loss=masked_loss.detach().cpu().numpy()))
+        info.update(dict(keyframe_loss=masked_loss.item()))
 
         return masked_loss, info
 

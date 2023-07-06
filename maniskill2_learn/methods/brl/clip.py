@@ -32,6 +32,8 @@ class ClipAgent(BaseAgent):
         self,
         visual_nn_cfg,
         optim_cfg,
+        nn_cfg,
+        actor_cfg,
         env_params,
         action_seq_len,
         eval_action_len=1,
@@ -72,13 +74,13 @@ class ClipAgent(BaseAgent):
                 output_dim=self.obs_feature_dim,
                 hidden_dims=action_hidden_dims,
             )
+        else:
+            nn_cfg["mlp_spec"][0] = self.obs_feature_dim
+            self.action_model = build_model(nn_cfg)
             
-
-        # actor_cfg["action_seq_len"] = action_seq_len
-        # actor_cfg.update(env_params)
-        # self.actor = build_model(actor_cfg)
-        # nn_cfg.update(dict(global_cond_dim=self.obs_feature_dim))
-        # self.model = build_model(nn_cfg)
+        actor_cfg["action_seq_len"] = action_seq_len
+        actor_cfg.update(env_params)
+        self.actor = build_model(actor_cfg)
 
         self.horizon = self.action_seq_len = action_seq_len
         self.observation_shape = env_params["obs_shape"]
@@ -123,6 +125,7 @@ class ClipAgent(BaseAgent):
         return super().eval()
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
+        assert self.model_type == "policy", "only policy type CLIP agent can be used as policy"
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
 
         action_history = observation["actions"]
@@ -155,7 +158,12 @@ class ClipAgent(BaseAgent):
             observation
         )  # No need to mask out since the history is set as the desired length
 
-        return obs_fea
+        res = obs_fea
+        if self.model_type == "policy":
+            action = self.action_model(obs_fea)
+            res = self.normalizer.unnormalize(action)
+
+        return res
 
     def loss(self, obs_fea, act_fea):
         logits = (act_fea @ obs_fea.T) / self.temperature
@@ -168,7 +176,8 @@ class ClipAgent(BaseAgent):
         obs_loss = cross_entropy(logits.T, targets.T, reduction="none")
         loss = (obs_loss + act_loss) / 2.0  # shape: (batch_size)
         loss = loss.mean()
-        return loss, {"clip_loss": loss.detach().cpu().numpy()}
+        return loss, {"clip_loss": loss.item()}
+
 
     def update_parameters(self, memory, updates):
         if not self.init_normalizer:
@@ -219,6 +228,7 @@ class ClipAgent(BaseAgent):
         if self.model_type == "representation":
             act_fea = self.act_encoder(traj_data.reshape(traj_data.shape[0], -1))
         elif self.model_type == "policy":
+            obs_fea = self.action_model(obs_fea)
             act_fea = traj_data[:, obs_mask, ...][:,-1] # (B, action_dim)
         else:
             raise NotImplementedError

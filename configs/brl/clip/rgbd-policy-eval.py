@@ -4,6 +4,7 @@ future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
     type="ClipAgent",
+    model_type="policy",
     batch_size=128,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
@@ -26,6 +27,11 @@ agent_cfg = dict(
                 )
             )
         ),
+        # output_mlp=True,
+        # output_dim="action_shape",
+    ),
+    actor_cfg=dict(
+        type="ContDiffActor",
     ),
     action_hidden_dims=[1024, 1024],
     temperature=1.0,
@@ -36,14 +42,15 @@ agent_cfg = dict(
     optim_cfg=dict(type="Adam", lr=3e-4),
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-#     history_len=n_obs_steps,
-#     obs_mode="rgbd",
-#     control_mode="pd_ee_delta_pose"
-# )
+env_cfg = dict(
+    type="gym",
+    env_name="PickCube-v0",
+    unwrapped=False,
+    history_len=n_obs_steps,
+    obs_mode="rgbd",
+    control_mode="pd_ee_delta_pose",
+    concat_rgbd=True,
+)
 
 replay_cfg = dict(
     type="ReplayMemory",
@@ -72,11 +79,13 @@ train_cfg = dict(
     n_checkpoint=10000,
 )
 
-# eval_cfg = dict(
-#     type="OfflineDiffusionEvaluation",
-#     num=10,
-#     num_procs=1,
-#     use_hidden_state=False,
-#     save_traj=False,
-#     use_log=False,
-# )
+eval_cfg = dict(
+    type="Evaluation",
+    num=10,
+    num_procs=1,
+    use_hidden_state=False,
+    save_traj=False,
+    save_video=True,
+    use_log=False,
+    eval_action_len=1
+)

@@ -56,7 +56,7 @@ class ConditionalUnet1D(ExtendedModule): # (nn.Module):
             cond_dim += global_cond_dim
 
 
-        in_out = list(zip(all_dims[:-1], all_dims[1:]))        
+        in_out = list(zip(all_dims[:-1], all_dims[1:]))
         # print("cond_dim", cond_dim)
         # print("inout", in_out)
 
