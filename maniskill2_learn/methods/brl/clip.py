@@ -49,12 +49,18 @@ class ClipAgent(BaseAgent):
         action_hidden_dims=[256, 512],
         temperature=1.0,
         normalizer=LinearNormalizer(),
-        model_type="representation", # ["representation", "policy"]
+        model_type="representation",  # ["representation", "policy"]
+        clip_loss_weight=1.0,
+        use_bc_loss=False,
+        bc_loss_type="mse_loss",
         **kwargs,
     ):
         super(ClipAgent, self).__init__()
         self.batch_size = batch_size
         self.temperature = temperature
+        self.use_bc_loss = use_bc_loss
+        self.bc_loss_type = bc_loss_type
+        self.clip_loss_weight = clip_loss_weight
 
         if pcd_cfg is not None:
             visual_nn_cfg["pcd_model"] = build_model(pcd_cfg)
@@ -67,8 +73,9 @@ class ClipAgent(BaseAgent):
         self.normalizer = normalizer
         self.model_type = model_type
 
-        self.act_encoder = lambda x:x
+        self.act_encoder = lambda x: x
         if model_type == "representation":
+            assert use_bc_loss is False
             self.act_encoder = MLP(
                 input_dim=self.action_dim * action_seq_len,
                 output_dim=self.obs_feature_dim,
@@ -77,7 +84,7 @@ class ClipAgent(BaseAgent):
         else:
             nn_cfg["mlp_spec"][0] = self.obs_feature_dim
             self.action_model = build_model(nn_cfg)
-            
+
         actor_cfg["action_seq_len"] = action_seq_len
         actor_cfg.update(env_params)
         self.actor = build_model(actor_cfg)
@@ -165,7 +172,7 @@ class ClipAgent(BaseAgent):
 
         return res
 
-    def loss(self, obs_fea, act_fea):
+    def compute_clip_loss(self, obs_fea, act_fea):
         logits = (act_fea @ obs_fea.T) / self.temperature
         obs_similarity = obs_fea @ obs_fea.T
         act_similarity = act_fea @ act_fea.T
@@ -178,6 +185,20 @@ class ClipAgent(BaseAgent):
         loss = loss.mean()
         return loss, {"clip_loss": loss.item()}
 
+    def compute_regression_loss(self, pred_action, target_action, mask=None):
+        if mask is None:
+            mask = torch.ones_like(target_action[..., 0])
+        assert mask.ndim == target_action.ndim - 1
+        print_dict = {}
+        print_dict["abs_err"] = ((torch.abs(pred_action - target_action).mean(-1) * mask).sum() / mask.sum()).item()
+        if hasattr(F, self.bc_loss_type):
+            assert self.bc_loss_type in ["mse_loss", "l1_loss", "smooth_l1_loss"]
+            actor_loss = (getattr(F, self.bc_loss_type)(pred_action, target_action, reduction="none").mean(-1) * mask).sum() / mask.sum()
+            print_dict[f"{self.bc_loss_type}"] = actor_loss.item()
+        else:
+            raise NotImplementedError(f"BC loss type {self.bc_loss_type} not implemented!")
+
+        return actor_loss, print_dict
 
     def update_parameters(self, memory, updates):
         if not self.init_normalizer:
@@ -229,10 +250,16 @@ class ClipAgent(BaseAgent):
             act_fea = self.act_encoder(traj_data.reshape(traj_data.shape[0], -1))
         elif self.model_type == "policy":
             obs_fea = self.action_model(obs_fea)
-            act_fea = traj_data[:, obs_mask, ...][:,-1] # (B, action_dim)
+            act_fea = traj_data[:, obs_mask, ...][:, -1]  # (B, action_dim)
         else:
-            raise NotImplementedError
-        loss, ret_dict = self.loss(obs_fea, act_fea)
+            raise NotImplementedError(f"Model type {self.model_type} not implemented!")
+
+        clip_loss, ret_dict = self.compute_clip_loss(obs_fea, act_fea)
+        loss = clip_loss * self.clip_loss_weight
+        if self.use_bc_loss:
+            bc_loss, bc_ret_dict = self.compute_regression_loss(obs_fea, act_fea)
+            ret_dict = {**ret_dict, **bc_ret_dict}
+            loss += bc_loss
         loss.backward()
         self.actor_optim.step()
 
