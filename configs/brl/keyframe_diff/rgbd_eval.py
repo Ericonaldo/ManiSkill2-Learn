@@ -1,7 +1,7 @@
 horizon = 128
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-eval_action_len = 20 # how many actions to be executed in the following timesteps for one input
+eval_action_len = 128 # how many actions to be executed in the following timesteps for one input
 workdir = "rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",

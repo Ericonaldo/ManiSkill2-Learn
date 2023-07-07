@@ -6,6 +6,9 @@ agent_cfg = dict(
     type="ClipAgent",
     model_type="policy",
     batch_size=128,
+    use_bc_loss=True,
+    bc_loss_type="mse_loss",
+    clip_loss_weight=0.5,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder",
@@ -29,6 +32,13 @@ agent_cfg = dict(
         ),
         # output_mlp=True,
         # output_dim="action_shape",
+    ),
+    nn_cfg=dict(
+        type="LinearMLP",
+        norm_cfg=None,
+        mlp_spec=["feature_shape", 2048, 512, 256, "action_shape"],
+        inactivated_output=True,
+        zero_init_output=True,
     ),
     actor_cfg=dict(
         type="ContDiffActor",

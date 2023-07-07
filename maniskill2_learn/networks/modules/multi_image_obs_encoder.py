@@ -44,6 +44,17 @@ class MultiImageObsEncoder(CNNBase):
                         elif len(inputs[key].shape) == 3: # (C,H,W)
                             inputs[key][:3,:,:] /= 255.0
 
+            if "state" in inputs: # We remove velocity from the state
+                axis=0
+                if len(inputs[key].shape) == 2: # (B,D)
+                    axis=1
+                if isinstance(inputs["state"], torch.Tensor):
+                    inputs["state"] = torch.cat([inputs["state"][:9], inputs["state"][18:]], axis=axis)
+                elif isinstance(inputs["state"], np.ndarray):
+                    inputs["state"] = np.concatenate([inputs["state"][:9], inputs["state"][18:]], axis=axis)
+                else:
+                    raise NotImplementedError()
+
         return inputs
     
     def __init__(self,

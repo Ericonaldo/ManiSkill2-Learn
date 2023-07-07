@@ -124,6 +124,7 @@ class BC(BaseAgent):
             ret_dict["likelihood_loss"] = log_likelihood.item()
             ret_dict["kl_loss"] = kl.item()
             ret_dict["total_loss"] = loss.item()
+            ret_dict["action_mse"] = ((p_x.mean - sampled_batch["actions"]) ** 2).mean().item()
 
         loss.backward()
         if self.max_grad_norm is not None:
