@@ -51,6 +51,7 @@ class ClipAgent(BaseAgent):
         normalizer=LinearNormalizer(),
         model_type="representation",  # ["representation", "policy"]
         clip_loss_weight=1.0,
+        use_simple_clip_target=False,
         use_bc_loss=False,
         bc_loss_type="mse_loss",
         **kwargs,
@@ -61,6 +62,7 @@ class ClipAgent(BaseAgent):
         self.use_bc_loss = use_bc_loss
         self.bc_loss_type = bc_loss_type
         self.clip_loss_weight = clip_loss_weight
+        self.use_simple_clip_target = use_simple_clip_target
 
         if pcd_cfg is not None:
             visual_nn_cfg["pcd_model"] = build_model(pcd_cfg)
@@ -174,11 +176,14 @@ class ClipAgent(BaseAgent):
 
     def compute_clip_loss(self, obs_fea, act_fea):
         logits = (act_fea @ obs_fea.T) / self.temperature
-        obs_similarity = obs_fea @ obs_fea.T
-        act_similarity = act_fea @ act_fea.T
-        targets = F.softmax(
-            (obs_similarity + act_similarity) / 2 * self.temperature, dim=-1
-        )
+        if self.use_simple_clip_target:
+            targets = torch.arange(logits.shape[0], device=logits.device)
+        else:
+            obs_similarity = obs_fea @ obs_fea.T
+            act_similarity = act_fea @ act_fea.T
+            targets = F.softmax(
+                (obs_similarity + act_similarity) / 2 * self.temperature, dim=-1
+            )
         act_loss = cross_entropy(logits, targets, reduction="none")
         obs_loss = cross_entropy(logits.T, targets.T, reduction="none")
         loss = (obs_loss + act_loss) / 2.0  # shape: (batch_size)
