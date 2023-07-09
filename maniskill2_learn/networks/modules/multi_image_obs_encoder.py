@@ -45,13 +45,10 @@ class MultiImageObsEncoder(CNNBase):
                             inputs[key][:3,:,:] /= 255.0
 
             if "state" in inputs: # We remove velocity from the state
-                axis=0
-                if len(inputs[key].shape) == 2: # (B,D)
-                    axis=1
                 if isinstance(inputs["state"], torch.Tensor):
-                    inputs["state"][-1] = torch.cat([inputs["state"][-1][:9], inputs["state"][-1][18:]], axis=axis)
+                    inputs["state"] = torch.cat([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
                 elif isinstance(inputs["state"], np.ndarray):
-                    inputs["state"][-1] = np.concatenate([inputs["state"][-1][:9], inputs["state"][-1][18:]], axis=axis)
+                    inputs["state"] = np.concatenate([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
                 else:
                     raise NotImplementedError()
 
@@ -112,6 +109,8 @@ class MultiImageObsEncoder(CNNBase):
             if isinstance(shape, list):
                 shape = tuple(shape)
             if isinstance(shape, int):
+                if "state" in key:
+                    shape -= 9 # NOTE: We remove the dimension of velocity
                 shape = (shape,)
             key_shape_map[key] = shape
             obs_type = attr["type"]
@@ -329,6 +328,8 @@ class MultiImageObsEncoder(CNNBase):
         horizon = self.n_obs_steps
         for key, attr in obs_shape_meta.items():
             shape = self.key_shape_map[key]
+            if "state" in key:
+                shape = (shape[0]+9,) # We have to add the shape back on for test
             this_obs = torch.zeros(
                 (batch_size,horizon) + shape, 
                 dtype=self.dtype,
