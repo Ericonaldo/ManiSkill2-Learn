@@ -49,9 +49,9 @@ class MultiImageObsEncoder(CNNBase):
                 if len(inputs[key].shape) == 2: # (B,D)
                     axis=1
                 if isinstance(inputs["state"], torch.Tensor):
-                    inputs["state"] = torch.cat([inputs["state"][:9], inputs["state"][18:]], axis=axis)
+                    inputs["state"][-1] = torch.cat([inputs["state"][-1][:9], inputs["state"][-1][18:]], axis=axis)
                 elif isinstance(inputs["state"], np.ndarray):
-                    inputs["state"] = np.concatenate([inputs["state"][:9], inputs["state"][18:]], axis=axis)
+                    inputs["state"][-1] = np.concatenate([inputs["state"][-1][:9], inputs["state"][-1][18:]], axis=axis)
                 else:
                     raise NotImplementedError()
 
