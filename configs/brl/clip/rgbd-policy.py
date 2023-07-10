@@ -9,6 +9,7 @@ agent_cfg = dict(
     use_bc_loss=True,
     bc_loss_type="mse_loss",
     clip_loss_weight=1.0,
+    current_obs_only=True,
     use_simple_clip_target=False,
     # use_simple_clip_target=True,
     action_seq_len=horizon,

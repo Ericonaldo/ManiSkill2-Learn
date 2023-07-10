@@ -8,7 +8,7 @@ agent_cfg = dict(
         nn_cfg=dict(
             type="Visuomotor",
             visual_nn_cfg=dict(
-                type="MultiImageObsEncoder", 
+                type="MultiImageObsEncoder",
                 shape_meta=dict(
                     obs=dict(
                         base_camera_rgbd=dict(
@@ -30,6 +30,29 @@ agent_cfg = dict(
                 output_vae=True,
                 output_dim=128,
             ),
+        ),
+        visual_dec_nn_cfg=dict(
+            type="ImageObsDecoder",
+            shape_meta=dict(
+                shape_meta=dict(
+                    obs=dict(
+                        base_camera_rgbd=dict(
+                            type="rgbd",
+                            shape="image_size",
+                            channel=4
+                        ),
+                        hand_camera_rgbd=dict(
+                            type="rgbd",
+                            shape="image_size",
+                            channel=4
+                        ),
+                        state=dict(
+                            type="low_dim",
+                            shape="agent_shape"
+                        )
+                    )
+                ),
+            )
         ),
         mlp_cfg=dict(
             type="GaussianMLP", norm_cfg=None, mlp_spec=[128, 64, "action_shape"], bias=True, inactivated_output=True

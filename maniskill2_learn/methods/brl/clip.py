@@ -54,6 +54,7 @@ class ClipAgent(BaseAgent):
         use_simple_clip_target=False,
         use_bc_loss=False,
         bc_loss_type="mse_loss",
+        current_obs_only=False,
         **kwargs,
     ):
         super(ClipAgent, self).__init__()
@@ -63,10 +64,11 @@ class ClipAgent(BaseAgent):
         self.bc_loss_type = bc_loss_type
         self.clip_loss_weight = clip_loss_weight
         self.use_simple_clip_target = use_simple_clip_target
+        self.current_obs_only = current_obs_only
 
         if pcd_cfg is not None:
             visual_nn_cfg["pcd_model"] = build_model(pcd_cfg)
-        visual_nn_cfg["n_obs_steps"] = n_obs_steps
+        visual_nn_cfg["n_obs_steps"] = n_obs_steps if not current_obs_only else 1
         self.obs_encoder = build_model(visual_nn_cfg)
         self.obs_feature_dim = self.obs_encoder.out_feature_dim
 
@@ -85,6 +87,7 @@ class ClipAgent(BaseAgent):
             )
         else:
             nn_cfg["mlp_spec"][0] = self.obs_feature_dim
+            # TODO(zbzhu): add unet action_model as action decoder when pred horizon > 1
             self.action_model = build_model(nn_cfg)
 
         actor_cfg["action_seq_len"] = action_seq_len
@@ -163,6 +166,8 @@ class ClipAgent(BaseAgent):
             for key in observation:
                 observation[key] = observation[key][:, obs_mask, ...]
 
+        if self.current_obs_only:
+            observation = {key: value[:, self.n_obs_steps: self.n_obs_steps + 1, ...] for key, value in observation.items()}
         obs_fea = self.obs_encoder(
             observation
         )  # No need to mask out since the history is set as the desired length
@@ -250,6 +255,8 @@ class ClipAgent(BaseAgent):
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
+        if self.current_obs_only:
+            masked_obs = {key: val[:, -1:] for key, val in masked_obs.items()}
         obs_fea = self.obs_encoder(masked_obs)
         if self.model_type == "representation":
             act_fea = self.act_encoder(traj_data.reshape(traj_data.shape[0], -1))

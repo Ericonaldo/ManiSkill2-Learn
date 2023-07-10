@@ -24,6 +24,7 @@ class Visuomotor(ExtendedModule):
     def __init__(
         self,
         visual_nn_cfg,
+        visual_dec_nn_cfg=None,
         mlp_cfg=None,
         visual_nn=None,
         freeze_visual_nn=False,
@@ -33,6 +34,8 @@ class Visuomotor(ExtendedModule):
         # Feature extractor [Can be shared with other network]
         self.visual_nn = build_model(visual_nn_cfg) if visual_nn is None else visual_nn
         self.final_mlp = build_model(mlp_cfg)
+        if visual_dec_nn_cfg is not None:
+            self.visual_dec_nn = build_model(visual_dec_nn_cfg)
 
         if freeze_visual_nn:
             get_logger().warning("We freeze the visual backbone!")
@@ -66,7 +69,7 @@ class Visuomotor(ExtendedModule):
         assert isinstance(obs, dict), f"obs is not a dict! {type(obs)}"
         assert not (
             feature is not None and visual_feature is not None
-        ), f"You cannot provide visual_feature and feature at the same time!"
+        ), "You cannot provide visual_feature and feature at the same time!"
         self.saved_feature = None
         self.saved_visual_feature = None
         robot_state = None
