@@ -44,13 +44,14 @@ class MultiImageObsEncoder(CNNBase):
                         elif len(inputs[key].shape) == 3: # (C,H,W)
                             inputs[key][:3,:,:] /= 255.0
 
-            if "state" in inputs: # We remove velocity from the state
-                if isinstance(inputs["state"], torch.Tensor):
-                    inputs["state"] = torch.cat([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
-                elif isinstance(inputs["state"], np.ndarray):
-                    inputs["state"] = np.concatenate([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
-                else:
-                    raise NotImplementedError()
+            # The following codes have been removed to replay buffer
+            # if "state" in inputs: # We remove velocity from the state
+            #     if isinstance(inputs["state"], torch.Tensor):
+            #         inputs["state"] = torch.cat([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
+            #     elif isinstance(inputs["state"], np.ndarray):
+            #         inputs["state"] = np.concatenate([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
+            #     else:
+            #         raise NotImplementedError()
 
         return inputs
     
@@ -109,8 +110,6 @@ class MultiImageObsEncoder(CNNBase):
             if isinstance(shape, list):
                 shape = tuple(shape)
             if isinstance(shape, int):
-                if "state" in key:
-                    shape -= 9 # NOTE: We remove the dimension of velocity
                 shape = (shape,)
             key_shape_map[key] = shape
             obs_type = attr["type"]
@@ -328,8 +327,6 @@ class MultiImageObsEncoder(CNNBase):
         horizon = self.n_obs_steps
         for key, attr in obs_shape_meta.items():
             shape = self.key_shape_map[key]
-            if "state" in key:
-                shape = (shape[0]+9,) # We have to add the shape back on for test
             this_obs = torch.zeros(
                 (batch_size,horizon) + shape, 
                 dtype=self.dtype,

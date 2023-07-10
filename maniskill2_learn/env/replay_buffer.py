@@ -5,6 +5,7 @@ from tqdm import tqdm
 from itertools import count
 from h5py import File
 import _thread, threading
+import torch
 
 from maniskill2_learn.utils.meta import get_filename_suffix, get_total_memory, get_memory_list, get_logger, TqdmToLogger, parse_files
 from maniskill2_learn.utils.data import is_seq_of, DictArray, GDict, is_h5, is_null, DataCoder, is_not_null
@@ -274,13 +275,20 @@ class ReplayMemory:
                 return None
         
         ret = self.memory.take(batch_idx)
-        if not self.using_depth:
-            if "obs" in ret.keys(): # Concat obs
-                for key in ret["obs"].keys():
+        if "obs" in ret.keys():
+            for key in ret["obs"].keys():
+                if not self.using_depth:
                     if isinstance(ret["obs"][key], (list,tuple)):
                         ret["obs"][key] = ret["obs"][key][0]
                     if "rgbd" in key and (not self.using_depth):
                         ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
+                if "state" in key: # We remove velocity from the state
+                    if isinstance(ret["obs"][key], torch.Tensor):
+                        ret["obs"][key] = torch.cat([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
+                    elif isinstance(ret["obs"][key], np.ndarray):
+                        ret["obs"][key] = np.concatenate([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
+                    else:
+                        raise NotImplementedError()
         if self.horizon > 1:
             batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
             ret_flat_idx = [j for i in range(batch_size) for j in range(self.horizon-ret_len[i])]

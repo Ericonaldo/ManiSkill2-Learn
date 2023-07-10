@@ -35,9 +35,10 @@ def get_kwargs_from_shape(obs_shape, action_shape):
 
     if isinstance(obs_shape, dict):
         if "state" in obs_shape:
-            replaceable_kwargs["agent_shape"] = obs_shape["state"]
+            # replaceable_kwargs["agent_shape"] = obs_shape["state"]
+            replaceable_kwargs["agent_shape"] = obs_shape["state"] - 9 # We remove the dimension of velocity
         elif "agent" in obs_shape:
-            replaceable_kwargs["agent_shape"] = obs_shape["agent"]
+            replaceable_kwargs["agent_shape"] = obs_shape["agent"] - 9 # We remove the dimension of velocity
         
         if "hand_pose" in obs_shape:
             replaceable_kwargs["nhand"] = obs_shape["hand_pose"][1]
