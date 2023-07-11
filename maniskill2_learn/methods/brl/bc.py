@@ -119,10 +119,12 @@ class BC(BaseAgent):
             p_x = self.actor.final_mlp(z)
             log_likelihood = p_x.log_prob(sampled_batch["actions"]).sum(-1).mean()
             kl = torch.distributions.kl_divergence(
-                q_z, 
+                q_z,
                 torch.distributions.Normal(0, 1.)
             ).sum(-1).mean()
-            loss = -(log_likelihood - kl)
+            rec_loss, info = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
+            loss = -(log_likelihood - kl) + rec_loss
+            ret_dict.update(info)
             ret_dict["likelihood_loss"] = log_likelihood.item()
             ret_dict["kl_loss"] = kl.item()
             ret_dict["total_loss"] = loss.item()

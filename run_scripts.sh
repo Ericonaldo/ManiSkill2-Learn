@@ -151,8 +151,8 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd_eval.py --g 0 --bui
 python maniskill2_learn/apis/run_rl.py configs/brl/bc_vae/rgbd.py --num-gpus 1 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5" --auto-resume --work-dir=logs/PickCube-v0/BC/vae-rgbd/20230706_005815
 
-python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-policy.py --num-gpus 8 --env-id PickCube-v0 \
---cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5" "workdir=bc-policy-aux-clip"
+python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-policy-curobs.py --num-gpus 8 --env-id PickCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5" "workdir=bc-policy-aux-clip-newview-curobs"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-policy.py --num-gpus 8 --env-id LiftCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/LiftCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"

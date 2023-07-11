@@ -126,6 +126,7 @@ class KeyDiffAgent(DiffAgent):
         diffuse_loss, info = self.p_losses(x, t, cond_mask, local_cond, global_cond, returns)
         # diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
         diffuse_loss = diffuse_loss.mean()
+        info.update({"action_diff_loss": diffuse_loss.item()})
         return diffuse_loss, info       
     
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
