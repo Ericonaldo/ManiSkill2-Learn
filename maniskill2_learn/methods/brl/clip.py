@@ -32,10 +32,10 @@ class ClipAgent(BaseAgent):
         self,
         visual_nn_cfg,
         optim_cfg,
-        nn_cfg,
-        actor_cfg,
         env_params,
         action_seq_len,
+        nn_cfg=None,
+        actor_cfg=None,
         eval_action_len=1,
         pcd_cfg=None,
         lr_scheduler_cfg=None,
@@ -90,9 +90,10 @@ class ClipAgent(BaseAgent):
             # TODO(zbzhu): add unet action_model as action decoder when pred horizon > 1
             self.action_model = build_model(nn_cfg)
 
-        actor_cfg["action_seq_len"] = action_seq_len
-        actor_cfg.update(env_params)
-        self.actor = build_model(actor_cfg)
+        if actor_cfg is not None:
+            actor_cfg["action_seq_len"] = action_seq_len
+            actor_cfg.update(env_params)
+            self.actor = build_model(actor_cfg)
 
         self.horizon = self.action_seq_len = action_seq_len
         self.observation_shape = env_params["obs_shape"]

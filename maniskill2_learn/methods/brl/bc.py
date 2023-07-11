@@ -111,8 +111,6 @@ class BC(BaseAgent):
             [pred_dist, pred_action] = self.actor(sampled_batch["obs"], mode="dist_mean")
             loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
         else:
-            for key in sampled_batch["obs"].keys():
-                sampled_batch["obs"][key] = sampled_batch["obs"][key].unsqueeze(dim=1) # horizon = 1
             ret_dict = defaultdict(list)
             q_z = self.actor.backbone(sampled_batch["obs"])
             z = q_z.rsample()
@@ -122,13 +120,13 @@ class BC(BaseAgent):
                 q_z,
                 torch.distributions.Normal(0, 1.)
             ).sum(-1).mean()
-            rec_loss, info = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
-            loss = -(log_likelihood - kl) + rec_loss
-            ret_dict.update(info)
+            rec_loss = ((p_x.mean - sampled_batch["actions"]) ** 2).mean()
+            # loss = -(log_likelihood - kl) + rec_loss
+            loss = rec_loss
             ret_dict["likelihood_loss"] = log_likelihood.item()
             ret_dict["kl_loss"] = kl.item()
             ret_dict["total_loss"] = loss.item()
-            ret_dict["action_mse"] = ((p_x.mean - sampled_batch["actions"]) ** 2).mean().item()
+            ret_dict["action_mse"] = rec_loss.item()
 
         loss.backward()
         if self.max_grad_norm is not None:

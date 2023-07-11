@@ -45,9 +45,14 @@ class MultiImageObsEncoder(CNNBase):
                             inputs[key][:, :, :3, :, :] /= 255.0
                         elif len(inputs[key].shape) == 3:  # (C,H,W)
                             inputs[key][:3, :, :] /= 255.0
+                        if len(inputs[key].shape) == 4: # B, 1, C, W, H
+                            inputs[key] = inputs[key].unsqueeze(1)
 
+            if "state" in inputs:
+                if len(inputs["state"].shape) == 2: # B, 1, D
+                    inputs["state"] = inputs["state"].unsqueeze(1)
             # The following codes have been removed to replay buffer
-            # if "state" in inputs: # We remove velocity from the state
+             # We remove velocity from the state
             #     if isinstance(inputs["state"], torch.Tensor):
             #         inputs["state"] = torch.cat([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
             #     elif isinstance(inputs["state"], np.ndarray):

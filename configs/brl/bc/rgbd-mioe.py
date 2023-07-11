@@ -2,7 +2,6 @@ workdir = "mioe-rgbd"
 agent_cfg = dict(
     type="BC",
     batch_size=256,
-    loss_type="vae",
     actor_cfg=dict(
         type="ContinuousActor",
         nn_cfg=dict(
@@ -27,8 +26,11 @@ agent_cfg = dict(
                         )
                     )
                 ),
-                output_vae=True,
-                output_dim=128,
+                output_mlp=True,
+                output_dim=256,
+            ),
+            mlp_cfg=dict(
+                type="LinearMLP", norm_cfg=None, mlp_spec=[128, "action_shape"], bias=True, inactivated_output=True
             ),
         ),
         visual_dec_nn_cfg=dict(
@@ -54,8 +56,9 @@ agent_cfg = dict(
                 ),
             )
         ),
-        mlp_cfg=dict(
-            type="GaussianMLP", norm_cfg=None, mlp_spec=[128, 64, "action_shape"], bias=True, inactivated_output=True
+        head_cfg=dict(
+            type="TanhHead",
+            noise_std=1e-5,
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
     ),

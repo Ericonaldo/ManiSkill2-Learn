@@ -1,5 +1,5 @@
-horizon = 32
-n_obs_steps = 6
+horizon = 3
+n_obs_steps = 2
 future_action_len = horizon - n_obs_steps
 workdir = "rgbd"
 agent_cfg = dict(
