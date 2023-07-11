@@ -340,7 +340,7 @@ class DiffAgent(BaseAgent):
         else:
             loss = F.mse_loss(pred, actions, reduction='none')
 
-        return loss, {"action_diff_loss": loss.item()}
+        return loss, {}
 
     def loss(self, x, masks, cond_mask, local_cond=None, global_cond=None, returns=None):
         # x is the action, with shape (bs, horizon, act_dim)
@@ -349,6 +349,7 @@ class DiffAgent(BaseAgent):
         diffuse_loss, info = self.p_losses(x, t, cond_mask, local_cond, global_cond, returns)
         # diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
         diffuse_loss = diffuse_loss.mean()
+        info.update({"action_diff_loss": diffuse_loss.item()})
         return diffuse_loss, info
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
@@ -358,6 +359,8 @@ class DiffAgent(BaseAgent):
         #         return self.eval_action_queue.popleft()
         
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
+        if "state" in observation:
+            observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
         
         action_history = observation["actions"]
         action_history = self.normalizer.normalize(action_history)

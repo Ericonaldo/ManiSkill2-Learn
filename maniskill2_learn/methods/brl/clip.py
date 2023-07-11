@@ -136,6 +136,8 @@ class ClipAgent(BaseAgent):
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
         assert self.model_type == "policy", "only policy type CLIP agent can be used as policy"
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
+        if "state" in observation:
+            observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
 
         action_history = observation["actions"]
         action_history = self.normalizer.normalize(action_history)

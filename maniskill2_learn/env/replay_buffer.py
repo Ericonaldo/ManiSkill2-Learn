@@ -289,6 +289,14 @@ class ReplayMemory:
                         ret["obs"][key] = np.concatenate([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
                     else:
                         raise NotImplementedError()
+        if "keyframe_states" in ret.keys():
+            # We remove velocity from the state
+            if isinstance(ret["keyframe_states"], torch.Tensor):
+                ret["keyframe_states"] = torch.cat([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
+            elif isinstance(ret["keyframe_states"], np.ndarray):
+                ret["keyframe_states"] = np.concatenate([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
+            else:
+                raise NotImplementedError()
         if self.horizon > 1:
             batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
             ret_flat_idx = [j for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
