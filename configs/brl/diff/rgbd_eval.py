@@ -1,4 +1,4 @@
-horizon = 128
+horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 eval_action_len = 34 # how many actions to be executed in the following timesteps for one input
