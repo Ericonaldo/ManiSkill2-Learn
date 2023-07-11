@@ -30,7 +30,7 @@ agent_cfg = dict(
                 output_dim=256,
             ),
             mlp_cfg=dict(
-                type="LinearMLP", norm_cfg=None, mlp_spec=[128, "action_shape"], bias=True, inactivated_output=True
+                type="LinearMLP", norm_cfg=None, mlp_spec=[256, 128, "action_shape"], bias=True, inactivated_output=True
             ),
         ),
         visual_dec_nn_cfg=dict(

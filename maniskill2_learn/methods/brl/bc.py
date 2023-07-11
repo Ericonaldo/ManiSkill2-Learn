@@ -121,8 +121,8 @@ class BC(BaseAgent):
                 torch.distributions.Normal(0, 1.)
             ).sum(-1).mean()
             rec_loss = ((p_x.mean - sampled_batch["actions"]) ** 2).mean()
-            # loss = -(log_likelihood - kl) + rec_loss
-            loss = rec_loss
+            loss = -(log_likelihood - kl) + rec_loss
+            # loss = rec_loss
             ret_dict["likelihood_loss"] = log_likelihood.item()
             ret_dict["kl_loss"] = kl.item()
             ret_dict["total_loss"] = loss.item()

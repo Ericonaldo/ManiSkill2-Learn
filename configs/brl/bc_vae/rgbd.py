@@ -28,7 +28,7 @@ agent_cfg = dict(
                     )
                 ),
                 output_vae=True,
-                output_dim=128,
+                output_dim=256,
             ),
         ),
         visual_dec_nn_cfg=dict(
@@ -55,7 +55,7 @@ agent_cfg = dict(
             )
         ),
         mlp_cfg=dict(
-            type="GaussianMLP", norm_cfg=None, mlp_spec=[128, 64, "action_shape"], bias=True, inactivated_output=True
+            type="GaussianMLP", norm_cfg=None, mlp_spec=[256, 128, "action_shape"], bias=True, inactivated_output=True
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
     ),

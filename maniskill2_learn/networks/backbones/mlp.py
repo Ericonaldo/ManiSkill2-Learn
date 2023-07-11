@@ -91,7 +91,7 @@ class GaussianMLP(LinearMLP):
     ):
         super(LinearMLP, self).__init__()
         self.mlp = nn.Sequential()
-        for i in range(len(mlp_spec) - 1):
+        for i in range(len(mlp_spec) - 2):
             if i == len(mlp_spec) - 2 and inactivated_output:
                 act_cfg = None
                 norm_cfg = None
@@ -102,6 +102,8 @@ class GaussianMLP(LinearMLP):
             if act_cfg:
                 self.mlp.add_module(f"act{i}", build_activation_layer(act_cfg))
         self.init_weights(pretrained, linear_init_cfg, norm_init_cfg)
+        self.fc_mu = nn.Linear(mlp_spec[-2], mlp_spec[-1])
+        self.fc_var = nn.Linear(mlp_spec[-2], mlp_spec[-1])
         if zero_init_output:
             last_linear = self.last_linear
             if last_linear is not None:
@@ -117,8 +119,9 @@ class GaussianMLP(LinearMLP):
         return last_linear
 
     def forward(self, input, **kwargs):
-        mu = F.tanh(self.mlp(input))
-        return torch.distributions.Normal(mu, torch.ones_like(mu))
+        mu = self.fc_mu(self.mlp(input))
+        log_var = self.fc_var(self.mlp(input))
+        return torch.distributions.Normal(mu, log_var.exp())
 
     def init_weights(self, pretrained=None, linear_init_cfg=None, norm_init_cfg=None):
         if isinstance(pretrained, str):
