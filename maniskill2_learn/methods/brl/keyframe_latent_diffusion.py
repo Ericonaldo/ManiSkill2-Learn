@@ -97,10 +97,9 @@ class KeyLatentDiffAgent(DiffAgent):
         assert pretrained_obs_encoder_path is not None, "pretrained_obs_encoder_path should be provided"
 
         self.pretrained_obs_encoder_path = pretrained_obs_encoder_path
-        self.obs_encoder = None
         self.load_pretrained_encoder()
         
-        state_dim = obs_feature_dim # TODO
+        state_dim = self.obs_encoder.out_feature_dim
         self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, state_dim, keyframe_model_cfg.action_dim)
 
         self.train_keyframe_model = train_keyframe_model
@@ -113,6 +112,7 @@ class KeyLatentDiffAgent(DiffAgent):
             self.actor_optim = None
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
+        exit(0)
 
     def load_pretrained_encoder(self):
         pretrained_dict = torch.load(self.pretrained_obs_encoder_path, map_location=self.device)
@@ -298,6 +298,7 @@ class KeyLatentDiffAgent(DiffAgent):
         if self.train_diff_model:
             
             traj_data = torch.cat([obs_fea, actions], dim=-1)
+            print(obs_fea.shape, actions.shape)
 
             diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=traj_mask)
             ret_dict.update(info)

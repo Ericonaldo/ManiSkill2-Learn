@@ -227,7 +227,7 @@ class MultiImageObsEncoder(CNNBase):
         self.output_mlp = None
         self.output_vae = None
 
-        if get_output_dim or output_mlp:
+        if get_output_dim or output_mlp or output_vae:
             self.out_feature_dim = self.output_shape()
 
         if output_mlp:

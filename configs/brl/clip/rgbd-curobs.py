@@ -27,6 +27,9 @@ agent_cfg = dict(
                 )
             )
         ),
+        output_mlp=True,
+        output_hidden_dims=[1024,512,256],
+        output_dim=128,
     ),
     action_hidden_dims=[1024, 1024],
     temperature=1.0,

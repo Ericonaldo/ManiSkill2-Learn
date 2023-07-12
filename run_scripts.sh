@@ -55,6 +55,9 @@ python maniskill2_learn/apis/run_rl.py configs/brl/bc/rgbd.py --num-gpus 8 --env
 # "env_cfg.control_mode=pd_ee_delta_pose" \
 
 # RUN DiffPolicy
+python maniskill2_learn/apis/run_rl.py configs/brl/latent_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/LiftCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose"
+
 
 python maniskill2_learn/apis/run_rl.py configs/brl/prompt_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"

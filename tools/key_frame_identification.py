@@ -103,8 +103,8 @@ if __name__ == "__main__":
         traj_keys = list(current_file.keys())
         current_file.close()
         
-        # perspective = ["base"] # , "hand"]
-        perspective = ["hand"]
+        perspective = ["base"] # , "hand"]
+        # perspective = ["hand"]
 
         res_file = h5py.File(f"../ManiSkill2/demos/{args.body}_body/{args.env_id}-v0/keyframes.{args.control_mode}.h5", 'w')
 
