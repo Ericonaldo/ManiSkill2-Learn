@@ -35,10 +35,11 @@ def get_kwargs_from_shape(obs_shape, action_shape):
 
     if isinstance(obs_shape, dict):
         if "state" in obs_shape:
-            # replaceable_kwargs["agent_shape"] = obs_shape["state"]
-            replaceable_kwargs["agent_shape"] = obs_shape["state"] - 9 # We remove the dimension of velocity
+            replaceable_kwargs["agent_shape"] = obs_shape["state"]
+            # replaceable_kwargs["agent_shape"] = obs_shape["state"] - 9 # We remove the dimension of velocity
         elif "agent" in obs_shape:
-            replaceable_kwargs["agent_shape"] = obs_shape["agent"] - 9 # We remove the dimension of velocity
+            replaceable_kwargs["agent_shape"] = obs_shape["state"]
+            # replaceable_kwargs["agent_shape"] = obs_shape["agent"] - 9 # We remove the dimension of velocity
         
         if "hand_pose" in obs_shape:
             replaceable_kwargs["nhand"] = obs_shape["hand_pose"][1]
@@ -86,6 +87,8 @@ def get_kwargs_from_shape(obs_shape, action_shape):
                 replaceable_kwargs["seg_per_image"] = visual_shape["seg"][-3]
     else:
         replaceable_kwargs["obs_shape"] = deepcopy(obs_shape)
+    
+    replaceable_kwargs["agent_shape+action_shape"] = replaceable_kwargs["agent_shape"] + replaceable_kwargs["action_shape"]
 
     print("Got replaceable kwargs, ", replaceable_kwargs)
 

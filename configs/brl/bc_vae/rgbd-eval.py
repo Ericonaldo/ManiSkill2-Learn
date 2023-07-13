@@ -38,11 +38,14 @@ agent_cfg = dict(
     ),
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-# )
+env_cfg = dict(
+    type="gym",
+    env_name="PickCube-v0",
+    unwrapped=False,
+    obs_mode="rgbd",
+    control_mode="pd_ee_delta_pose", # "pd_ee_pose", # 
+    concat_rgbd=True,
+)
 
 
 replay_cfg = dict(
@@ -65,10 +68,10 @@ train_cfg = dict(
     n_checkpoint=10000,
 )
 
-# eval_cfg = dict(
-#     type="Evaluation",
-#     num=10,
-#     num_procs=1,
-#     save_traj=False,
-#     use_log=False,
-# )
+eval_cfg = dict(
+    type="Evaluation",
+    num=10,
+    num_procs=1,
+    save_traj=False,
+    use_log=False,
+)

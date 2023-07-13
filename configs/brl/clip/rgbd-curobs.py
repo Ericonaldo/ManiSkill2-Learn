@@ -1,7 +1,7 @@
 horizon = 3
 n_obs_steps = 2
 future_action_len = horizon - n_obs_steps
-workdir = "rgbd"
+workdir = "rgbd-curobs"
 agent_cfg = dict(
     type="ClipAgent",
     batch_size=512,

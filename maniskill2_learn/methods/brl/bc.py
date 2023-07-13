@@ -59,11 +59,16 @@ class BC(BaseAgent):
 
     def forward(self, obs, **kwargs):
         if "state" in obs:
-            obs["state"] = torch.cat([obs["state"][...,:9], obs["state"][...,18:]], axis=-1)
+            obs["state"] = np.concatenate([obs["state"][...,:9], obs["state"][...,18:]], axis=-1)
         obs = GDict(obs).to_torch(dtype="float32", device=self.device, non_blocking=True, wrapper=False)
-        act = self.actor(obs, **kwargs)
+        if self.loss_type != "vae":
+            act = self.actor(obs, **kwargs)
+        else:
+            q_z = self.actor.backbone(obs)
+            z = q_z.loc
+            act = self.actor.final_mlp(z)
         if isinstance(act, torch.distributions.Normal):
-            act = act.mean()
+            act = act.loc
         return act
 
     def compute_regression_loss(self, pred_dist, pred_action, target_action, mask=None):

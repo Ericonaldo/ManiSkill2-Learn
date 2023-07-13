@@ -287,7 +287,7 @@ class KeyLatentDiffAgent(DiffAgent):
             act_mask, obs_mask, traj_mask = self.act_mask, self.obs_mask, self.traj_mask
         if traj_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device) 
+                act_mask, obs_mask, _ = self.mask_generator(traj_data.shape, self.device) 
                 # obs_mask shape (horizon,) => (B, horizon, obs_fea_dim)
                 obs_mask = obs_mask.unsqueeze(-1).repeat(obs_fea.shape[0],1,obs_fea.shape[-1])
                 traj_mask = torch.cat([obs_mask,act_mask], dim=-1)

@@ -234,10 +234,16 @@ class ReplayMemory:
     def tail_mean(self, num):
         return self.memory.slice(slice(len(self) - num, len(self))).to_gdict().mean()
 
-    def get_all(self, key=None):
+    def get_all(self, key=None, sub_key=None):
         # Return all elements in replay buffer
         ret = self.memory.slice(slice(0, len(self)))
         if key is not None:
+            if sub_key is not None:
+                # if key == "obs" and isinstance(ret["obs"][sub_key], torch.Tensor):
+                #     ret["obs"][sub_key] = torch.cat([ret["obs"][sub_key][...,:9], ret["obs"][sub_key][...,18:]], axis=-1)
+                # elif key == "obs" and isinstance(ret["obs"][key], np.ndarray):
+                #     ret["obs"][sub_key] = np.concatenate([ret["obs"][sub_key][...,:9], ret["obs"][sub_key][...,18:]], axis=-1)
+                return ret[key][sub_key]
             return ret[key]
         return ret
 
@@ -249,7 +255,7 @@ class ReplayMemory:
             data = GDict({"traj_0": data.memory})
         data.to_hdf5(file)
 
-    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, mode="train", whole_traj=False):
+    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, obsact_normalizer=None, mode="train", whole_traj=False):
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
 
@@ -282,21 +288,21 @@ class ReplayMemory:
                         ret["obs"][key] = ret["obs"][key][0]
                     if "rgbd" in key and (not self.using_depth):
                         ret["obs"][key] = ret["obs"][key][:,:,:3,:,:] # Take the first 3 channel
-                if "state" in key: # We remove velocity from the state
-                    if isinstance(ret["obs"][key], torch.Tensor):
-                        ret["obs"][key] = torch.cat([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
-                    elif isinstance(ret["obs"][key], np.ndarray):
-                        ret["obs"][key] = np.concatenate([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
-                    else:
-                        raise NotImplementedError()
-        if "keyframe_states" in ret.keys():
-            # We remove velocity from the state
-            if isinstance(ret["keyframe_states"], torch.Tensor):
-                ret["keyframe_states"] = torch.cat([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
-            elif isinstance(ret["keyframe_states"], np.ndarray):
-                ret["keyframe_states"] = np.concatenate([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
-            else:
-                raise NotImplementedError()
+                # if "state" in key: # We remove velocity from the state
+                #     if isinstance(ret["obs"][key], torch.Tensor):
+                #         ret["obs"][key] = torch.cat([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
+                #     elif isinstance(ret["obs"][key], np.ndarray):
+                #         ret["obs"][key] = np.concatenate([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
+                #     else:
+                #         raise NotImplementedError()
+        # if "keyframe_states" in ret.keys():
+        #     # We remove velocity from the state
+        #     if isinstance(ret["keyframe_states"], torch.Tensor):
+        #         ret["keyframe_states"] = torch.cat([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
+        #     elif isinstance(ret["keyframe_states"], np.ndarray):
+        #         ret["keyframe_states"] = np.concatenate([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
+        #     else:
+        #         raise NotImplementedError()
         if self.horizon > 1:
             batch_flat_idx = [i for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
             ret_flat_idx = [j for i in range(batch_size) for j in range(self.horizon-ret_len[i])]
@@ -318,42 +324,54 @@ class ReplayMemory:
                             # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
                             # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
-        if (obs_mask is not None) and ("obs" in ret.keys()):
-            obs_mask = obs_mask.cpu().numpy()
-            for key in ret["obs"].keys():
-                ret["obs"][key] = ret["obs"][key][:,obs_mask,...]
+
         if device is not None:
             ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
+
         if action_normalizer is not None:
             for key in ["actions", "keyframe_actions"]:
                 if key in ret:
                     ret[key] = action_normalizer.normalize(ret[key])
+        elif obsact_normalizer is not None:
+            if "actions" in ret and "obs" in ret:
+                ret["states"] = ret["obs"]["state"]
+                action_dim = ret["actions"].shape[-1]
+                data = torch.cat([ret["obs"]["state"], ret["actions"]], dim=-1)
+                data = obsact_normalizer.normalize(data)
+                ret["states"] = data[...,:-action_dim]
+                ret["actions"] = data[...,-action_dim:]
+
+        if (obs_mask is not None) and ("obs" in ret.keys()):
+            obs_mask = obs_mask.cpu().numpy()
+            for key in ret["obs"].keys():
+                ret["obs"][key] = ret["obs"][key][:,obs_mask,...]
+                
         if mode=="eval":
             return ret
         data_queue.append(ret)
         self.thread_count -= 1
 
-    def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, mode="train", whole_traj=False):
+    def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, obsact_normalizer=None, mode="train", whole_traj=False):
         if mode=="eval":
-            return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode=mode, whole_traj=whole_traj)
+            return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer, mode=mode, whole_traj=whole_traj)
         
         ret = self.prefetched_data(whole_traj)
         if ret is not None:
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
                 # _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
-                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
+                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj))
                 new_thread.setDaemon(True)
                 new_thread.start()
             return ret
         
-        self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj)
+        self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj)
         ret = self.prefetched_data(whole_traj)
         if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
                 # _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
-                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
+                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj))
                 new_thread.setDaemon(True)
                 new_thread.start()
         return ret

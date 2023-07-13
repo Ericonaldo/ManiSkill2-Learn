@@ -114,7 +114,7 @@ class PromptDiffAgent(DiffAgent):
             act_mask, obs_mask = self.act_mask, self.obs_mask
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
+                act_mask, obs_mask, _ = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in obs_keys:
                     masked_obs_dict[key] = sampled_batch['obs'][key][:,obs_mask,...]

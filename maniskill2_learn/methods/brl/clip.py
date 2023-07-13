@@ -36,6 +36,7 @@ class ClipAgent(BaseAgent):
         action_seq_len,
         nn_cfg=None,
         actor_cfg=None,
+        latent_nn_cfg=None,
         eval_action_len=1,
         pcd_cfg=None,
         lr_scheduler_cfg=None,
@@ -69,7 +70,7 @@ class ClipAgent(BaseAgent):
         if pcd_cfg is not None:
             visual_nn_cfg["pcd_model"] = build_model(pcd_cfg)
         visual_nn_cfg["n_obs_steps"] = n_obs_steps if not current_obs_only else 1
-        self.obs_encoder = build_model(visual_nn_cfg)
+        self.latent_obs_encoder = build_model(latent_nn_cfg)
         self.obs_feature_dim = self.obs_encoder.out_feature_dim
 
         lr_scheduler_cfg = lr_scheduler_cfg
@@ -249,7 +250,7 @@ class ClipAgent(BaseAgent):
             act_mask, obs_mask = self.act_mask, self.obs_mask
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
+                act_mask, obs_mask, _ = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
                     masked_obs[key] = masked_obs[key][:, obs_mask, ...]

@@ -54,6 +54,7 @@ class DiffAgent(BaseAgent):
         fix_obs_steps=True, # Randomly cond on certain obs steps or deterministicly
         n_obs_steps=3,
         normalizer=LinearNormalizer(),
+        diffuse_state=False,
         **kwargs,
     ):
         super(DiffAgent, self).__init__()
@@ -67,6 +68,8 @@ class DiffAgent(BaseAgent):
 
         lr_scheduler_cfg = lr_scheduler_cfg
         self.action_dim = env_params['action_shape']
+        self.state_dim = env_params['obs_shape']['state']
+        self.diffuse_state = diffuse_state
         self.normalizer = normalizer
 
         actor_cfg["action_seq_len"] = action_seq_len
@@ -146,12 +149,18 @@ class DiffAgent(BaseAgent):
 
         self.extra_parameters = dict(kwargs)
 
+        obs_dim = 0
+        if not obs_as_global_cond:
+            obs_dim = self.obs_feature_dim
+        if diffuse_state:
+            obs_dim = self.state_dim
         self.mask_generator = LowdimMaskGenerator(
             action_dim=self.action_dim,
-            obs_dim=0 if obs_as_global_cond else self.obs_feature_dim,
+            obs_dim=obs_dim,
             max_n_obs_steps=n_obs_steps,
             fix_obs_steps=fix_obs_steps,
             action_visible=action_visible,
+            return_one_mask=diffuse_state,
         )
         self.obs_as_global_cond = obs_as_global_cond
         self.action_visible = action_visible
@@ -160,7 +169,7 @@ class DiffAgent(BaseAgent):
 
         self.init_normalizer = False
 
-        self.act_mask, self.obs_mask = None, None
+        self.act_mask, self.obs_mask, self.data_mask = None, None, None
         
         # Only used for ms-skill challenge online evaluation
         # self.eval_action_queue = None
@@ -442,7 +451,7 @@ class DiffAgent(BaseAgent):
             act_mask, obs_mask = self.act_mask, self.obs_mask
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
+                act_mask, obs_mask, _ = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
                     masked_obs[key] = masked_obs[key][:,obs_mask,...]

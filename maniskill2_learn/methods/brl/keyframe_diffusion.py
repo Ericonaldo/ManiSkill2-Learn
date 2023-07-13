@@ -56,6 +56,7 @@ class KeyDiffAgent(DiffAgent):
         fix_obs_steps=True, # Randomly cond on certain obs steps or deterministicly
         n_obs_steps=3,
         normalizer=LinearNormalizer(),
+        diffuse_state=False,
         train_keyframe_model=True,
         train_diff_model=True,
         **kwargs,
@@ -86,6 +87,7 @@ class KeyDiffAgent(DiffAgent):
             fix_obs_steps=fix_obs_steps,
             n_obs_steps=n_obs_steps,
             normalizer=normalizer,
+            diffuse_state=diffuse_state,
         )
         
         self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim)
@@ -230,12 +232,21 @@ class KeyDiffAgent(DiffAgent):
     def update_parameters(self, memory, updates):
         if not self.init_normalizer:
             # Fit normalizer
-            data = memory.get_all("actions")
+            action_data = memory.get_all("actions")
+            # data = action_data
+            obs_data = memory.get_all("obs", "state")
+            if self.diffuse_state:
+                data = np.concatenate([obs_data, action_data], axis=-1)
+            else:
+                data = action_data
             self.normalizer.fit(data, last_n_dims=1, mode='limits', range_eps=1e-7)
             self.init_normalizer = True
 
         batch_size = self.batch_size
-        sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer)
+        if self.diffuse_state:
+            sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, obsact_normalizer=self.normalizer)
+        else:
+            sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer)
         # sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"] # Did in replay buffer
         
         if self.lr_scheduler is not None:
@@ -253,25 +264,37 @@ class KeyDiffAgent(DiffAgent):
         ret_dict = {}
         
         # generate impainting mask
-        traj_data = sampled_batch["actions"] # Need Normalize! (Already did in replay buffer)
+        if self.diffuse_state:
+            traj_data = torch.cat([sampled_batch["states"],sampled_batch["actions"]], dim=-1)
+        else:
+            traj_data = sampled_batch["actions"]
+        # Need Normalize! (Already did in replay buffer)
         # traj_data = self.normalizer.normalize(traj_data)
         masked_obs = sampled_batch['obs']
-        act_mask, obs_mask = None, None
+        act_mask, obs_mask, data_mask = None, None, None
         if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-        if act_mask is None or obs_mask is None:
+            act_mask, obs_mask, data_mask = self.act_mask, self.obs_mask, self.data_mask
+        if data_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(traj_data.shape, self.device)
+                act_mask, obs_mask, data_mask = self.mask_generator(traj_data.shape, self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
+                if data_mask is None:
+                    data_mask = act_mask
+                self.data_mask = data_mask
+
+                if self.diffuse_state:
+                    self.obs_mask = obs_mask = obs_mask[0,:,0]
+
                 for key in masked_obs:
                     masked_obs[key] = masked_obs[key][:,obs_mask,...]
+                    
             else:
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
 
         if self.train_diff_model:
             obs_fea = self.obs_encoder(masked_obs)
 
-            diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=act_mask, global_cond=obs_fea) # TODO: local_cond, returns
+            diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=data_mask, global_cond=obs_fea) # TODO: local_cond, returns
             ret_dict.update(info)
             loss += diff_loss
 
@@ -284,7 +307,7 @@ class KeyDiffAgent(DiffAgent):
 
             timesteps = sampled_batch["timesteps"]
             states = masked_obs["state"]
-            actions = traj_data[:,obs_mask,...]
+            actions = sampled_batch["actions"][:,obs_mask,...]
             keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
             keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]
             keytime_differences = keytime_differences[:,obs_mask,...][:,-1]

@@ -100,16 +100,17 @@ class LowdimMaskGenerator(ExtendedModule):
             action_mask = action_mask & is_action_dim
 
 
+        mask = None
         if self.return_one_mask:
             mask = obs_mask & is_obs_dim
             if self.action_visible:
                 mask = mask | action_mask
         
-            return mask
+            # return mask
         if self.obs_dim <= 0:
             assert self.fix_obs_steps, "We require fix obs steps to obtain obs masks"
             obs_mask = obs_mask[0,:,0]
-        return action_mask, obs_mask
+        return action_mask, obs_mask, mask
 
 
 class KeypointMaskGenerator(ExtendedModule):
