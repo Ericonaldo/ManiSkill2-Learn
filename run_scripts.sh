@@ -58,6 +58,8 @@ python maniskill2_learn/apis/run_rl.py configs/brl/bc/rgbd.py --num-gpus 8 --env
 python maniskill2_learn/apis/run_rl.py configs/brl/latent_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/LiftCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose"
 
+python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/state_rgbd.py --env-id PickCube-v0 --num-gpus 8 \
+--cfg-options "replay_cfg.buffer_filenames='../ManiSkill2/demos/rigid_body/LiftCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" 
 
 python maniskill2_learn/apis/run_rl.py configs/brl/prompt_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
@@ -73,6 +75,9 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 # "train_cfg.n_eval=50000" "train_cfg.total_steps=250000" "train_cfg.n_checkpoint=50000" "train_cfg.n_updates=500" \
 # "env_cfg.env_name=PickCube-v0" "env_cfg.obs_mode=rgbd" "env_cfg.n_points=1200" "env_cfg.control_mode=pd_ee_delta_pose" \
 # "eval_cfg.num=100" "eval_cfg.save_traj=False" "eval_cfg.save_video=True" \
+
+python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/state_rgbd.py --env-id StackCube-v0  --num-gpus 8 \
+--cfg-options "replay_cfg.buffer_filenames='../ManiSkill2/demos/rigid_body/StackCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" 
 
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id StackCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/StackCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
@@ -159,3 +164,7 @@ python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-policy-curobs.py --
 
 python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-policy.py --num-gpus 8 --env-id LiftCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/LiftCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
+
+python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-curobs.py --num-gpus 8 --env-id PickCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"

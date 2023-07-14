@@ -138,13 +138,12 @@ class KeyDiffAgent(DiffAgent):
         #         return self.eval_action_queue.popleft()
         
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
-        if "state" in observation:
-            observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
+        # if "state" in observation:
+        #     observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
         
         states = observation["state"]
         timesteps = observation["timesteps"]
         action_history = observation["actions"]
-        action_history = self.normalizer.normalize(action_history)
         bs = action_history.shape[0]
         hist_len = action_history.shape[1]
         observation.pop("actions")
@@ -154,6 +153,9 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history)
         pred_keyframe = pred_keyframe_actions[:, 0] # take the first key frame for diffusion
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
+        if self.diffuse_state:
+            pred_keyframe_states = pred_keyframe_states[:, 0]
+            pred_keyframe = torch.cat([pred_keyframe, pred_keyframe_actions], dim=-1)
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
         # pred_keytime_differences = np.around(self.max_horizon * pred_keytime_differences, decimals=0)
         pred_keytime_differences = np.ceil(self.max_horizon * pred_keytime_differences)
@@ -169,21 +171,28 @@ class KeyDiffAgent(DiffAgent):
         
         pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
 
-        act_mask, obs_mask = None, None
+        act_mask, obs_mask, data_mask = None, None, None
         if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-
-        if act_mask is None or obs_mask is None:
+            act_mask, obs_mask, data_mask = self.act_mask, self.obs_mask, self.data_mask
+        
+        data_dim = self.action_dim+self.state_dim if self.diffuse_state else self.action_dim
+                
+        if data_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim), self.device)
+                act_mask, obs_mask, data_mask = self.mask_generator((bs, self.horizon, data_dim), self.device)
                 self.act_mask, self.obs_mask = act_mask, obs_mask
+                if data_mask is None:
+                    data_mask = act_mask
+                self.data_mask = data_mask
+                if self.diffuse_state:
+                    self.obs_mask = obs_mask = obs_mask[0,:,0]
             else:
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
 
-        if act_mask.shape[0] < bs:
-            act_mask = act_mask.repeat(max(bs//act_mask.shape[0]+1, 2), 1, 1)
-        if act_mask.shape[0] != bs:
-            act_mask = act_mask[:action_history.shape[0]]
+        if data_mask.shape[0] < bs:
+            data_mask = data_mask.repeat(max(bs//data_mask.shape[0]+1, 2), 1, 1)
+        if data_mask.shape[0] != bs:
+            data_mask = data_mask[:action_history.shape[0]]
         
         if action_history.shape[1] == self.horizon:
             for key in observation:
@@ -191,26 +200,44 @@ class KeyDiffAgent(DiffAgent):
         
         obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
         
+        data_history = action_history
         if self.action_seq_len-hist_len:
-            supp = torch.zeros(
-                bs, self.action_seq_len-hist_len, self.action_dim, 
-                dtype=action_history.dtype,
-                device=self.device,
-            )
-            action_history = torch.concat([action_history, supp], dim=1)
-        if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
-        # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-            action_history[range(bs),pred_keytime] = pred_keyframe 
-            act_mask = act_mask.clone()
-            act_mask[range(bs),pred_keytime] = True
+            if self.diffuse_state:
+                action_to_state_horizon_supp = torch.zeros(
+                    bs, 1, self.action_dim, 
+                    dtype=action_history.dtype,
+                    device=self.device,
+                )
+                action_history = torch.cat([action_history, action_to_state_horizon_supp], dim=1)
+                data_history = torch.cat([states, action_history], dim=-1)
+                supp = torch.zeros(
+                    bs, self.action_seq_len-hist_len-1, data_dim, 
+                    dtype=action_history.dtype,
+                    device=self.device,
+                )
+            else:
+                supp = torch.zeros(
+                    bs, self.action_seq_len-hist_len, self.action_dim, 
+                    dtype=action_history.dtype,
+                    device=self.device,
+                )
+            data_history = torch.cat([data_history, supp], dim=1)
+        
+        data_history = self.normalizer.normalize(data_history)
+
+        # if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
+        # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+        #     data_history[range(bs),pred_keytime] = pred_keyframe 
+        #     data_mask = data_mask.clone()
+        #     data_mask[range(bs),pred_keytime] = True
 
         # Predict action seq based on key frames
-        pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
+        pred_action_seq = self.conditional_sample(cond_data=data_history, cond_mask=data_mask, global_cond=obs_fea, *args, **kwargs)
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
         pred_action = pred_action_seq
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,hist_len:,:]
+            pred_action = pred_action_seq[:,hist_len:,-self.action_dim:]
             # # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
             # if self.n_obs_steps//2 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
             # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon

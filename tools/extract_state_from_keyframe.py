@@ -84,9 +84,9 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
 
             keyframe_action = np.zeros((max_keyframes_len,action_dim))
             keyframe_state = np.zeros((max_keyframes_len,state_dim))
-            keyframe_obs = {}
-            for key in trajectory['obs']:
-                keyframe_obs[key] = np.zeros((max_keyframes_len,*trajectory['obs'][key].shape[1:]))
+            # keyframe_obs = {}
+            # for key in trajectory['obs']:
+            #     keyframe_obs[key] = np.zeros((max_keyframes_len,*trajectory['obs'][key].shape[1:]))
             keyframe_difference = np.zeros(max_keyframes_len)
             keyframe_mask = np.zeros(max_keyframes_len)
             if traj_keyframe[index] > i or (i == traj_keyframe[index] == length-1):
@@ -94,8 +94,8 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
                 keyframe_difference[:traj_keyframe[index:].shape[0]] = traj_keyframe[index:]-i
                 keyframe_action[:traj_keyframe[index:].shape[0]] = trajectory['actions'][traj_keyframe[index:]]
                 keyframe_state[:traj_keyframe[index:].shape[0]] = trajectory['obs']['state'][traj_keyframe[index:]]
-                for key in trajectory['obs']:
-                    keyframe_obs[key][:traj_keyframe[index:].shape[0]] = trajectory['obs'][key][traj_keyframe[index:]]
+                # for key in trajectory['obs']:
+                #     keyframe_obs[key][:traj_keyframe[index:].shape[0]] = trajectory['obs'][key][traj_keyframe[index:]]
                 keyframe_mask[:traj_keyframe[index:].shape[0]] = 1.
                 # keyframe_action = np.pad(traj_keyframe[index:], (0, max_keyframes_len-(len(traj_keyframe)-index)), 'constant', constant_values=(-1, -1))
             else:
@@ -103,13 +103,13 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
                 keyframe_difference[:traj_keyframe[index+1:].shape[0]] = traj_keyframe[index+1:]-i
                 keyframe_action[:traj_keyframe[index+1:].shape[0]] = trajectory['actions'][traj_keyframe[index+1:]]
                 keyframe_state[:traj_keyframe[index+1:].shape[0]] = trajectory['obs']['state'][traj_keyframe[index+1:]]
-                for key in trajectory['obs']:
-                    keyframe_obs[key][:traj_keyframe[index+1:].shape[0]] = trajectory['obs'][key][traj_keyframe[index+1:]]
+                # for key in trajectory['obs']:
+                #     keyframe_obs[key][:traj_keyframe[index+1:].shape[0]] = trajectory['obs'][key][traj_keyframe[index+1:]]
                 keyframe_mask[:traj_keyframe[index+1:].shape[0]] = 1.
                 # keyframe_action = np.pad(traj_keyframe[index+1:], (0, max_keyframes_len-(len(traj_keyframe)-index-1)), 'constant', constant_values=(-1, -1))
             item_i["keyframe_actions"] = keyframe_action
             item_i["keyframe_states"] = keyframe_state
-            item_i["keyframe_obs"] = keyframe_obs
+            # item_i["keyframe_obs"] = keyframe_obs
             item_i["keyframe_masks"] = keyframe_mask
             item_i["keytime_differences"] = keyframe_difference
             item_i["timesteps"] = i
