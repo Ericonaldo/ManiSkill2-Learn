@@ -5,7 +5,7 @@ workdir = "statediff-rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    batch_size=512,
+    batch_size=256,
     action_seq_len=horizon,
     diffuse_state=True,
     visual_nn_cfg=dict(
@@ -90,8 +90,9 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=32,
+    num_procs=128,
     synchronized=False,
+    max_threads=4,
 )
 
 train_cfg = dict(
@@ -99,16 +100,16 @@ train_cfg = dict(
     total_steps=250000,
     warm_steps=0,
     n_steps=0,
-    n_updates=500,
+    n_updates=50,
     n_eval=10000,
     n_checkpoint=10000,
 )
 
-eval_cfg = dict(
-    type="OfflineDiffusionEvaluation",
-    num=10,
-    num_procs=1,
-    use_hidden_state=False,
-    save_traj=False,
-    use_log=False,
-)
+# eval_cfg = dict(
+#     type="OfflineDiffusionEvaluation",
+#     num=10,
+#     num_procs=1,
+#     use_hidden_state=False,
+#     save_traj=False,
+#     use_log=False,
+# )

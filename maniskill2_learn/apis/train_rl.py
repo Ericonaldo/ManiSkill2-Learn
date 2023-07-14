@@ -165,7 +165,7 @@ def train_rl(
     import torch
     from maniskill2_learn.utils.torch import get_cuda_info
 
-    tf_logs = ReplayMemory(n_updates, None)
+    tf_logs = ReplayMemory(n_updates, None, max_threads=1)
     tf_logs.reset()
     tf_logger = TensorboardLogger(work_dir)
 

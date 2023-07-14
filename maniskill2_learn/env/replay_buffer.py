@@ -38,7 +38,7 @@ class ReplayMemory:
         keys_map=None,
         data_coder_cfg=None,
         buffer_filenames=None,
-        cache_size=4096,
+        cache_size=8192,
         num_samples=-1,
         num_procs=4,
         synchronized=True,  # For debug only which is slower than asynchronized file loading and data augmentation

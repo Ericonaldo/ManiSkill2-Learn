@@ -285,7 +285,7 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
         logger.info("Setting DDP!")
         assert not args.evaluation, "We do not support multi-gpu evaluation!"
         os.environ["MASTER_ADDR"] = "localhost"
-        os.environ["MASTER_PORT"] = "12353"
+        os.environ["MASTER_PORT"] = "12355"
         dist.init_process_group("nccl", rank=world_rank, world_size=world_size)
         # from maniskill2_learn.utils.torch import ExtendedDDP
         agent = nn.SyncBatchNorm.convert_sync_batchnorm(agent)
