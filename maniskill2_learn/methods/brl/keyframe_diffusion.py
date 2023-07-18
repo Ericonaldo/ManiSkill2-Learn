@@ -65,7 +65,7 @@ class KeyDiffAgent(DiffAgent):
             actor_cfg=actor_cfg,
             visual_nn_cfg=visual_nn_cfg,
             nn_cfg=diff_nn_cfg,
-        optim_cfg=optim_cfg,
+            optim_cfg=optim_cfg,
             env_params=env_params,
             action_seq_len=action_seq_len,
             eval_action_len=eval_action_len,
@@ -88,6 +88,8 @@ class KeyDiffAgent(DiffAgent):
             n_obs_steps=n_obs_steps,
             normalizer=normalizer,
             diffuse_state=diffuse_state,
+            diffusion_updates=None,
+            keyframe_model_updates=None,
         )
         
         self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim)
@@ -102,6 +104,9 @@ class KeyDiffAgent(DiffAgent):
             self.actor_optim = None
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
+
+        self.diffusion_updates = diffusion_updates
+        self.keyframe_model_updates = keyframe_model_updates
 
     def keyframe_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
@@ -225,12 +230,14 @@ class KeyDiffAgent(DiffAgent):
         
         data_history = self.normalizer.normalize(data_history)
 
-        if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
-        # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-            data_history[range(bs),pred_keytime] = pred_keyframe 
-            data_mask = data_mask.clone()
-            # data_mask[range(bs),pred_keytime,:-self.action_dim] = True
-            data_mask[range(bs),pred_keytime,:] = True
+        pred_keyframe = self.normalizer.normalize(pred_keyframe)
+
+        # if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
+        # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+        #     data_history[range(bs),pred_keytime] = pred_keyframe 
+        #     data_mask = data_mask.clone()
+        #     data_mask[range(bs),pred_keytime,:-self.action_dim] = True
+            # data_mask[range(bs),pred_keytime,:] = True
 
         # Predict action seq based on key frames
         pred_action_seq = self.conditional_sample(cond_data=data_history, cond_mask=data_mask, global_cond=obs_fea, *args, **kwargs)
@@ -320,30 +327,32 @@ class KeyDiffAgent(DiffAgent):
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
 
         if self.train_diff_model:
-            obs_fea = self.obs_encoder(masked_obs)
+            if (self.diffusion_updates is None) or ((self.diffusion_updates is not None) and updates > self.diffusion_updates):
+                obs_fea = self.obs_encoder(masked_obs)
 
-            diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=data_mask, global_cond=obs_fea) # TODO: local_cond, returns
-            ret_dict.update(info)
-            loss += diff_loss
+                diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=data_mask, global_cond=obs_fea) # TODO: local_cond, returns
+                ret_dict.update(info)
+                loss += diff_loss
 
         if self.train_keyframe_model:
-            keyframe_actions = sampled_batch["keyframe_actions"] # Need Normalize! (Already did in replay buffer)
-            keyframe_states = sampled_batch["keyframe_states"]
-            # keyframes = self.normalizer.normalize(keyframes)
-            keytime_differences = sampled_batch["keytime_differences"]
-            keyframe_masks = sampled_batch["keyframe_masks"]
+            if (self.keyframe_model_updates is None) or ((self.keyframe_model_updates is not None) and updates > self.keyframe_model_updates):
+                keyframe_actions = sampled_batch["keyframe_actions"] # Need Normalize! (Already did in replay buffer)
+                keyframe_states = sampled_batch["keyframe_states"]
+                # keyframes = self.normalizer.normalize(keyframes)
+                keytime_differences = sampled_batch["keytime_differences"]
+                keyframe_masks = sampled_batch["keyframe_masks"]
 
-            timesteps = sampled_batch["timesteps"]
-            states = masked_obs["state"]
-            actions = sampled_batch["actions"][:,obs_mask,...]
-            keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
-            keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]
-            keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
-            keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
+                timesteps = sampled_batch["timesteps"]
+                states = masked_obs["state"]
+                actions = sampled_batch["actions"][:,obs_mask,...]
+                keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+                keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]
+                keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
+                keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
 
-            keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks)
-            ret_dict.update(info)
-            loss += keyframe_loss
+                keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks)
+                ret_dict.update(info)
+                loss += keyframe_loss
         
         loss.backward()
         if self.actor_optim is not None:

@@ -1,11 +1,11 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "statediff-rgbd"
+workdir = "statediff-keynorm-rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    batch_size=256,
+    batch_size=340,
     action_seq_len=horizon,
     diffuse_state=True,
     visual_nn_cfg=dict(
@@ -65,6 +65,7 @@ agent_cfg = dict(
             beta2=0.95,
         ),
     ),
+    diffusion_updates=100000,
 )
 
 # env_cfg = dict(
@@ -92,7 +93,7 @@ replay_cfg = dict(
     ],
     num_procs=128,
     synchronized=False,
-    max_threads=4,
+    max_threads=5,
 )
 
 train_cfg = dict(
@@ -100,7 +101,7 @@ train_cfg = dict(
     total_steps=250000,
     warm_steps=0,
     n_steps=0,
-    n_updates=50,
+    n_updates=500,
     n_eval=10000,
     n_checkpoint=10000,
 )
