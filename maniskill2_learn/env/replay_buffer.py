@@ -340,6 +340,11 @@ class ReplayMemory:
                 data = obsact_normalizer.normalize(data)
                 ret["states"] = data[...,:-action_dim]
                 ret["actions"] = data[...,-action_dim:]
+            if "keyframe_states" in ret and "keyframe_actions" in ret:
+                data = torch.cat([ret["keyframe_states"], ret["keyframe_actions"]], dim=-1)
+                data = obsact_normalizer.normalize(data)
+                ret["keyframe_states"] = data[...,:-action_dim]
+                ret["keyframe_actions"] = data[...,-action_dim:]
 
         if (obs_mask is not None) and ("obs" in ret.keys()):
             obs_mask = obs_mask.cpu().numpy()

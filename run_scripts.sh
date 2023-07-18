@@ -56,10 +56,10 @@ python maniskill2_learn/apis/run_rl.py configs/brl/bc/rgbd.py --num-gpus 8 --env
 
 # RUN DiffPolicy
 python maniskill2_learn/apis/run_rl.py configs/brl/latent_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
---cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/LiftCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose"
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose"
 
 python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/state_rgbd.py --env-id PickCube-v0 --num-gpus 8 \
---cfg-options "replay_cfg.buffer_filenames='../ManiSkill2/demos/rigid_body/LiftCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" 
+--cfg-options "replay_cfg.buffer_filenames='../ManiSkill2/demos/rigid_body/PickCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" 
 
 python maniskill2_learn/apis/run_rl.py configs/brl/prompt_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
@@ -88,8 +88,15 @@ python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-g
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id AssemblingKits-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/AssemblingKits-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 
+python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/state_rgbd.py --env-id PlugCharger-v0 --num-gpus 8 \
+--cfg-options "replay_cfg.buffer_filenames='../ManiSkill2/demos/rigid_body/PlugCharger-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" 
+
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PlugCharger-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PlugCharger-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
+
+python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/state_rgbd.py --env-id PegInsertionSide-v0 --num-gpus 8 \
+--cfg-options "replay_cfg.buffer_filenames='../ManiSkill2/demos/rigid_body/PegInsertionSide-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" 
 
 python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-gpus 8 --env-id PegInsertionSide-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PegInsertionSide-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-newview"

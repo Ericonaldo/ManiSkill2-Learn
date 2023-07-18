@@ -65,7 +65,7 @@ class KeyDiffAgent(DiffAgent):
             actor_cfg=actor_cfg,
             visual_nn_cfg=visual_nn_cfg,
             nn_cfg=diff_nn_cfg,
-            optim_cfg=optim_cfg,
+        optim_cfg=optim_cfg,
             env_params=env_params,
             action_seq_len=action_seq_len,
             eval_action_len=eval_action_len,
@@ -155,7 +155,7 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
         if self.diffuse_state:
             pred_keyframe_states = pred_keyframe_states[:, 0]
-            pred_keyframe = torch.cat([pred_keyframe, pred_keyframe_actions], dim=-1)
+            pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
         # pred_keytime_differences = np.around(self.max_horizon * pred_keytime_differences, decimals=0)
         pred_keytime_differences = np.ceil(self.max_horizon * pred_keytime_differences)
@@ -225,11 +225,12 @@ class KeyDiffAgent(DiffAgent):
         
         data_history = self.normalizer.normalize(data_history)
 
-        # if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
-        # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-        #     data_history[range(bs),pred_keytime] = pred_keyframe 
-        #     data_mask = data_mask.clone()
-        #     data_mask[range(bs),pred_keytime] = True
+        if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
+        # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+            data_history[range(bs),pred_keytime] = pred_keyframe 
+            data_mask = data_mask.clone()
+            # data_mask[range(bs),pred_keytime,:-self.action_dim] = True
+            data_mask[range(bs),pred_keytime,:] = True
 
         # Predict action seq based on key frames
         pred_action_seq = self.conditional_sample(cond_data=data_history, cond_mask=data_mask, global_cond=obs_fea, *args, **kwargs)
@@ -239,14 +240,14 @@ class KeyDiffAgent(DiffAgent):
         if mode=="eval":
             pred_action = pred_action_seq[:,hist_len:,-self.action_dim:]
             # # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
-            # if self.n_obs_steps//2 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+            # if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
             # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
             #     # print("keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe), pred_action_seq[:,pred_keytime[0],:])
-            #     # pred_action = pred_action_seq[:,hist_len:pred_keytime[0]+1,:] # do not support batch evaluation
-            #     pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
+            #     pred_action = pred_action_seq[:,hist_len:pred_keytime[0]+1,-self.action_dim:] # do not support batch evaluation
+            # #     pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
             # else:
             #     # print("no keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe))
-            #     pred_action = pred_action_seq[:,hist_len:hist_len+4,:] # do not support batch evaluation
+            #     pred_action = pred_action_seq[:,hist_len:hist_len+self.eval_action_len,-self.action_dim:] # do not support batch evaluation
             #     # pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
             # # Only used for ms-skill challenge online evaluation
             # # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]

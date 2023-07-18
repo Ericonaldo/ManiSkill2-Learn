@@ -170,6 +170,8 @@ class DiffAgent(BaseAgent):
         self.init_normalizer = False
 
         self.act_mask, self.obs_mask, self.data_mask = None, None, None
+
+        self.eval_action_len = eval_action_len
         
         # Only used for ms-skill challenge online evaluation
         # self.eval_action_queue = None
@@ -414,12 +416,12 @@ class DiffAgent(BaseAgent):
         pred_action = pred_action_seq
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
+            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,-self.action_dim:]
             # Only used for ms-skill challenge online evaluation
-            # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
+            # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),-self.action_dim:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
             #     for i in range(self.eval_action_len-1):
-            #         self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,:])
+            #         self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,-self.action_dim:])
         
         return pred_action
     
