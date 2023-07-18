@@ -14,6 +14,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
 from maniskill2_learn.utils.data import DictArray, GDict, dict_to_str
+from maniskill2_learn.utils.torch import load_state_dict
 from maniskill2_learn.utils.meta import get_total_memory, get_logger
 from maniskill2_learn.utils.torch import get_mean_lr, get_cuda_info, build_optimizer
 from maniskill2_learn.utils.diffusion.helpers import Losses, apply_conditioning, cosine_beta_schedule, extract
@@ -60,6 +61,9 @@ class KeyDiffAgent(DiffAgent):
         diffuse_state=False,
         train_keyframe_model=True,
         train_diff_model=True,
+        diffusion_updates=None,
+        keyframe_model_updates=None,
+        keyframe_model_path=None,
         **kwargs,
     ):
         super().__init__(
@@ -89,9 +93,6 @@ class KeyDiffAgent(DiffAgent):
             n_obs_steps=n_obs_steps,
             normalizer=normalizer,
             diffuse_state=diffuse_state,
-            diffusion_updates=None,
-            keyframe_model_updates=None,
-            keyframe_model_path=None,
         )
         
         self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim)
@@ -112,17 +113,20 @@ class KeyDiffAgent(DiffAgent):
         
         self.keyframe_model_path = keyframe_model_path
         if self.keyframe_model_path is not None:
-            self.load_keyframe_model(self.keyframe_model_path)
+            self.load_keyframe_model()
 
     def load_keyframe_model(self):
         if self.keyframe_model_path is None:
             return
         loaded_dict = torch.load(self.keyframe_model_path, map_location=self.device)
         if not isinstance(self, DDP):
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['model_state_dict'], prefix="module.")
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['optimizer_state_dict'], prefix="module.")
-        self.keyframe_model.load_state_dict(loaded_dict['model_state_dict'])
-        self.keyframe_optim.load_state_dict(loaded_dict['optimizer_state_dict'])
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['state_dict'], prefix="module.")
+            if 'optimizer' in loaded_dict:
+                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['optimizer'], prefix="module.")
+        
+        load_state_dict(self.keyframe_model, loaded_dict['state_dict'])
+        if 'optimizer' in loaded_dict.keys():
+            load_state_dict(self.keyframe_optim, loaded_dict['optimizer'])
 
     def keyframe_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
@@ -246,7 +250,7 @@ class KeyDiffAgent(DiffAgent):
         
         data_history = self.normalizer.normalize(data_history)
 
-        pred_keyframe = self.normalizer.normalize(pred_keyframe)
+        # pred_keyframe = self.normalizer.normalize(pred_keyframe)
 
         # if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
         # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon

@@ -66,6 +66,7 @@ agent_cfg = dict(
             beta2=0.95,
         ),
     ),
+    keyframe_model_path="logs/StackCube-v0/KeyDiffAgent/statediff-rgbd/20230715_014339/models/model_150000.ckpt"
 )
 
 env_cfg = dict(
