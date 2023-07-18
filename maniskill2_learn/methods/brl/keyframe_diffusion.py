@@ -9,6 +9,7 @@ from copy import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
@@ -90,6 +91,7 @@ class KeyDiffAgent(DiffAgent):
             diffuse_state=diffuse_state,
             diffusion_updates=None,
             keyframe_model_updates=None,
+            keyframe_model_path=None,
         )
         
         self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim)
@@ -107,6 +109,20 @@ class KeyDiffAgent(DiffAgent):
 
         self.diffusion_updates = diffusion_updates
         self.keyframe_model_updates = keyframe_model_updates
+        
+        self.keyframe_model_path = keyframe_model_path
+        if self.keyframe_model_path is not None:
+            self.load_keyframe_model(self.keyframe_model_path)
+
+    def load_keyframe_model(self):
+        if self.keyframe_model_path is None:
+            return
+        loaded_dict = torch.load(self.keyframe_model_path, map_location=self.device)
+        if not isinstance(self, DDP):
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['model_state_dict'], prefix="module.")
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['optimizer_state_dict'], prefix="module.")
+        self.keyframe_model.load_state_dict(loaded_dict['model_state_dict'])
+        self.keyframe_optim.load_state_dict(loaded_dict['optimizer_state_dict'])
 
     def keyframe_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon

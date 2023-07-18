@@ -280,6 +280,8 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
         logger.info("Resume agent with checkpoint!")
         for file in cfg.resume_from:
             load_checkpoint(agent, file, device, keys_map=args.resume_keys_map, logger=logger)
+            if hasattr(agent, "load_keyframe_model"):
+                agent.load_keyframe_model()
 
     if len(args.gpu_ids) > 1:
         logger.info("Setting DDP!")
