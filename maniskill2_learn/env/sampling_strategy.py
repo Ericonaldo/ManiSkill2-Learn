@@ -250,5 +250,5 @@ class TStepTransition(SamplingStrategy):
         #     # ret[i] = [-1,] * (
         #     #     padded_size - len(ret[i])
         #     # ) + ret[i] # padding zero before
-        # ret = np.array(ret, dtype=np.int)
+        # ret = np.array(ret, dtype=int)
         return ret, mask, ret_len

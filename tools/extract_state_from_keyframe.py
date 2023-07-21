@@ -80,7 +80,7 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             item_i = recursive_get_from_dict(trajectory, i)
             # item_i["actions"] = action_accumulated
             difference_array = np.absolute(traj_keyframe-i)
-            index = difference_array.argmin()
+            index = difference_array.argmin() # Find all keyframes after the frame i
 
             keyframe_action = np.zeros((max_keyframes_len,action_dim))
             keyframe_state = np.zeros((max_keyframes_len,state_dim))
@@ -113,6 +113,7 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             item_i["keyframe_masks"] = keyframe_mask
             item_i["keytime_differences"] = keyframe_difference
             item_i["timesteps"] = i
+            item_i["ep_first_obs"] = recursive_get_from_dict(trajectory['obs'], 0)
 
             assert first_key_frame >= i, "keyframe should after the frame, however {} < {}".format(item_i['keyframes'], i)
 

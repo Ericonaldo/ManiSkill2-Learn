@@ -11,6 +11,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+import sapien.core as sapien
+
 from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
 from maniskill2_learn.utils.data import DictArray, GDict, dict_to_str
@@ -27,6 +29,28 @@ from .keyframe_gpt import KeyframeGPTWithHist
 
 from ..builder import BRL
 
+from transforms3d.quaternions import quat2axangle
+
+def inv_scale_action(action, low, high):
+    """Inverse of `clip_and_scale_action` without clipping."""
+    low, high = np.asarray(low), np.asarray(high)
+    return (action - 0.5 * (high + low)) / (0.5 * (high - low))
+
+def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
+    theta, omega = quat2axangle(quat)
+    # - 2 * np.pi to make the angle symmetrical around 0
+    if omega > np.pi:
+        omega = omega - 2 * np.pi
+    return omega * theta
+
+def delta_pose_to_pd_ee_delta(
+    delta_pose: sapien.Pose,
+):
+    delta_pose = np.r_[
+        delta_pose.p,
+        compact_axis_angle_from_quaternion(delta_pose.q),
+    ]
+    return inv_scale_action(delta_pose, -1, 1)
 
 @BRL.register_module()
 class KeyDiffAgent(DiffAgent):
@@ -64,6 +88,8 @@ class KeyDiffAgent(DiffAgent):
         diffusion_updates=None,
         keyframe_model_updates=None,
         keyframe_model_path=None,
+        use_keyframe=True,
+        pred_keyframe_num=1,
         **kwargs,
     ):
         super().__init__(
@@ -110,14 +136,19 @@ class KeyDiffAgent(DiffAgent):
 
         self.diffusion_updates = diffusion_updates
         self.keyframe_model_updates = keyframe_model_updates
+        self.use_keyframe = use_keyframe
+        self.pred_keyframe_num = pred_keyframe_num
         
         self.keyframe_model_path = keyframe_model_path
         if self.keyframe_model_path is not None:
             self.load_keyframe_model()
 
+        self.last_state = None
+
     def load_keyframe_model(self):
         if self.keyframe_model_path is None:
             return
+        print("loading keyframe model in {}".format(self.keyframe_model_path))
         loaded_dict = torch.load(self.keyframe_model_path, map_location=self.device)
         if not isinstance(self, DDP):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['state_dict'], prefix="module.")
@@ -176,10 +207,10 @@ class KeyDiffAgent(DiffAgent):
         self.set_mode(mode=mode)
 
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history)
-        pred_keyframe = pred_keyframe_actions[:, 0] # take the first key frame for diffusion
-        pred_keyframe, pred_keytime_differences = pred_keyframe[:,:-1], pred_keyframe[:,-1] # split keyframe and predicted timestep
+        pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
+        pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
         if self.diffuse_state:
-            pred_keyframe_states = pred_keyframe_states[:, 0]
+            pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
             pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
         # pred_keytime_differences = np.around(self.max_horizon * pred_keytime_differences, decimals=0)
@@ -249,15 +280,19 @@ class KeyDiffAgent(DiffAgent):
             data_history = torch.cat([data_history, supp], dim=1)
         
         data_history = self.normalizer.normalize(data_history)
-
-        # pred_keyframe = self.normalizer.normalize(pred_keyframe)
-
-        # if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon and pred_keytime_differences[0] > 0: # Method3: only set key frame when less than horizon
-        # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-        #     data_history[range(bs),pred_keytime] = pred_keyframe 
-        #     data_mask = data_mask.clone()
-        #     data_mask[range(bs),pred_keytime,:-self.action_dim] = True
-            # data_mask[range(bs),pred_keytime,:] = True
+        # print("before: ", data_mask[...,0])
+        if self.use_keyframe:
+            # pred_keyframe = self.normalizer.normalize(pred_keyframe)
+            for i in range(len(pred_keytime_differences[0])):
+                if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
+                # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+                    data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
+                    data_mask = data_mask.clone()
+                    data_mask[range(bs),pred_keytime[:,i:i+1],:-self.action_dim] = True
+                    # data_mask[range(bs),pred_keytime[:,i],:] = True
+                else:
+                    break
+        # print("after: ", data_mask[...,0], pred_keytime_differences)
 
         # Predict action seq based on key frames
         pred_action_seq = self.conditional_sample(cond_data=data_history, cond_mask=data_mask, global_cond=obs_fea, *args, **kwargs)
@@ -266,16 +301,47 @@ class KeyDiffAgent(DiffAgent):
 
         if mode=="eval":
             pred_action = pred_action_seq[:,hist_len:,-self.action_dim:]
+
+            # Check pose
+            # if self.last_state is not None:
+            #     last_pose = self.last_state[...,-1,-13:-6].cpu().numpy()
+            #     cur_pose = observation['state'][...,-1,-13:-6].cpu().numpy()
+            #     last_pose = sapien.Pose(p=last_pose[0][:3], q=last_pose[0][3:])
+            #     cur_pose = sapien.Pose(p=cur_pose[0][:3], q=cur_pose[0][3:])
+            #     delta_pose = last_pose.inv() * cur_pose
+            #     delta_pose = delta_pose_to_pd_ee_delta(delta_pose)
+            #     print(1, delta_pose)
+            #     print(2, pred_action[0,hist_len-1:hist_len+3])
+            #     print(3, pred_action_seq[0,hist_len-1:hist_len+3,-13:-6])
+            # self.last_state = observation['state']
+
+            # Compute pose
+            # cur_tcq_pose_np = observation['state'][...,-1,-13:-6].cpu().numpy()
+            # pred_next_tcq_pose_np = pred_action_seq[:,hist_len+4:,-self.action_dim-13:-self.action_dim-6].cpu().numpy()
+
+            # pred_action = np.zeros((pred_action_seq.shape[1] - hist_len - 4, self.action_dim))
+            # cur_tcq_pose = sapien.Pose(p=cur_tcq_pose_np[0][:3], q=cur_tcq_pose_np[0][3:])
+            # for i in range(len(pred_action)):
+            #     pred_next_tcq_pose = sapien.Pose(p=pred_next_tcq_pose_np[0][i][:3], q=pred_next_tcq_pose_np[0][i][3:])
+            #     pred_delta_pose = cur_tcq_pose.inv() * pred_next_tcq_pose
+            #     pred_delta_pose = delta_pose_to_pd_ee_delta(pred_delta_pose)
+            #     pred_action[i, :-1] = pred_delta_pose
+            # pred_action[:, -1] = pred_action_seq[0,hist_len+3:-1,-1].cpu().numpy()
+            # pred_action = np.expand_dims(pred_action, axis=0)
+            # print(1, pred_action)
+            # print(2, pred_action_seq[:,hist_len:,-self.action_dim:])
+
+
             # # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
-            # if self.n_obs_steps < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-            # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-            #     # print("keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe), pred_action_seq[:,pred_keytime[0],:])
-            #     pred_action = pred_action_seq[:,hist_len:pred_keytime[0]+1,-self.action_dim:] # do not support batch evaluation
-            # #     pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
+            # if self.n_obs_steps < pred_keytime_differences[0][-1] <= self.max_horizon and pred_keytime_differences[0][-1] > 0: # Method3: only set key frame when less than horizon
+            # # # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+            # #     # print("keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe), pred_action_seq[:,pred_keytime[0],:])
+            # #     pred_action = pred_action_seq[:,hist_len:pred_keytime[0][-1]+1,-self.action_dim:] # do not support batch evaluation
+            # # #     pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
             # else:
-            #     # print("no keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe))
+            # #     # print("no keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe))
             #     pred_action = pred_action_seq[:,hist_len:hist_len+self.eval_action_len,-self.action_dim:] # do not support batch evaluation
-            #     # pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
+            #     pred_action = pred_action_seq[:,hist_len:,-self.action_dim:] # do not support batch evaluation
             # # Only used for ms-skill challenge online evaluation
             # # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):

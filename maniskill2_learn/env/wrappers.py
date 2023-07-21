@@ -492,6 +492,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             obs.pop('camera_param', None)
             
             s = flatten_state_dict(obs) # Other observation keys should be already ordered and such orders shouldn't change across different maniskill2 versions, so we just flatten them
+            # print(obs["extra"]["tcp_pose"], obs["extra"].keys(), s)
 
             # Resize RGB and Depth images
             if self.img_size is not None and self.img_size != (

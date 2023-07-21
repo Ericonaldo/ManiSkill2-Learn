@@ -37,8 +37,8 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
     for name, parameter in module.named_parameters():
         if name in state_dict and state_dict[name].shape != parameter.shape:
             # We only deal with different in_channel cases.
-            soure_shape = np.array(state_dict[name].shape, dtype=np.int)
-            target_shape = np.array(parameter.shape, dtype=np.int)
+            soure_shape = np.array(state_dict[name].shape, dtype=int)
+            target_shape = np.array(parameter.shape, dtype=int)
             if (soure_shape != target_shape).sum() == 1:
                 logger(f"We adapt weight with shape {soure_shape} to shape {target_shape}.")
                 tmp = parameter.data.clone()
