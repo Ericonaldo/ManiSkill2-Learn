@@ -257,19 +257,39 @@ class MultiImageObsEncoder(CNNBase):
             )
             self.output_vae = [self.output_vae_mu, self.output_vae_sigma]
 
-    def forward(self, obs_dict):
+    def forward(self, obs_dict, ep_first_obs_dict=None):
         batch_size = None
         features = list()
         horizon = self.n_obs_steps
         # Preprocess img model
         # !!!!!!!
         obs_dict = self.preprocess(obs_dict)
+        if ep_first_obs_dict is not None:
+            ep_first_obs_dict = self.preprocess(ep_first_obs_dict)
         # process rgb input
         if len(self.rgb_keys):
             if self.share_rgb_model:
                 # pass all rgb obs to rgb model
                 imgs = list()
                 for key in self.rgb_keys:
+
+                    # Process ep_first_obs
+                    if ep_first_obs_dict is not None:
+                        img = ep_first_obs_dict[key]
+                        if batch_size is None:
+                            batch_size = img.shape[0]
+                        else:
+                            assert batch_size == img.shape[0]
+                        assert (
+                            len(img.shape) == 4
+                        ), "Ep first image shape mismatch!" # (B,C,H,W)
+                        assert (
+                            img.shape[1:] == self.key_shape_map[key]
+                        ), f"{img.shape[1:]} != {self.key_shape_map[key]}"  # (C,H,W)
+                        img = self.key_transform_map[key](img)
+                        imgs.append(img)
+                    
+                    # Process obs
                     img = obs_dict[key]
                     if batch_size is None:
                         batch_size = img.shape[0]
@@ -289,6 +309,7 @@ class MultiImageObsEncoder(CNNBase):
                     ), f"{img.shape[1:]} != {self.key_shape_map[key]}"  # (C,H,W)
                     img = self.key_transform_map[key](img)
                     imgs.append(img)
+
                 # (N*B*L,C,H,W)
                 imgs = torch.cat(imgs, dim=0)
                 # (N*B*L,D)
