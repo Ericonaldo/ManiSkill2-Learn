@@ -93,6 +93,7 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe_num=1,
         **kwargs,
     ):
+        visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
         super().__init__(
             actor_cfg=actor_cfg,
             visual_nn_cfg=visual_nn_cfg,
@@ -389,6 +390,8 @@ class KeyDiffAgent(DiffAgent):
         ep_first_obs = None
         if self.use_ep_first_obs and 'ep_first_obs' in sampled_batch:
             ep_first_obs = sampled_batch['ep_first_obs']
+            # for key in ep_first_obs:
+            #     print(ep_first_obs[key].shape)
         
         # generate impainting mask
         if self.diffuse_state:
@@ -420,7 +423,7 @@ class KeyDiffAgent(DiffAgent):
 
         if self.train_diff_model:
             if (self.diffusion_updates is None) or ((self.diffusion_updates is not None) and updates <= self.diffusion_updates):
-                obs_fea = self.obs_encoder(masked_obs, ep_first_obs=ep_first_obs)
+                obs_fea = self.obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
 
                 diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=data_mask, global_cond=obs_fea) # TODO: local_cond, returns
                 ret_dict.update(info)
@@ -436,8 +439,10 @@ class KeyDiffAgent(DiffAgent):
 
                 timesteps = sampled_batch["timesteps"]
                 states = masked_obs["state"]
+                if len(ep_first_obs['state'].shape) == 2:
+                    ep_first_obs['state'] = ep_first_obs['state'].unsqueeze(1)
                 if ep_first_obs is not None: # Append ep first obs for predicting keyframes
-                    states = torch.cat([ep_first_obs['state'].unsqueeze(1), states], dim=1)
+                    states = torch.cat([ep_first_obs['state'], states], dim=1)
                 actions = sampled_batch["actions"][:,obs_mask,...]
                 keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
                 keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]

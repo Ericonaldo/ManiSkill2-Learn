@@ -349,6 +349,9 @@ class ReplayMemory:
                 data = torch.cat([ret['ep_first_obs']['state'][:,0], ret["actions"][:,0]], dim=-1)
                 data = obsact_normalizer.normalize(data)
                 ret['ep_first_obs']['state'] = data[...,:-action_dim]
+                for key in ret['ep_first_obs']:
+                    if key != "state":
+                        ret['ep_first_obs'][key] = ret['ep_first_obs'][key][:,0]
 
         if (obs_mask is not None) and ("obs" in ret.keys()):
             obs_mask = obs_mask.cpu().numpy()

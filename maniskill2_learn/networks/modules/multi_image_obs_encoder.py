@@ -87,6 +87,7 @@ class MultiImageObsEncoder(CNNBase):
         output_vae=False,
         output_dim=128,
         output_hidden_dims=[512, 512],
+        use_ep_first_obs=False,
     ):
         """
         Assumes rgb input: B,C,H,W
@@ -102,6 +103,7 @@ class MultiImageObsEncoder(CNNBase):
         self.feature_shape_map = dict()
         self.n_obs_steps = n_obs_steps
         self.use_pcd_model = use_pcd_model
+        self.use_ep_first_obs = use_ep_first_obs
 
         obs_shape_meta = shape_meta["obs"]
         # handle sharing vision backbone
@@ -274,15 +276,16 @@ class MultiImageObsEncoder(CNNBase):
                 for key in self.rgb_keys:
 
                     # Process ep_first_obs
-                    if ep_first_obs_dict is not None:
+                    if self.use_ep_first_obs and ep_first_obs_dict is not None:
                         img = ep_first_obs_dict[key]
                         if batch_size is None:
                             batch_size = img.shape[0]
-                        else:
-                            assert batch_size == img.shape[0]
+                        img = img.reshape(
+                            batch_size, *img.shape[2:]
+                        )  # (B,C,H,W)
                         assert (
                             len(img.shape) == 4
-                        ), "Ep first image shape mismatch!" # (B,C,H,W)
+                        ), f"Ep first image shape mismatch! {img.shape}, {len(img.shape)}" # (B,C,H,W)
                         assert (
                             img.shape[1:] == self.key_shape_map[key]
                         ), f"{img.shape[1:]} != {self.key_shape_map[key]}"  # (C,H,W)
@@ -317,12 +320,21 @@ class MultiImageObsEncoder(CNNBase):
                 if "rgb" in self.feature_shape_map:
                     self.feature_shape_map["rgb"] = feature.shape[-1]
                 # (N,B*L,D)
-                feature = feature.reshape(-1, batch_size * horizon, *feature.shape[1:])
+                if self.use_ep_first_obs and ep_first_obs_dict is not None:
+                    feature = feature.reshape(-1, batch_size * (horizon+1), *feature.shape[1:])
+                else:
+                    feature = feature.reshape(-1, batch_size * horizon, *feature.shape[1:])
                 if horizon > 1:
-                    # (N,B,L,D)
-                    feature = feature.reshape(
-                        -1, batch_size, horizon, *feature.shape[2:]
-                    )
+                    if self.use_ep_first_obs and ep_first_obs_dict is not None:
+                        # (N,B,L+1,D)
+                        feature = feature.reshape(
+                            -1, batch_size, horizon+1, *feature.shape[2:]
+                        )
+                    else:
+                        # (N,B,L,D)
+                        feature = feature.reshape(
+                            -1, batch_size, horizon, *feature.shape[2:]
+                        )
                 # (B,N,D) or (B,N,L,D)
                 feature = torch.moveaxis(feature, 0, 1)
                 # (B,N*D) or (B,N*L*D)
@@ -362,6 +374,18 @@ class MultiImageObsEncoder(CNNBase):
 
         # process lowdim input
         for key in self.low_dim_keys:
+            # Process ep_first_obs
+            if self.use_ep_first_obs and ep_first_obs_dict is not None:
+                data = ep_first_obs_dict[key]
+                if batch_size is None:
+                    batch_size = data.shape[0]
+                else:
+                    assert batch_size == data.shape[0]
+                assert (
+                    data.shape[2:] == self.key_shape_map[key]
+                ), f"{data.shape}, {self.key_shape_map[key]}"  # bs, horizon
+                data = data.reshape(batch_size, -1)
+                features.append(data)
             data = obs_dict[key]
             if batch_size is None:
                 batch_size = data.shape[0]
@@ -393,13 +417,23 @@ class MultiImageObsEncoder(CNNBase):
         obs_shape_meta = self.shape_meta["obs"]
         batch_size = 1
         horizon = self.n_obs_steps
+        example_ep_first_obs_dict = None
         for key, attr in obs_shape_meta.items():
             shape = self.key_shape_map[key]
             this_obs = torch.zeros(
                 (batch_size, horizon) + shape, dtype=self.dtype, device=self.device
             )
             example_obs_dict[key] = this_obs
-        example_output = self.forward(example_obs_dict)
+        if self.use_ep_first_obs:
+            example_ep_first_obs_dict = dict()
+            for key, attr in obs_shape_meta.items():
+                shape = self.key_shape_map[key]
+                this_obs = torch.zeros(
+                    (batch_size, ) + shape, dtype=self.dtype, device=self.device
+                )
+                example_ep_first_obs_dict[key] = this_obs
+
+        example_output = self.forward(example_obs_dict, example_ep_first_obs_dict)
         output_shape = list(example_output.shape[1:])
         if len(output_shape) == 1:
             output_shape = output_shape[0]
