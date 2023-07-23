@@ -119,6 +119,108 @@ class Visuomotor(ExtendedModule):
 
 
 @BACKBONES.register_module()
+class RNNVisuomotor(ExtendedModule):
+    def __init__(
+        self,
+        visual_nn_cfg,
+        visual_dec_nn_cfg=None,
+        rnn_cfg=None,
+        visual_nn=None,
+        freeze_visual_nn=False,
+        freeze_rnn=False,
+    ):
+        super(RNNVisuomotor, self).__init__()
+        # Feature extractor [Can be shared with other network]
+        self.visual_nn = build_model(visual_nn_cfg) if visual_nn is None else visual_nn
+        self.final_rnn = build_model(rnn_cfg)
+        if visual_dec_nn_cfg is not None:
+            self.visual_dec_nn = build_model(visual_dec_nn_cfg)
+
+        if freeze_visual_nn:
+            get_logger().warning("We freeze the visual backbone!")
+            freeze_params(self.visual_nn)
+
+        if freeze_rnn:
+            get_logger().warning("We freeze the whole rnn part!")
+            from .rnn import SimpleRNN
+
+            assert isinstance(
+                self.final_rnn, SimpleRNN
+            ), "The final rnn should have type SimpleRNN."
+            freeze_params(self.final_rnn)
+
+        self.saved_feature = None
+        self.saved_visual_feature = None
+
+    def forward(
+        self,
+        obs,
+        feature=None,
+        visual_feature=None,
+        save_feature=False,
+        detach_visual=False,
+        episode_dones=None,
+        is_valid=None,
+        with_robot_state=True,
+        **kwargs,
+    ):
+        obs = copy(obs)
+        assert isinstance(obs, dict), f"obs is not a dict! {type(obs)}"
+        assert not (
+            feature is not None and visual_feature is not None
+        ), "You cannot provide visual_feature and feature at the same time!"
+        self.saved_feature = None
+        self.saved_visual_feature = None
+        robot_state = None
+        save_feature = save_feature or (
+            feature is not None or visual_feature is not None
+        )
+
+        obs_keys = obs.keys()
+        for key in ["state", "agent"]:
+            if key in obs:
+                assert (
+                    robot_state is None
+                ), f"Please provide only one robot state! Obs Keys: {obs_keys}"
+                # robot_state = obs.pop(key) # Do not pop for multi_image_obs_encoder
+        # if not ("xyz" in obs or "rgb" in obs or "rgbd" in obs):
+        #     assert (
+        #         len(obs) == 1
+        #     ), f"Observations need to contain only one visual element! Obs Keys: {obs.keys()}!"
+        #     obs = obs[list(obs.keys())[0]]
+
+        if feature is None:
+            if visual_feature is None:
+                batch_size = obs["state"].shape[0]
+                obs = {k: v.reshape(v.shape[0] * v.shape[1], *v.shape[2:]) for k, v in obs.items()}
+                feat = self.visual_nn(obs)
+                feat = feat.reshape(batch_size, feat.shape[0] // batch_size, *feat.shape[1:])
+                if detach_visual:
+                    feat = feat.detach()
+            else:
+                feat = visual_feature
+
+            if save_feature:
+                self.saved_visual_feature = feat.clone()
+
+            if robot_state is not None and with_robot_state:
+                assert (
+                    feat.ndim == robot_state.ndim
+                ), "Visual feature and state vector should have the same dimension!"
+                feat = torch.cat([feat, robot_state], dim=-1)
+
+            if save_feature:
+                self.saved_feature = feat.clone()
+        else:
+            feat = feature
+
+        if self.final_rnn is not None:
+            feat = self.final_rnn(feat)[0]
+
+        return feat
+
+
+@BACKBONES.register_module()
 class FrameMiners(ExtendedModule):
     def __init__(
         self,

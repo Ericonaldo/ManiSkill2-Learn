@@ -291,7 +291,7 @@ class MultiImageObsEncoder(CNNBase):
                         ), f"{img.shape[1:]} != {self.key_shape_map[key]}"  # (C,H,W)
                         img = self.key_transform_map[key](img)
                         imgs.append(img)
-                    
+
                     # Process obs
                     img = obs_dict[key]
                     if batch_size is None:

@@ -59,7 +59,7 @@ class DiffAgent(BaseAgent):
     ):
         super(DiffAgent, self).__init__()
         self.batch_size = batch_size
-        
+
         if pcd_cfg is not None:
             visual_nn_cfg['pcd_model'] = build_model(pcd_cfg)
         visual_nn_cfg['n_obs_steps'] = n_obs_steps

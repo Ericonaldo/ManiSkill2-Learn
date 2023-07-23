@@ -51,7 +51,7 @@ class ReplayMemory:
         # capacity: the size of replay buffer, -1 means we will recompute the buffer size with files for initial replay buffer.
         assert capacity > 0 or buffer_filenames is not None
         # assert sampling_cfg is not None, "Please provide a valid sampling strategy over replay buffer!"
-        
+
         self.horizon = 1
         self.future_action_len = 0
         self.sample_traj = sample_traj
@@ -166,7 +166,7 @@ class ReplayMemory:
                         self.push_batch(data)
                 logger.info(f"Finish file loading! Buffer length: {len(self)}, buffer size {self.memory.nbytes_all / 1024 / 1024} MB!")
                 logger.info(f"Len of sampling buffer: {len(self.sampling)}")
-    
+
     def prefetched_data(self, whole_traj=False):
         data_queue = self.prefetched_data_queue
         if self.sample_traj and whole_traj:
@@ -279,7 +279,7 @@ class ReplayMemory:
                 batch_idx, is_valid = sampler.sample(batch_size, drop_last=drop_last, auto_restart=auto_restart and not self.dynamic_loading)
             else:
                 return None
-        
+
         ret = self.memory.take(batch_idx)
         if "obs" in ret.keys():
             for key in ret["obs"].keys():
@@ -357,7 +357,7 @@ class ReplayMemory:
             obs_mask = obs_mask.cpu().numpy()
             for key in ret["obs"].keys():
                 ret["obs"][key] = ret["obs"][key][:,obs_mask,...]
-                
+
         if mode=="eval":
             return ret
         data_queue.append(ret)
@@ -366,7 +366,7 @@ class ReplayMemory:
     def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, obsact_normalizer=None, mode="train", whole_traj=False):
         if mode=="eval":
             return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer, mode=mode, whole_traj=whole_traj)
-        
+
         ret = self.prefetched_data(whole_traj)
         if ret is not None:
             if self.thread_count < self.max_threads:
@@ -376,7 +376,7 @@ class ReplayMemory:
                 new_thread.setDaemon(True)
                 new_thread.start()
             return ret
-        
+
         self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj)
         ret = self.prefetched_data(whole_traj)
         if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch

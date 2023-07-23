@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import defaultdict
 
-from maniskill2_learn.networks import build_model, ContinuousActor, build_reg_head
+from maniskill2_learn.networks import build_model, ContinuousActor, build_reg_head, RNNVisuomotor
 from maniskill2_learn.schedulers import build_lr_scheduler
 
 from maniskill2_learn.utils.data import to_torch, DictArray, GDict, dict_to_str
@@ -114,8 +114,10 @@ class BC(BaseAgent):
 
         if self.loss_type != "vae":
             [pred_dist, pred_action] = self.actor(sampled_batch["obs"], mode="dist_mean")
-            loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
+            loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"][:, -1])
         else:
+            if isinstance(self.actor, RNNVisuomotor):
+                raise NotImplementedError("RNNVisuomotor is not supported for vae training")
             ret_dict = defaultdict(list)
             q_z = self.actor.backbone(sampled_batch["obs"])
             z = q_z.rsample()
