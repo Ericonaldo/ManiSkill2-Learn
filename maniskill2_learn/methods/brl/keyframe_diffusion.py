@@ -419,7 +419,7 @@ class KeyDiffAgent(DiffAgent):
                 raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
 
         if self.train_diff_model:
-            if (self.diffusion_updates is None) or ((self.diffusion_updates is not None) and updates > self.diffusion_updates):
+            if (self.diffusion_updates is None) or ((self.diffusion_updates is not None) and updates <= self.diffusion_updates):
                 obs_fea = self.obs_encoder(masked_obs, ep_first_obs=ep_first_obs)
 
                 diff_loss, info = self.diff_loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=data_mask, global_cond=obs_fea) # TODO: local_cond, returns
@@ -427,7 +427,7 @@ class KeyDiffAgent(DiffAgent):
                 loss += diff_loss
 
         if self.train_keyframe_model:
-            if (self.keyframe_model_updates is None) or ((self.keyframe_model_updates is not None) and updates > self.keyframe_model_updates):
+            if (self.keyframe_model_updates is None) or ((self.keyframe_model_updates is not None) and updates <= self.keyframe_model_updates):
                 keyframe_actions = sampled_batch["keyframe_actions"] # Need Normalize! (Already did in replay buffer)
                 keyframe_states = sampled_batch["keyframe_states"]
                 # keyframes = self.normalizer.normalize(keyframes)
