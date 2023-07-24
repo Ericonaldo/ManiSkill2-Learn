@@ -114,6 +114,11 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             item_i["keytime_differences"] = keyframe_difference
             item_i["timesteps"] = i
             item_i["ep_first_obs"] = recursive_get_from_dict(trajectory['obs'], 0)
+            # We should not see the extra infor about the goal, state dim 32
+            item_i["obs"]["state"] = item_i["obs"]["state"][...,:-6]
+            item_i["ep_first_obs"]["state"] = item_i["ep_first_obs"]["state"][...,:-6]
+            item_i["keyframe_states"] = item_i["keyframe_states"][...,:-6]
+            # print(item_i["obs"]["state"].shape, item_i["ep_first_obs"]["state"].shape, item_i["keyframe_states"].shape)
 
             assert first_key_frame >= i, "keyframe should after the frame, however {} < {}".format(item_i['keyframes'], i)
 

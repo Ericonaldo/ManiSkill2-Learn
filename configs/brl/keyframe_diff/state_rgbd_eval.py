@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-eval_action_len = 34 # how many actions to be executed in the following timesteps for one input
+eval_action_len = 34 # 6 # how many actions to be executed in the following timesteps for one input
 workdir = "statediff-rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
@@ -9,6 +9,7 @@ agent_cfg = dict(
     batch_size=256,
     action_seq_len=horizon,
     diffuse_state=True,
+    use_keyframe=True,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
@@ -66,7 +67,10 @@ agent_cfg = dict(
             beta2=0.95,
         ),
     ),
-    keyframe_model_path="logs/StackCube-v0/KeyDiffAgent/statediff-rgbd/20230715_014339/models/model_150000.ckpt"
+    # keyframe_model_path="logs/PickCube-v0/KeyDiffAgent/statediff-rgbd/20230714_214853/models/model_140000.ckpt"
+    # keyframe_model_path="logs/StackCube-v0/KeyDiffAgent/statediff-rgbd/20230715_014339/models/model_250000.ckpt"
+    # keyframe_model_path="logs/PickCube-v0/KeyDiffAgent/statediff-keynorm-rgbd/20230718_170744/models/model_120000.ckpt"
+    # keyframe_model_path="logs/PegInsertionSide-v0/KeyDiffAgent/statediff-keynorm-rgbd/20230718_170855/models/model_140000.ckpt"
 )
 
 env_cfg = dict(
