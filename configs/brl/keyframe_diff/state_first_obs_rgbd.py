@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "statediff-epfirstobs-rgbd"
+workdir = "posediff-epfirstobs-rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
