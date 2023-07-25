@@ -123,7 +123,7 @@ class KeyDiffAgent(DiffAgent):
             diffuse_state=diffuse_state,
         )
         
-        self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, first_state=use_ep_first_obs)
+        self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs)
 
         self.train_keyframe_model = train_keyframe_model
         self.train_diff_model = train_diff_model
@@ -214,7 +214,6 @@ class KeyDiffAgent(DiffAgent):
             states = torch.cat([ep_first_obs['state'].unsqueeze(1), states], dim=1)
         
         self.set_mode(mode=mode)
-        print(states.shape, action_history.shape)
 
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history)
         pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
@@ -367,6 +366,7 @@ class KeyDiffAgent(DiffAgent):
             # data = action_data
             obs_data = memory.get_all("obs", "state")
             if self.diffuse_state:
+                obs_data = obs_data[...,-7:] # We only preserve the tcp pose for diffusion
                 data = np.concatenate([obs_data, action_data], axis=-1)
             else:
                 data = action_data
@@ -402,7 +402,7 @@ class KeyDiffAgent(DiffAgent):
         
         # generate impainting mask
         if self.diffuse_state:
-            traj_data = torch.cat([sampled_batch["states"],sampled_batch["actions"]], dim=-1)
+            traj_data = torch.cat([sampled_batch["states"][...,-7:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
         else:
             traj_data = sampled_batch["actions"]
         # Need Normalize! (Already did in replay buffer)
