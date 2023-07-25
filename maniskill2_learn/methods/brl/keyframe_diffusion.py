@@ -366,7 +366,6 @@ class KeyDiffAgent(DiffAgent):
             # data = action_data
             obs_data = memory.get_all("obs", "state")
             if self.diffuse_state:
-                obs_data = obs_data[...,-7:] # We only preserve the tcp pose for diffusion
                 data = np.concatenate([obs_data, action_data], axis=-1)
             else:
                 data = action_data

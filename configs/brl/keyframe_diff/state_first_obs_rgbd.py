@@ -40,7 +40,8 @@ agent_cfg = dict(
     optim_cfg=dict(type="Adam", lr=3e-4),
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
-        input_dim="agent_shape+action_shape",
+        # input_dim="agent_shape+action_shape",
+        input_dim="7+action_shape", # We only diffuse tcp pose
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
