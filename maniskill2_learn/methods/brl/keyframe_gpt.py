@@ -179,7 +179,7 @@ class KeyframeGPTWithHist(nn.Module):
         # in Decision Transformer. We use a similar global+local position embedding design.
         p_size = self.config.block_size // 2 if '+a' in self.model_type else self.config.block_size
         self.local_pos_emb = nn.Parameter(torch.zeros(1, p_size, self.config.n_embd))
-        if not use_first_state:
+        if use_first_state:
             self.first_local_pos_emb = nn.Parameter(torch.zeros(1, 1, self.config.n_embd))
         self.global_pos_emb = nn.Parameter(
             torch.zeros(1, self.config.max_timestep, self.config.n_embd))
@@ -235,7 +235,7 @@ class KeyframeGPTWithHist(nn.Module):
         # That is, the first action prediction has no action history as inputs. 
         if '+a' in self.model_type:
             if first_state is not None:
-                token_embeddings[:,0,:] = first_state_embedding
+                token_embeddings[:,0:1,:] = first_state_embedding
                 token_embeddings[:,1:T*2+1:2,:] = state_embeddings
             else:
                 token_embeddings[:,:T*2:2,:] = state_embeddings
@@ -314,6 +314,7 @@ class KeyframeGPTWithHist(nn.Module):
         no_decay.add('local_pos_emb')
         no_decay.add('global_pos_emb')
         no_decay.add('history_pos_emb')
+        no_decay.add('first_local_pos_emb')
 
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}
