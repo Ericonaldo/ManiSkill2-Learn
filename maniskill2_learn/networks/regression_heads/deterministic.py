@@ -36,7 +36,7 @@ class DeterministicHead(ContinuousBaseHead):
         else:
             logits = None
             mean = feature
-        std = self.noise_std.data.expand_as(mean)
+        std = self.noise_std.data.expand_as(mean).to(mean.device)
         return logits, mean, std
 
     def return_with_mean_std(self, mean, std, mode, logits=None):
