@@ -162,7 +162,7 @@ class KeyframeGPTWithHist(nn.Module):
     is specified as block_size, which does not count the history query tokens. 
     """
 
-    def __init__(self, config, state_dim=-1, action_dim=-1, use_first_state=False):
+    def __init__(self, config, state_dim=-1, action_dim=-1, use_first_state=False, pose_only=False):
         super().__init__()
 
         assert state_dim > 0 and action_dim > 0
@@ -174,6 +174,8 @@ class KeyframeGPTWithHist(nn.Module):
         self.model_type = self.config.model_type
         self.block_size = self.config.block_size
         self.len_history = self.config.len_history
+        self.pose_only = pose_only
+        self.use_first_state = use_first_state
 
         # Set up learnable position embedding synchronized for s and a tokens, as proposed
         # in Decision Transformer. We use a similar global+local position embedding design.
@@ -201,8 +203,11 @@ class KeyframeGPTWithHist(nn.Module):
 
         # Keyframe Action predictor.
         self.ln = nn.LayerNorm(self.config.n_embd)
-        self.key_frame_action_predictor = MLP(self.config.n_embd, action_dim+1, hidden_dims=[256,256]) # Action + timestep diffrence
-        self.key_frame_state_predictor = MLP(self.config.n_embd, state_dim, hidden_dims=[256,256])
+        if self.pose_only:
+            self.key_frame_state_predictor = MLP(self.config.n_embd, 7, hidden_dims=[256,256]) # We only predict pose
+        else:
+            self.key_frame_action_predictor = MLP(self.config.n_embd, action_dim+1, hidden_dims=[256,256]) # Action + timestep diffrence
+            self.key_frame_state_predictor = MLP(self.config.n_embd, state_dim, hidden_dims=[256,256])
 
         self.apply(self._init_weights)
         print(f"Total # of parameters: {sum(p.numel() for p in self.parameters())}")
@@ -272,15 +277,20 @@ class KeyframeGPTWithHist(nn.Module):
         ####     key_state_act_preds = key_state_act_preds[:,T*2-1:] # The next tokens after s+a history, should be s,a,s,a,s,...
         #### else:
         ####     key_state_act_preds = key_state_act_preds[:,T:] 
-
+        
         # Remove the extra tokens (history) when in eval mode.
-        if '+a' in self.model_type:  # The next tokens after s+a history should be s,a,s,a,s,...
-            key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T*2-1:self.block_size:2]) # The next tokens after s+a history
-            key_act_preds = self.key_frame_action_predictor(key_state_act_preds[:,T*2:self.block_size:2])
-        else: # The next tokens after s history, should be s,a,s,a,s,..
-            key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T:self.block_size:2]) # The next tokens after s history
-            key_act_preds = self.key_frame_action_predictor(key_state_act_preds[:,T+1:self.block_size:2])
-
+        if self.pose_only:
+            # Simplify the model, we only predict the tcp pose
+            key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T:]) # The next tokens after s history
+            key_act_preds = None
+        else:
+            if '+a' in self.model_type:  # The next tokens after s+a history should be s,a,s,a,s,...
+                key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T*2-1:self.block_size:2]) # The next tokens after s+a history
+                key_act_preds = self.key_frame_action_predictor(key_state_act_preds[:,T*2:self.block_size:2])
+            else: # The next tokens after s history, should be s,a,s,a,s,..
+                key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T:self.block_size:2]) # The next tokens after s history
+                key_act_preds = self.key_frame_action_predictor(key_state_act_preds[:,T+1:self.block_size:2])
+    
         return key_state_preds, key_act_preds, {}  # Action + timestep diffrence
 
     def configure_adamw_optimizers(self):
@@ -314,7 +324,8 @@ class KeyframeGPTWithHist(nn.Module):
         no_decay.add('local_pos_emb')
         no_decay.add('global_pos_emb')
         no_decay.add('history_pos_emb')
-        no_decay.add('first_local_pos_emb')
+        if self.use_first_state:
+            no_decay.add('first_local_pos_emb')
 
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}

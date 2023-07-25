@@ -91,6 +91,7 @@ class KeyDiffAgent(DiffAgent):
         use_keyframe=True,
         use_ep_first_obs=False,
         pred_keyframe_num=1,
+        pose_only=False,
         **kwargs,
     ):
         visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
@@ -121,9 +122,10 @@ class KeyDiffAgent(DiffAgent):
             n_obs_steps=n_obs_steps,
             normalizer=normalizer,
             diffuse_state=diffuse_state,
+            pose_only=pose_only,
         )
         
-        self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs)
+        self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only)
 
         self.train_keyframe_model = train_keyframe_model
         self.train_diff_model = train_diff_model
@@ -168,13 +170,22 @@ class KeyDiffAgent(DiffAgent):
         gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
         gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
-        act_loss = ((pred_keyframe_actions[:,:keyframe_actions.shape[1]] - gt_actions) ** 2).sum(-1)
-        state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
+        
+        if self.pose_only:
+            state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states[...,-7:]) ** 2).sum(-1)
 
-        masked_act_loss = act_loss*keyframe_masks
-        masked_state_loss = state_loss*keyframe_masks
+            masked_state_loss = state_loss*keyframe_masks
 
-        masked_loss = masked_act_loss.sum(-1).mean() + masked_state_loss.sum(-1).mean()
+            masked_loss = masked_state_loss.sum(-1).mean()
+
+        else:
+            act_loss = ((pred_keyframe_actions[:,:keyframe_actions.shape[1]] - gt_actions) ** 2).sum(-1)
+            state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
+
+            masked_act_loss = act_loss*keyframe_masks
+            masked_state_loss = state_loss*keyframe_masks
+
+            masked_loss = masked_act_loss.sum(-1).mean() + masked_state_loss.sum(-1).mean()
 
         info.update(dict(keyframe_loss=masked_loss.item()))
 

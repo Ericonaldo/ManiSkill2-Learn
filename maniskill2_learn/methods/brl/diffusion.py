@@ -55,6 +55,7 @@ class DiffAgent(BaseAgent):
         n_obs_steps=3,
         normalizer=LinearNormalizer(),
         diffuse_state=False,
+        pose_only=False,
         **kwargs,
     ):
         super(DiffAgent, self).__init__()
@@ -168,6 +169,7 @@ class DiffAgent(BaseAgent):
         self.n_obs_steps = n_obs_steps
 
         self.init_normalizer = False
+        self.pose_only = pose_only
 
         self.act_mask, self.obs_mask, self.data_mask = None, None, None
 
