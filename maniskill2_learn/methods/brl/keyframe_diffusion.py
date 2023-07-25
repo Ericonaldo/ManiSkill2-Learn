@@ -123,7 +123,7 @@ class KeyDiffAgent(DiffAgent):
             diffuse_state=diffuse_state,
         )
         
-        self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim)
+        self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, first_state=use_ep_first_obs)
 
         self.train_keyframe_model = train_keyframe_model
         self.train_diff_model = train_diff_model
@@ -162,12 +162,12 @@ class KeyDiffAgent(DiffAgent):
         if 'optimizer' in loaded_dict.keys():
             load_state_dict(self.keyframe_optim, loaded_dict['optimizer'])
 
-    def keyframe_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks):
+    def keyframe_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=None):
         keytime_differences /= self.max_horizon
 
         gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
         gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
-        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, actions) # (B, future_seq_len, act_dim+1)
+        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
         act_loss = ((pred_keyframe_actions[:,:keyframe_actions.shape[1]] - gt_actions) ** 2).sum(-1)
         state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
 
@@ -207,7 +207,14 @@ class KeyDiffAgent(DiffAgent):
         hist_len = action_history.shape[1]
         observation.pop("actions")
         
+        ep_first_obs_dict = None
+        if self.use_ep_first_obs and 'ep_first_obs' in observation:
+            ep_first_obs = observation['ep_first_obs']
+            observation.pop("ep_first_obs")
+            states = torch.cat([ep_first_obs['state'].unsqueeze(1), states], dim=1)
+        
         self.set_mode(mode=mode)
+        print(states.shape, action_history.shape)
 
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history)
         pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
@@ -257,7 +264,7 @@ class KeyDiffAgent(DiffAgent):
             for key in observation:
                 observation[key] = observation[key][:,obs_mask,...] # obs mask is for one dimension
         
-        obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
+        obs_fea = self.obs_encoder(observation, ep_first_obs_dict=ep_first_obs_dict) # No need to mask out since the history is set as the desired length
         
         data_history = action_history
         if self.action_seq_len-hist_len:
@@ -442,14 +449,14 @@ class KeyDiffAgent(DiffAgent):
                 if len(ep_first_obs['state'].shape) == 2:
                     ep_first_obs['state'] = ep_first_obs['state'].unsqueeze(1)
                 if ep_first_obs is not None: # Append ep first obs for predicting keyframes
-                    states = torch.cat([ep_first_obs['state'], states], dim=1)
+                    ep_first_state = ep_first_obs['state']
                 actions = sampled_batch["actions"][:,obs_mask,...]
                 keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
                 keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]
                 keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
                 keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
 
-                keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks)
+                keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=ep_first_state)
                 ret_dict.update(info)
                 loss += keyframe_loss
         

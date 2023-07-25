@@ -231,6 +231,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         # For evaluation
         self.obs_queue = None
         self.action_queue = None
+        self.ep_first_obs_dict = None
 
         if self.history_len > 1:
             self.action_queue = deque(maxlen=self.history_len-1)
@@ -249,6 +250,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             obs = self.env.reset(**kwargs)
 
         observation = self.observation(obs)
+        self.ep_first_obs_dict = observation.copy()
         
         if get_shape:
             return observation  
@@ -269,6 +271,8 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 observation[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
 
             observation["actions"] = np.stack(self.action_queue, axis=0)
+
+        observation["ep_first_obs"] = self.ep_first_obs_dict
  
         return observation
 
@@ -296,6 +300,8 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                     next_obs[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
 
             next_obs["actions"] = np.stack(self.action_queue, axis=0)
+
+        next_obs["ep_first_obs"] = self.ep_first_obs_dict
         
         return next_obs, reward, done, info
     
@@ -489,6 +495,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 obs["extra"]["tcp_pose"] = obs["extra"]["tcp_pose"].reshape(-1)
             
             obs['extra'].pop('target_points', None)
+            # NOTE: We want to remove extra info about goals
+            obs['extra'].pop('goal_pos', None)
+            obs['extra'].pop('tcp_to_goal_pos', None)
             obs.pop('camera_param', None)
             
             s = flatten_state_dict(obs) # Other observation keys should be already ordered and such orders shouldn't change across different maniskill2 versions, so we just flatten them

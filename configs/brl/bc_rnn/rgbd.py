@@ -7,6 +7,7 @@ agent_cfg = dict(
         head_cfg=dict(
             type="TanhHead",
             noise_std=1e-5,
+            train_noise=False
         ),
         nn_cfg=dict(
             type="RNNVisuomotor",
@@ -45,6 +46,7 @@ agent_cfg = dict(
         optim_cfg=dict(type="Adam", lr=3e-4),
     ),
     n_obs_steps=n_obs_steps,
+    loss_type="mse",
 )
 
 # env_cfg = dict(

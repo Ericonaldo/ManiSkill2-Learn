@@ -162,7 +162,7 @@ class KeyframeGPTWithHist(nn.Module):
     is specified as block_size, which does not count the history query tokens. 
     """
 
-    def __init__(self, config, state_dim=-1, action_dim=-1):
+    def __init__(self, config, state_dim=-1, action_dim=-1, use_first_state=False):
         super().__init__()
 
         assert state_dim > 0 and action_dim > 0
@@ -179,6 +179,8 @@ class KeyframeGPTWithHist(nn.Module):
         # in Decision Transformer. We use a similar global+local position embedding design.
         p_size = self.config.block_size // 2 if '+a' in self.model_type else self.config.block_size
         self.local_pos_emb = nn.Parameter(torch.zeros(1, p_size, self.config.n_embd))
+        if not use_first_state:
+            self.first_local_pos_emb = nn.Parameter(torch.zeros(1, 1, self.config.n_embd))
         self.global_pos_emb = nn.Parameter(
             torch.zeros(1, self.config.max_timestep, self.config.n_embd))
 
@@ -218,9 +220,11 @@ class KeyframeGPTWithHist(nn.Module):
     # `timesteps` is used for the global+local position embedding design similar
     # to the one in Decision Transformer. `history_mask` is used so that the 
     # (all-to-all) history query tokens can attend to later tokens. 
-    def forward(self, states, timesteps, actions=None): # Time steps should be the same shape as states
+    def forward(self, states, timesteps, actions=None, first_state=None): # Time steps should be the same shape as states
         B, T = states.shape[0], states.shape[1] # History length
         state_embeddings = self.state_encoder(states)
+        if first_state is not None:
+            first_state_embedding = self.state_encoder(first_state)
 
         # Embeddings for state (action, and history query) tokens.
         token_embeddings = torch.zeros([B, self.block_size, self.config.n_embd], 
@@ -229,12 +233,19 @@ class KeyframeGPTWithHist(nn.Module):
         # If using action history as inputs: during training, all actions are
         # specified; during inference, only actions in the past are specified.
         # That is, the first action prediction has no action history as inputs. 
-        if '+a' in self.model_type: 
-            token_embeddings[:,:T*2:2,:] = state_embeddings
+        if '+a' in self.model_type:
+            if first_state is not None:
+                token_embeddings[:,0,:] = first_state_embedding
+                token_embeddings[:,1:T*2+1:2,:] = state_embeddings
+            else:
+                token_embeddings[:,:T*2:2,:] = state_embeddings
             if actions is not None: 
                 # Assume the last action is not used as inputs during training.
                 action_embeddings = self.action_encoder(actions[:,:T-1])
-                token_embeddings[:,1:T*2-1:2,:] = action_embeddings
+                if first_state is not None:
+                    token_embeddings[:,2:T*2:2,:] = action_embeddings
+                else:
+                    token_embeddings[:,1:T*2-1:2,:] = action_embeddings
                     
         else:
             token_embeddings[:,:T,:] = state_embeddings
@@ -247,6 +258,8 @@ class KeyframeGPTWithHist(nn.Module):
             global_pos_emb, 1, timesteps_rp.long())  # BS x 1 x D
         local_pos_emb = torch.repeat_interleave(self.local_pos_emb, 2, dim=1) \
             if '+a' in self.model_type else self.local_pos_emb
+        if first_state is not None:
+            local_pos_emb = torch.cat([self.first_local_pos_emb, local_pos_emb], dim=1)[:,:self.block_size]
 
         x = token_embeddings + global_pos_emb + local_pos_emb
         
