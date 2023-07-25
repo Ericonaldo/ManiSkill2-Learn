@@ -1,12 +1,14 @@
 n_obs_steps = 6
+workdir = "bcrnn-rgbd"
 agent_cfg = dict(
     type="BC",
-    batch_size=256,
+    batch_size=128,
     actor_cfg=dict(
         type="ContinuousActor",
         head_cfg=dict(
             type="TanhHead",
             noise_std=1e-5,
+            train_noise=False,
         ),
         nn_cfg=dict(
             type="RNNVisuomotor",
@@ -66,6 +68,7 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
+    max_threads=4,
 )
 
 train_cfg = dict(
