@@ -204,7 +204,7 @@ class KeyframeGPTWithHist(nn.Module):
         # Keyframe Action predictor.
         self.ln = nn.LayerNorm(self.config.n_embd)
         if self.pose_only:
-            self.key_frame_state_predictor = MLP(self.config.n_embd, 7, hidden_dims=[256,256]) # We only predict pose
+            self.key_frame_state_predictor = MLP(self.config.n_embd, 7+1, hidden_dims=[256,256]) # We only predict pose
         else:
             self.key_frame_action_predictor = MLP(self.config.n_embd, action_dim+1, hidden_dims=[256,256]) # Action + timestep diffrence
             self.key_frame_state_predictor = MLP(self.config.n_embd, state_dim, hidden_dims=[256,256])

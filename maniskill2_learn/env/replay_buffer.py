@@ -255,7 +255,7 @@ class ReplayMemory:
             data = GDict({"traj_0": data.memory})
         data.to_hdf5(file)
 
-    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, obsact_normalizer=None, mode="train", whole_traj=False):
+    def pre_fetch(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, action_normalizer=None, obsact_normalizer=None, mode="train", whole_traj=False, keyframe_type="gpt"):
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
 
@@ -325,6 +325,12 @@ class ReplayMemory:
                             # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
 
+        if keyframe_type == "bc":
+            ret["keyframe_states"] = ret["keyframe_states"][:,:,0] # Only keep the first state and tcp pose
+            ret["keytime_differences"] = ret["keytime_differences"][:,:,0]
+            ret["keyframe_actions"] = ret["keyframe_actions"][:,:,0]
+            ret["keyframe_masks"] = ret["keyframe_masks"][:,:,0]
+
         if device is not None:
             ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
 
@@ -363,27 +369,27 @@ class ReplayMemory:
         data_queue.append(ret)
         self.thread_count -= 1
 
-    def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, obsact_normalizer=None, mode="train", whole_traj=False):
+    def sample(self, batch_size, auto_restart=True, drop_last=True, device=None, obs_mask=None, require_mask=False, action_normalizer=None, obsact_normalizer=None, mode="train", whole_traj=False, keyframe_type="gpt"):
         if mode=="eval":
-            return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer, mode=mode, whole_traj=whole_traj)
+            return self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer, mode=mode, whole_traj=whole_traj, keyframe_type=keyframe_type)
 
         ret = self.prefetched_data(whole_traj)
         if ret is not None:
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
                 # _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
-                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj))
+                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj,keyframe_type))
                 new_thread.setDaemon(True)
                 new_thread.start()
             return ret
 
-        self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj)
+        self.pre_fetch(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj,keyframe_type)
         ret = self.prefetched_data(whole_traj)
         if (obs_mask is not None) or (not require_mask): # If we don't need mask or the mask is provided, we can pre-fetch the next batch
             if self.thread_count < self.max_threads:
                 self.thread_count += 1
                 # _thread.start_new_thread(self.pre_fetch, (batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,mode,whole_traj))
-                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj))
+                new_thread = threading.Thread(target=self.pre_fetch, args=(batch_size,auto_restart,drop_last,device,obs_mask,action_normalizer,obsact_normalizer,mode,whole_traj,keyframe_type))
                 new_thread.setDaemon(True)
                 new_thread.start()
         return ret

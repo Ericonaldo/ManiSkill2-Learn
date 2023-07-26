@@ -15,6 +15,7 @@ import sapien.core as sapien
 
 from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
+from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
 from maniskill2_learn.utils.data import DictArray, GDict, dict_to_str
 from maniskill2_learn.utils.torch import load_state_dict
 from maniskill2_learn.utils.meta import get_total_memory, get_logger
@@ -92,9 +93,14 @@ class KeyDiffAgent(DiffAgent):
         use_ep_first_obs=False,
         pred_keyframe_num=1,
         pose_only=False,
+        keyframe_model_type="gpt",
         **kwargs,
     ):
         visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
+        assert keyframe_model_type in ["gpt", "bc"]
+        if keyframe_model_type == "bc":
+            pose_only = True
+        self.keyframe_model_type = keyframe_model_type
         super().__init__(
             actor_cfg=actor_cfg,
             visual_nn_cfg=visual_nn_cfg,
@@ -124,14 +130,23 @@ class KeyDiffAgent(DiffAgent):
             diffuse_state=diffuse_state,
             pose_only=pose_only,
         )
-        
-        self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only)
+        if keyframe_model_type == "gpt":
+            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only)
+        elif keyframe_model_type == "bc":
+            self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=7+1, hidden_dims=[2048, 512, 128])
+        else:
+            raise NotImplementedError
 
         self.train_keyframe_model = train_keyframe_model
         self.train_diff_model = train_diff_model
 
         if self.train_keyframe_model:
-            self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers()
+            if keyframe_model_type == "gpt":
+                self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers()
+            elif keyframe_model_type == "bc":
+                self.keyframe_optim = None
+                self.actor_optim = build_optimizer([self.model,self.obs_encoder,self.keyframe_model], optim_cfg) # Update using the same optimizer
+
                 
         if not train_diff_model:
             self.actor_optim = None
@@ -164,15 +179,37 @@ class KeyDiffAgent(DiffAgent):
         if 'optimizer' in loaded_dict.keys():
             load_state_dict(self.keyframe_optim, loaded_dict['optimizer'])
 
-    def keyframe_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=None):
+    def keyframe_bc_loss(self, states, keyframe_states, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
 
-        gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
-        gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
+        gt_states = torch.cat([keyframe_states[...,-7:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, 7+1)
+
+        info={}
+        pred_keyframe_states = self.keyframe_model(states) # We expect states are obs features, pred_keyframe_states [B, 7]
+        
+        state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
+
+        masked_state_loss = state_loss*keyframe_masks
+
+        masked_loss = masked_state_loss.sum(-1).mean()
+
+        info.update(dict(keyframe_loss=masked_loss.item()))
+
+        return masked_loss, info
+
+    def keyframe_gpt_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=None):
+        keytime_differences /= self.max_horizon
+
+        if self.pose_only:
+            gt_states = torch.cat([keyframe_states[...,-7:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, 7+1)
+        else:
+            gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
+            gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
+
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
         
         if self.pose_only:
-            state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states[...,-7:]) ** 2).sum(-1)
+            state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
 
             masked_state_loss = state_loss*keyframe_masks
 
@@ -385,9 +422,9 @@ class KeyDiffAgent(DiffAgent):
 
         batch_size = self.batch_size
         if self.diffuse_state:
-            sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, obsact_normalizer=self.normalizer)
+            sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, obsact_normalizer=self.normalizer, keyframe_type=self.keyframe_model_type)
         else:
-            sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer)
+            sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer, keyframe_type=self.keyframe_model_type)
         # sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"] # Did in replay buffer
         
         if self.lr_scheduler is not None:
@@ -454,19 +491,27 @@ class KeyDiffAgent(DiffAgent):
                 keytime_differences = sampled_batch["keytime_differences"]
                 keyframe_masks = sampled_batch["keyframe_masks"]
 
-                timesteps = sampled_batch["timesteps"]
-                states = masked_obs["state"]
-                if len(ep_first_obs['state'].shape) == 2:
-                    ep_first_obs['state'] = ep_first_obs['state'].unsqueeze(1)
-                if ep_first_obs is not None: # Append ep first obs for predicting keyframes
-                    ep_first_state = ep_first_obs['state']
-                actions = sampled_batch["actions"][:,obs_mask,...]
-                keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
-                keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]
-                keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
-                keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
+                if self.keyframe_model_type == "bc":
+                    keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+                    keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
+                    keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
+                    keyframe_loss, info = self.keyframe_bc_loss(obs_fea, keyframe_states, keytime_differences, keyframe_masks)
+                elif self.keyframe_model_type == "gpt":
 
-                keyframe_loss, info = self.keyframe_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=ep_first_state)
+                    timesteps = sampled_batch["timesteps"]
+                    states = masked_obs["state"]
+                    if len(ep_first_obs['state'].shape) == 2:
+                        ep_first_obs['state'] = ep_first_obs['state'].unsqueeze(1)
+                    if ep_first_obs is not None: # Append ep first obs for predicting keyframes
+                        ep_first_state = ep_first_obs['state']
+                    actions = sampled_batch["actions"][:,obs_mask,...]
+                    keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
+                    keyframe_actions = keyframe_actions[:,obs_mask,...][:,-1]
+                    keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
+                    keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
+
+                    keyframe_loss, info = self.keyframe_gpt_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=ep_first_state)
+                
                 ret_dict.update(info)
                 loss += keyframe_loss
         
