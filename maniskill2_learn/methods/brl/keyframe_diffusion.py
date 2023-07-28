@@ -248,6 +248,11 @@ class KeyDiffAgent(DiffAgent):
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         # if "state" in observation:
         #     observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
+
+        data = torch.cat([observation["state"], torch.cat([observation["actions"], observation["actions"][:,0:1,:]], dim=1)], dim=-1)
+        data = self.normalizer.normalize(data)
+        observation["state"] = data[..., :-self.action_dim]
+        observation["actions"] = data[..., :-1, -self.action_dim:]
         
         states = observation["state"]
         timesteps = observation["timesteps"]
@@ -255,21 +260,31 @@ class KeyDiffAgent(DiffAgent):
         bs = action_history.shape[0]
         hist_len = action_history.shape[1]
         observation.pop("actions")
-        
-        ep_first_obs_dict = None
+        observation.pop("timesteps")
+
+        ep_first_obs = None
+        ep_first_obs_state = None
         if self.use_ep_first_obs and 'ep_first_obs' in observation:
             ep_first_obs = observation['ep_first_obs']
             observation.pop("ep_first_obs")
-            states = torch.cat([ep_first_obs['state'].unsqueeze(1), states], dim=1)
+            data = torch.cat([ep_first_obs['state'], torch.zeros((ep_first_obs['state'].shape[0], self.action_dim), dtype=states.dtype,device=self.device,)], dim=-1)
+            data = self.normalizer.normalize(data)
+            ep_first_obs['state'] = data[...,:-self.action_dim]
+            ep_first_obs_state = ep_first_obs['state']
         
         self.set_mode(mode=mode)
+        
+        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history, first_state=ep_first_obs_state)
+        if pred_keyframe_actions is not None:
+            pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
+            if self.diffuse_state:
+                pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
+                pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
+        else:
+            pred_keyframe = pred_keyframe_states[:, :self.pred_keyframe_num]
 
-        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history)
-        pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
-        if self.diffuse_state:
-            pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
-            pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
+        
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
         # pred_keytime_differences = np.around(self.max_horizon * pred_keytime_differences, decimals=0)
         pred_keytime_differences = np.ceil(self.max_horizon * pred_keytime_differences)
@@ -289,7 +304,8 @@ class KeyDiffAgent(DiffAgent):
         if self.fix_obs_steps:
             act_mask, obs_mask, data_mask = self.act_mask, self.obs_mask, self.data_mask
         
-        data_dim = self.action_dim+self.state_dim if self.diffuse_state else self.action_dim
+        data_dim = self.action_dim+7 if self.diffuse_state else self.action_dim
+        # data_dim = self.action_dim+self.state_dim if self.diffuse_state else self.action_dim
                 
         if data_mask is None:
             if self.obs_as_global_cond:
@@ -311,8 +327,14 @@ class KeyDiffAgent(DiffAgent):
         if action_history.shape[1] == self.horizon:
             for key in observation:
                 observation[key] = observation[key][:,obs_mask,...] # obs mask is for one dimension
+
+        obs_fea = self.obs_encoder(observation, ep_first_obs_dict=ep_first_obs) # No need to mask out since the history is set as the desired length
         
-        obs_fea = self.obs_encoder(observation, ep_first_obs_dict=ep_first_obs_dict) # No need to mask out since the history is set as the desired length
+        # data = torch.cat([observation["state"], torch.cat([observation["actions"], observation["actions"][:,0:1,:]], dim=1)], dim=-1)
+        # data = torch.cat([states, torch.cat([action_history, action_history[:,0:1,:]], dim=1)], dim=-1)
+        # data = self.normalizer.normalize(data)
+        # states = data[..., :-self.action_dim]
+        # action_history = data[..., :-1, -self.action_dim:]
         
         data_history = action_history
         if self.action_seq_len-hist_len:
@@ -325,7 +347,7 @@ class KeyDiffAgent(DiffAgent):
                 action_history = torch.cat([action_history, action_to_state_horizon_supp], dim=1)
                 data_history = torch.cat([states, action_history], dim=-1)
                 supp = torch.zeros(
-                    bs, self.action_seq_len-hist_len-1, data_dim, 
+                    bs, self.action_seq_len-hist_len-1, self.action_dim+self.state_dim, 
                     dtype=action_history.dtype,
                     device=self.device,
                 )
@@ -338,13 +360,16 @@ class KeyDiffAgent(DiffAgent):
             data_history = torch.cat([data_history, supp], dim=1)
         
         data_history = self.normalizer.normalize(data_history)
-        # print("before: ", data_mask[...,0])
+        data_history = torch.cat([data_history[...,-self.action_dim-7:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
+        
         if self.use_keyframe:
-            # pred_keyframe = self.normalizer.normalize(pred_keyframe)
+            if not self.pose_only:
+                pred_keyframe = pred_keyframe[...,-7:]
             for i in range(len(pred_keytime_differences[0])):
                 if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
                 # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-                    data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
+                    # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
+                    data_history[range(bs),pred_keytime[:,i:i+1], :-self.action_dim] = pred_keyframe[:,i:i+1]
                     data_mask = data_mask.clone()
                     data_mask[range(bs),pred_keytime[:,i:i+1],:-self.action_dim] = True
                     # data_mask[range(bs),pred_keytime[:,i],:] = True
@@ -354,11 +379,19 @@ class KeyDiffAgent(DiffAgent):
 
         # Predict action seq based on key frames
         pred_action_seq = self.conditional_sample(cond_data=data_history, cond_mask=data_mask, global_cond=obs_fea, *args, **kwargs)
-        pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
-        pred_action = pred_action_seq
+        data = pred_action_seq
+        if (pred_action_seq.shape[2] != self.action_dim and pred_action_seq.shape[2]) != (self.action_dim+self.state_dim) :
+            supp = torch.zeros(
+                pred_action_seq.shape[0], pred_action_seq.shape[1], self.state_dim+self.action_dim-pred_action_seq.shape[2], 
+                dtype=pred_action_seq.dtype,
+                device=self.device,
+            )
+            data = torch.cat([supp, pred_action_seq], dim=-1)
+        data = self.normalizer.unnormalize(data)
+        pred_action_seq = data[...,-self.action_dim:]
 
         if mode=="eval":
-            pred_action = pred_action_seq[:,hist_len:,-self.action_dim:]
+            pred_action = pred_action_seq[:,hist_len:]
 
             # Check pose
             # if self.last_state is not None:
@@ -492,9 +525,9 @@ class KeyDiffAgent(DiffAgent):
                 keytime_differences = sampled_batch["keytime_differences"]
                 keyframe_masks = sampled_batch["keyframe_masks"]
 
-                keyframe_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
-
                 if self.keyframe_model_type == "bc":
+                    keyframe_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
+
                     keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
                     keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
                     keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
