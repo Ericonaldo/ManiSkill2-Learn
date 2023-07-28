@@ -70,6 +70,9 @@ python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --e
 python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose"
 
+python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/state_first_obs_rgbd.py --num-gpus 8 --env-id PickCube-v0 \
+--cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.keyframes.rgbd.pd_ee_delta_pose.h5" "workdir=rgbd-pd_ee_delta_pose"
+
 python maniskill2_learn/apis/run_rl.py configs/brl/diff/rgbd.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
 # "train_cfg.n_eval=50000" "train_cfg.total_steps=250000" "train_cfg.n_checkpoint=50000" "train_cfg.n_updates=500" \

@@ -133,6 +133,7 @@ class KeyDiffAgent(DiffAgent):
         if keyframe_model_type == "gpt":
             self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only)
         elif keyframe_model_type == "bc":
+            self.keyframe_obs_encoder = build_model(visual_nn_cfg)
             self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=7+1, hidden_dims=[2048, 512, 128])
         else:
             raise NotImplementedError
@@ -144,8 +145,8 @@ class KeyDiffAgent(DiffAgent):
             if keyframe_model_type == "gpt":
                 self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers()
             elif keyframe_model_type == "bc":
-                self.keyframe_optim = None
-                self.actor_optim = build_optimizer([self.model,self.obs_encoder,self.keyframe_model], optim_cfg) # Update using the same optimizer
+                self.keyframe_optim = build_optimizer([self.keyframe_obs_encoder,self.keyframe_model], optim_cfg)
+                self.actor_optim = build_optimizer([self.model,self.obs_encoder], optim_cfg) # Update using the same optimizer
 
                 
         if not train_diff_model:
@@ -491,13 +492,15 @@ class KeyDiffAgent(DiffAgent):
                 keytime_differences = sampled_batch["keytime_differences"]
                 keyframe_masks = sampled_batch["keyframe_masks"]
 
+                keyframe_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
+
                 if self.keyframe_model_type == "bc":
                     keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model
                     keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
                     keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
-                    keyframe_loss, info = self.keyframe_bc_loss(obs_fea, keyframe_states, keytime_differences, keyframe_masks)
+                    keyframe_loss, info = self.keyframe_bc_loss(keyframe_obs_fea, keyframe_states, keytime_differences, keyframe_masks)
+                
                 elif self.keyframe_model_type == "gpt":
-
                     timesteps = sampled_batch["timesteps"]
                     states = masked_obs["state"]
                     if len(ep_first_obs['state'].shape) == 2:

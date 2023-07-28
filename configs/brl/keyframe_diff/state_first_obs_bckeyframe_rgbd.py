@@ -1,11 +1,11 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "posediff-epfirstobs-rgbd"
+workdir = "bckeyframe-posediff-epfirstobs-rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    batch_size=256,
+    batch_size=200,
     action_seq_len=horizon,
     diffuse_state=True,
     use_ep_first_obs=True,
