@@ -133,7 +133,24 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             item_i['obs']['state'] = np.concatenate([item_i['obs']['state'][:-7],pose_np], axis=-1)
 
             item_i["ep_first_obs"]["state"] = item_i["ep_first_obs"]["state"][...,:-6]
+
+            # Compute the angle
+            cur_tcq_pose_np = item_i["ep_first_obs"]["state"][-7:]
+            cur_tcq_pose = sapien.Pose(p=cur_tcq_pose_np[:3], q=cur_tcq_pose_np[3:])
+            pose_np = np.r_[cur_tcq_pose.p, compact_axis_angle_from_quaternion(cur_tcq_pose.q)]
+            item_i["ep_first_obs"]["state"] = np.concatenate([item_i["ep_first_obs"]["state"][:-7],pose_np], axis=-1)
+
             item_i["keyframe_states"] = item_i["keyframe_states"][...,:-6]
+
+            # Compute the angle
+            tmp = []
+            for k in range(len(item_i["keyframe_states"])):
+                cur_tcq_pose_np = item_i["keyframe_states"][k,-7:]
+                cur_tcq_pose = sapien.Pose(p=cur_tcq_pose_np[:3], q=cur_tcq_pose_np[3:])
+                pose_np = np.r_[cur_tcq_pose.p, compact_axis_angle_from_quaternion(cur_tcq_pose.q)]
+                tmp.append(np.concatenate([item_i["keyframe_states"][k,:-7],pose_np], axis=-1))
+            item_i["keyframe_states"] = np.vstack(tmp)
+            
             # print(item_i["obs"]["state"].shape, item_i["ep_first_obs"]["state"].shape, item_i["keyframe_states"].shape)
 
             assert first_key_frame >= i, "keyframe should after the frame, however {} < {}".format(item_i['keyframes'], i)
