@@ -20,6 +20,15 @@ from maniskill2_learn.utils.math import split_num
 
 # from maniskill2_learn.utils.data import compress_f64
 
+from transforms3d.quaternions import quat2axangle
+import sapien.core as sapien
+
+def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
+    theta, omega = quat2axangle(quat)
+    # - 2 * np.pi to make the angle symmetrical around 0
+    if omega > np.pi:
+        omega = omega - 2 * np.pi
+    return omega * theta
 
 def auto_fix_wrong_name(traj):
     if isinstance(traj, GDict):
@@ -116,6 +125,13 @@ def extract_keyframe_states(keys, args, worker_id, main_process_id):
             item_i["ep_first_obs"] = recursive_get_from_dict(trajectory['obs'], 0)
             # We should not see the extra infor about the goal, state dim 32
             item_i["obs"]["state"] = item_i["obs"]["state"][...,:-6]
+
+            # Compute the angle
+            cur_tcq_pose_np = item_i['obs']['state'][-7:]
+            cur_tcq_pose = sapien.Pose(p=cur_tcq_pose_np[:3], q=cur_tcq_pose_np[3:])
+            pose_np = np.r_[cur_tcq_pose.p, compact_axis_angle_from_quaternion(cur_tcq_pose.q)]
+            item_i['obs']['state'] = np.concatenate([item_i['obs']['state'][:-7],pose_np], axis=-1)
+
             item_i["ep_first_obs"]["state"] = item_i["ep_first_obs"]["state"][...,:-6]
             item_i["keyframe_states"] = item_i["keyframe_states"][...,:-6]
             # print(item_i["obs"]["state"].shape, item_i["ep_first_obs"]["state"].shape, item_i["keyframe_states"].shape)
