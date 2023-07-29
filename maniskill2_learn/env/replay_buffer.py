@@ -344,7 +344,7 @@ class ReplayMemory:
                 action_dim = ret["actions"].shape[-1]
                 data = torch.cat([ret["obs"]["state"], ret["actions"]], dim=-1)
                 data = obsact_normalizer.normalize(data)
-                ret["states"] = data[...,:-action_dim]
+                ret["obs"]["state"] = ret["states"] = data[...,:-action_dim]
                 ret["actions"] = data[...,-action_dim:]
             if "keyframe_states" in ret and "keyframe_actions" in ret:
                 data = torch.cat([ret["keyframe_states"], ret["keyframe_actions"]], dim=-1)

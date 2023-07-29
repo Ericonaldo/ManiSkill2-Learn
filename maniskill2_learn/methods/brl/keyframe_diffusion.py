@@ -251,10 +251,10 @@ class KeyDiffAgent(DiffAgent):
         # if "state" in observation:
         #     observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
 
-        data = torch.cat([observation["state"], torch.cat([observation["actions"], observation["actions"][:,0:1,:]], dim=1)], dim=-1)
-        data = self.normalizer.normalize(data)
-        observation["state"] = data[..., :-self.action_dim]
-        observation["actions"] = data[..., :-1, -self.action_dim:]
+        # data = torch.cat([observation["state"], torch.cat([observation["actions"], observation["actions"][:,0:1,:]], dim=1)], dim=-1)
+        # data = self.normalizer.normalize(data)
+        # observation["state"] = data[..., :-self.action_dim]
+        # observation["actions"] = data[..., :-1, -self.action_dim:]
         
         states = observation["state"]
         timesteps = observation["timesteps"]
@@ -361,7 +361,7 @@ class KeyDiffAgent(DiffAgent):
                 )
             data_history = torch.cat([data_history, supp], dim=1)
         
-        # data_history = self.normalizer.normalize(data_history)
+        data_history = self.normalizer.normalize(data_history)
         data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
         
         if self.use_keyframe:
