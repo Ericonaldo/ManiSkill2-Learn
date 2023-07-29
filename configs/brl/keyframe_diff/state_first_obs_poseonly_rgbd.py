@@ -1,14 +1,14 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "posediff-epfirstobs-rgbd"
+workdir = "posediff-rgbd"
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
     batch_size=256,
     action_seq_len=horizon,
     diffuse_state=True,
-    use_ep_first_obs=True,
+    # use_ep_first_obs=True,
     pose_only=True,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
@@ -90,7 +90,7 @@ replay_cfg = dict(
     ),
     capacity=-1,
     num_samples=-1,
-    keys=["obs", "actions", "dones", "episode_dones", "keyframe_states", "keyframe_actions", "keytime_differences", "keyframe_masks", "timesteps", "ep_first_obs"],
+    keys=["obs", "actions", "dones", "episode_dones", "keyframe_states", "keyframe_actions", "keytime_differences", "keyframe_masks", "timesteps"], # , "ep_first_obs"],
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],

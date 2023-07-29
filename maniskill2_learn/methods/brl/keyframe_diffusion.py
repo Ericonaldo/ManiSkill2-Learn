@@ -94,6 +94,7 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe_num=1,
         pose_only=False,
         keyframe_model_type="gpt",
+        pose_dim=7,
         **kwargs,
     ):
         visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
@@ -129,12 +130,13 @@ class KeyDiffAgent(DiffAgent):
             normalizer=normalizer,
             diffuse_state=diffuse_state,
             pose_only=pose_only,
+            pose_dim=pose_dim,
         )
         if keyframe_model_type == "gpt":
             self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only)
         elif keyframe_model_type == "bc":
             self.keyframe_obs_encoder = build_model(visual_nn_cfg)
-            self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=7+1, hidden_dims=[2048, 512, 128])
+            self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=self.pose_dim+1, hidden_dims=[2048, 512, 128])
         else:
             raise NotImplementedError
 
@@ -183,10 +185,10 @@ class KeyDiffAgent(DiffAgent):
     def keyframe_bc_loss(self, states, keyframe_states, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
 
-        gt_states = torch.cat([keyframe_states[...,-7:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, 7+1)
+        gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
 
         info={}
-        pred_keyframe_states = self.keyframe_model(states) # We expect states are obs features, pred_keyframe_states [B, 7]
+        pred_keyframe_states = self.keyframe_model(states) # We expect states are obs features, pred_keyframe_states [B, self.pose_dim]
         
         state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
 
@@ -202,7 +204,7 @@ class KeyDiffAgent(DiffAgent):
         keytime_differences /= self.max_horizon
 
         if self.pose_only:
-            gt_states = torch.cat([keyframe_states[...,-7:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, 7+1)
+            gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
         else:
             gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
             gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
@@ -304,7 +306,7 @@ class KeyDiffAgent(DiffAgent):
         if self.fix_obs_steps:
             act_mask, obs_mask, data_mask = self.act_mask, self.obs_mask, self.data_mask
         
-        data_dim = self.action_dim+7 if self.diffuse_state else self.action_dim
+        data_dim = self.action_dim+self.pose_dim if self.diffuse_state else self.action_dim
         # data_dim = self.action_dim+self.state_dim if self.diffuse_state else self.action_dim
                 
         if data_mask is None:
@@ -359,12 +361,12 @@ class KeyDiffAgent(DiffAgent):
                 )
             data_history = torch.cat([data_history, supp], dim=1)
         
-        data_history = self.normalizer.normalize(data_history)
-        data_history = torch.cat([data_history[...,-self.action_dim-7:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
+        # data_history = self.normalizer.normalize(data_history)
+        data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
         
         if self.use_keyframe:
             if not self.pose_only:
-                pred_keyframe = pred_keyframe[...,-7:]
+                pred_keyframe = pred_keyframe[...,-self.pose_dim:]
             for i in range(len(pred_keytime_differences[0])):
                 if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
                 # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
@@ -483,7 +485,7 @@ class KeyDiffAgent(DiffAgent):
         
         # generate impainting mask
         if self.diffuse_state:
-            traj_data = torch.cat([sampled_batch["states"][...,-7:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+            traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
         else:
             traj_data = sampled_batch["actions"]
         # Need Normalize! (Already did in replay buffer)

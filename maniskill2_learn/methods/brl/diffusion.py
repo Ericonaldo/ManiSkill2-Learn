@@ -56,6 +56,7 @@ class DiffAgent(BaseAgent):
         normalizer=LinearNormalizer(),
         diffuse_state=False,
         pose_only=False,
+        pose_dim=7,
         **kwargs,
     ):
         super(DiffAgent, self).__init__()
@@ -155,7 +156,7 @@ class DiffAgent(BaseAgent):
             obs_dim = self.obs_feature_dim
         if diffuse_state:
             # obs_dim = self.state_dim
-            obs_dim = 7 # We only diffuse tcp pose
+            obs_dim = pose_dim # We only diffuse tcp pose
         self.mask_generator = LowdimMaskGenerator(
             action_dim=self.action_dim,
             obs_dim=obs_dim,
@@ -175,6 +176,8 @@ class DiffAgent(BaseAgent):
         self.act_mask, self.obs_mask, self.data_mask = None, None, None
 
         self.eval_action_len = eval_action_len
+
+        self.pose_dim = pose_dim
         
         # Only used for ms-skill challenge online evaluation
         # self.eval_action_queue = None
