@@ -133,7 +133,7 @@ class KeyDiffAgent(DiffAgent):
             pose_dim=pose_dim,
         )
         if keyframe_model_type == "gpt":
-            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only)
+            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
         elif keyframe_model_type == "bc":
             self.keyframe_obs_encoder = build_model(visual_nn_cfg)
             self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=self.pose_dim+1, hidden_dims=[2048, 512, 128])
@@ -538,9 +538,11 @@ class KeyDiffAgent(DiffAgent):
                 elif self.keyframe_model_type == "gpt":
                     timesteps = sampled_batch["timesteps"]
                     states = masked_obs["state"]
-                    if len(ep_first_obs['state'].shape) == 2:
-                        ep_first_obs['state'] = ep_first_obs['state'].unsqueeze(1)
-                    if ep_first_obs is not None: # Append ep first obs for predicting keyframes
+                    ep_first_state = None
+                    if ep_first_obs is not None:
+                        if len(ep_first_obs['state'].shape) == 2:
+                            ep_first_obs['state'] = ep_first_obs['state'].unsqueeze(1)
+                         # Append ep first obs for predicting keyframes
                         ep_first_state = ep_first_obs['state']
                     actions = sampled_batch["actions"][:,obs_mask,...]
                     keyframe_states = keyframe_states[:,obs_mask,...][:,-1] # We only take the last step of the horizon since we want to train the key frame model

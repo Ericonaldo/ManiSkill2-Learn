@@ -162,7 +162,7 @@ class KeyframeGPTWithHist(nn.Module):
     is specified as block_size, which does not count the history query tokens. 
     """
 
-    def __init__(self, config, state_dim=-1, action_dim=-1, use_first_state=False, pose_only=False):
+    def __init__(self, config, state_dim=-1, action_dim=-1, use_first_state=False, pose_only=False, pose_dim=7):
         super().__init__()
 
         assert state_dim > 0 and action_dim > 0

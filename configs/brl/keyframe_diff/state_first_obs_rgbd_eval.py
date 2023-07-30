@@ -3,6 +3,7 @@ n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 eval_action_len = 34 # 6 # how many actions to be executed in the following timesteps for one input
 workdir = "statediff-epfirstobs-rgbd"
+pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
@@ -41,7 +42,7 @@ agent_cfg = dict(
     optim_cfg=dict(type="Adam", lr=3e-4),
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
-        input_dim="7+action_shape",
+        input_dim="6+action_shape",
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
@@ -68,6 +69,7 @@ agent_cfg = dict(
         ),
     ),
     diffusion_updates=100000,
+    pose_dim=pose_dim,
 )
 
 env_cfg = dict(
