@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "bckeyframe-posediff-angle-rgbd"
+workdir = "newkeyframe-bckeyframe-posediff-angle-rgbd"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",

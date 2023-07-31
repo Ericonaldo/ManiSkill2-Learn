@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "posediff-epfirstobs-poseonly-rgbd"
+workdir = "newkeyframe-posediff-poseonly-rgbd"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
@@ -9,7 +9,7 @@ agent_cfg = dict(
     batch_size=256,
     action_seq_len=horizon,
     diffuse_state=True,
-    use_ep_first_obs=True,
+    # use_ep_first_obs=True,
     pose_only=True,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
