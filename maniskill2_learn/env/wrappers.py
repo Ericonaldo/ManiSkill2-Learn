@@ -24,7 +24,6 @@ WRAPPERS = Registry("wrappers of gym environments")
 
 
 from transforms3d.quaternions import quat2axangle
-import sapien.core as sapien
 
 def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
     theta, omega = quat2axangle(quat)
@@ -506,8 +505,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 obs["extra"]["tcp_pose"] = obs["extra"]["tcp_pose"].reshape(-1)
                 # change quanternion to compact axis-angle representation
                 cur_tcq_pose_np = obs["extra"]["tcp_pose"]
-                cur_tcq_pose = sapien.Pose(p=cur_tcq_pose_np[:3], q=cur_tcq_pose_np[3:])
-                obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose.p, compact_axis_angle_from_quaternion(cur_tcq_pose.q)]
+                obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose_np[:3], compact_axis_angle_from_quaternion(cur_tcq_pose_np[3:])]
             
             obs['extra'].pop('target_points', None)
             # NOTE: We want to remove extra info about goals
