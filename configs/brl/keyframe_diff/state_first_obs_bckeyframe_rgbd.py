@@ -6,7 +6,7 @@ pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    batch_size=150,
+    batch_size=200,
     action_seq_len=horizon,
     diffuse_state=True,
     # use_ep_first_obs=True,
@@ -93,7 +93,7 @@ replay_cfg = dict(
     ),
     capacity=-1,
     num_samples=-1,
-    keys=["obs", "actions", "dones", "episode_dones", "keyframe_states", "keyframe_actions", "keytime_differences", "keyframe_masks", "timesteps", "ep_first_obs"],
+    keys=["obs", "actions", "dones", "episode_dones", "keyframe_states", "keyframe_actions", "keytime_differences", "keyframe_masks", "timesteps"], # "ep_first_obs"],
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
