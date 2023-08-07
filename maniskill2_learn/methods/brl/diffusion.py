@@ -57,6 +57,7 @@ class DiffAgent(BaseAgent):
         diffuse_state=False,
         pose_only=False,
         pose_dim=7,
+        extra_dim=0,
         **kwargs,
     ):
         super(DiffAgent, self).__init__()
@@ -178,6 +179,7 @@ class DiffAgent(BaseAgent):
         self.eval_action_len = eval_action_len
 
         self.pose_dim = pose_dim
+        self.extra_dim = extra_dim
         
         # Only used for ms-skill challenge online evaluation
         # self.eval_action_queue = None

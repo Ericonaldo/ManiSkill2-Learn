@@ -70,7 +70,7 @@ agent_cfg = dict(
             beta2=0.95,
         ),
     ),
-    diffusion_updates=100000,
+    diffusion_updates=150000,
     pose_dim=pose_dim,
 )
 
@@ -104,7 +104,7 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=250000,
+    total_steps=151000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,

@@ -95,6 +95,7 @@ class KeyDiffAgent(DiffAgent):
         pose_only=False,
         keyframe_model_type="gpt",
         pose_dim=7,
+        extra_dim=0,
         **kwargs,
     ):
         visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
@@ -131,6 +132,7 @@ class KeyDiffAgent(DiffAgent):
             diffuse_state=diffuse_state,
             pose_only=pose_only,
             pose_dim=pose_dim,
+            extra_dim=extra_dim,
         )
         if keyframe_model_type == "gpt":
             self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
@@ -143,6 +145,7 @@ class KeyDiffAgent(DiffAgent):
         self.train_keyframe_model = train_keyframe_model
         self.train_diff_model = train_diff_model
 
+        self.keyframe_optim = None
         if self.train_keyframe_model:
             if keyframe_model_type == "gpt":
                 self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers()
@@ -184,8 +187,10 @@ class KeyDiffAgent(DiffAgent):
 
     def keyframe_bc_loss(self, states, keyframe_states, keytime_differences, keyframe_masks):
         keytime_differences /= self.max_horizon
-
-        gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
+        if self.extra_dim > 0:
+            gt_states = torch.cat([keyframe_states[...,-self.pose_dim-self.extra_dim:-self.extra_dim], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
+        else:
+            gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
 
         info={}
         pred_keyframe_states = self.keyframe_model(states) # We expect states are obs features, pred_keyframe_states [B, self.pose_dim]
@@ -204,7 +209,10 @@ class KeyDiffAgent(DiffAgent):
         keytime_differences /= self.max_horizon
 
         if self.pose_only:
-            gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
+            if self.extra_dim > 0:
+                gt_states = torch.cat([keyframe_states[...,-self.pose_dim-self.extra_dim:-self.extra_dim], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
+            else:
+                gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
         else:
             gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
             gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
@@ -362,7 +370,7 @@ class KeyDiffAgent(DiffAgent):
             data_history = torch.cat([data_history, supp], dim=1)
         
         # data_history = self.normalizer.normalize(data_history)
-        data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
+        data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim-self.extra_dim], data_history[...,-self.action_dim:]], dim=-1)
         
         if self.use_keyframe:
             if not self.pose_only:
@@ -486,7 +494,10 @@ class KeyDiffAgent(DiffAgent):
         
         # generate impainting mask
         if self.diffuse_state:
-            traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+            if self.extra_dim > 0:
+                traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+            else:
+                traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
         else:
             traj_data = sampled_batch["actions"]
         # Need Normalize! (Already did in replay buffer)
@@ -565,8 +576,9 @@ class KeyDiffAgent(DiffAgent):
         ## Not implement yet
         # if self.step % self.update_ema_every == 0:
         #     self.step_ema()
-        ret_dict["grad_norm_diff_model"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.model.parameters() if parameter.grad is not None])
-        ret_dict["grad_norm_diff_obs_encoder"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.obs_encoder.parameters() if parameter.grad is not None])
+        if self.train_diff_model:
+            ret_dict["grad_norm_diff_model"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.model.parameters() if parameter.grad is not None])
+            ret_dict["grad_norm_diff_obs_encoder"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.obs_encoder.parameters() if parameter.grad is not None])
 
         if self.lr_scheduler is not None:
             ret_dict["lr"] = get_mean_lr(self.actor_optim)

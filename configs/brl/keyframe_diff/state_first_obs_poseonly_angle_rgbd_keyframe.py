@@ -1,13 +1,13 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd"
+workdir = "newkeyframe-posediff-poseonly-angle-rgbd-keyframe"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
-    # train_diff_model=True,
-    train_keyframe_model=False,
-    batch_size=320,
+    train_diff_model=False,
+    # train_keyframe_model=False,
+    batch_size=400,
     action_seq_len=horizon,
     diffuse_state=True,
     # use_ep_first_obs=True,

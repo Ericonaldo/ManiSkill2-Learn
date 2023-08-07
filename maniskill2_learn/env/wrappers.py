@@ -210,6 +210,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         concat_rgbd=False,
         using_depth=True,
         history_len=1,
+        using_angle=False,
     ):
         super().__init__(env)
         
@@ -234,6 +235,8 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         self.history_len = history_len
         self.action_dim = env.action_space.shape[0]
         self.timestep = 0
+
+        self.using_angle = using_angle
 
         self.init_queue()
 
@@ -501,20 +504,22 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 obs["extra"]["tcp_to_goal_pos"] = (
                     obs["extra"]["goal_pos"] - tcp_pose[:3]
                 )
+
+            # change quanternion to compact axis-angle representation
             if "tcp_pose" in obs["extra"].keys():
                 obs["extra"]["tcp_pose"] = obs["extra"]["tcp_pose"].reshape(-1)
-                # change quanternion to compact axis-angle representation
-                cur_tcq_pose_np = obs["extra"]["tcp_pose"]
-                obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose_np[:3], compact_axis_angle_from_quaternion(cur_tcq_pose_np[3:])]
+                if self.using_angle:
+                    cur_tcq_pose_np = obs["extra"]["tcp_pose"]
+                    obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose_np[:3], compact_axis_angle_from_quaternion(cur_tcq_pose_np[3:])]
             
             obs['extra'].pop('target_points', None)
-            # NOTE: We want to remove extra info about goals
-            obs['extra'].pop('goal_pos', None)
-            obs['extra'].pop('tcp_to_goal_pos', None)
+            # # NOTE: We want to remove extra info about goals
+            # obs['extra'].pop('goal_pos', None)
+            # obs['extra'].pop('tcp_to_goal_pos', None)
             obs.pop('camera_param', None)
             
             s = flatten_state_dict(obs) # Other observation keys should be already ordered and such orders shouldn't change across different maniskill2 versions, so we just flatten them
-
+            
             # Resize RGB and Depth images
             if self.img_size is not None and self.img_size != (
                 rgb.shape[0],
