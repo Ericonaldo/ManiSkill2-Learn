@@ -119,6 +119,7 @@ def make_gym_env(
     concat_rgbd=False,
     history_len=1,
     using_depth=True,
+    using_angle=False,
     **kwargs,
 ):
     """
@@ -178,7 +179,7 @@ def make_gym_env(
         env = RenderInfoWrapper(env)
         env = ManiSkill2_ObsWrapper(env, img_size=img_size, 
             n_points=n_points, n_goal_points=n_goal_points, obs_frame=obs_frame, using_depth=using_depth,
-            ignore_dones=ignore_dones, fix_seed=fix_seed, concat_rgbd=concat_rgbd, history_len=history_len)
+            ignore_dones=ignore_dones, fix_seed=fix_seed, concat_rgbd=concat_rgbd, history_len=history_len, using_angle=using_angle)
 
     if extra_wrappers is not None:
         if not isinstance(extra_wrappers, list):
