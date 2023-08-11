@@ -259,7 +259,7 @@ class MultiImageObsEncoder(CNNBase):
             )
             self.output_vae = [self.output_vae_mu, self.output_vae_sigma]
 
-    def forward(self, obs_dict, ep_first_obs_dict=None):
+    def forward(self, obs_dict, ep_first_obs_dict=None, img_fea_only=False):
         batch_size = None
         features = list()
         horizon = self.n_obs_steps
@@ -359,6 +359,9 @@ class MultiImageObsEncoder(CNNBase):
                         self.feature_shape_map[key] = feature.shape[-1]
                     features.append(feature)
 
+        if img_fea_only:
+            return torch.Tensor(features)
+        
         # process pcd input
         if self.use_pcd_model and len(self.pcd_keys):
             pcd_obs_dict = {k: v for k, v in obs_dict.items() if k in self.pcd_keys}

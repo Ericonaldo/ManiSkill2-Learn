@@ -558,9 +558,10 @@ class KeyDiffAgent(DiffAgent):
                     keyframe_loss, info = self.keyframe_bc_loss(keyframe_obs_fea, keyframe_states, keytime_differences, keyframe_masks)
                 
                 elif self.keyframe_model_type == "gpt":
-                    keyframe_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
+                    img_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
                     timesteps = sampled_batch["timesteps"]
-                    # states = masked_obs["state"]
+                    states = masked_obs["state"]
+                    keyframe_obs_fea = torch.cat([img_obs_fea, states], dim=1) # concat on the time dimension
                     ep_first_state = None
                     if ep_first_obs is not None:
                         if len(ep_first_obs['state'].shape) == 2:
