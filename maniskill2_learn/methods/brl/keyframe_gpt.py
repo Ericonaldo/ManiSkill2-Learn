@@ -195,7 +195,7 @@ class KeyframeGPTWithHist(nn.Module):
         self.blocks = BlocksWithHist(self.config)
         
         # State embeddings.
-        self.state_encoder = MLP(self.state_dim, self.config.n_embd, hidden_dims=[256])
+        self.state_encoder = MLP(self.state_dim, self.config.n_embd, hidden_dims=[512, 512, 256])
         
         # Action embeddings.
         if '+a' in self.model_type:

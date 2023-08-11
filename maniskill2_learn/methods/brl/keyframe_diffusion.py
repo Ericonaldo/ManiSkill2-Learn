@@ -135,7 +135,7 @@ class KeyDiffAgent(DiffAgent):
             extra_dim=extra_dim,
         )
         if keyframe_model_type == "gpt":
-            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_model_cfg.state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
+            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, self.obs_feature_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
         elif keyframe_model_type == "bc":
             self.keyframe_obs_encoder = build_model(visual_nn_cfg)
             self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=self.pose_dim+1, hidden_dims=[2048, 512, 128])
@@ -152,10 +152,14 @@ class KeyDiffAgent(DiffAgent):
             elif keyframe_model_type == "bc":
                 self.keyframe_optim = build_optimizer([self.keyframe_obs_encoder,self.keyframe_model], optim_cfg)
                 self.actor_optim = build_optimizer([self.model,self.obs_encoder], optim_cfg) # Update using the same optimizer
+        else:
+            del self.keyframe_model
+            del self.keyframe_obs_encoder
                 
         if not train_diff_model:
             self.actor_optim = None
             del self.model
+            del self.obs_encoder
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
 
@@ -181,7 +185,9 @@ class KeyDiffAgent(DiffAgent):
             if 'optimizer' in loaded_dict:
                 torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['optimizer'], prefix="module.")
         
-        load_state_dict(self.keyframe_model, loaded_dict['state_dict'])
+        state_dict = {_:loaded_dict['state_dict'][_] for _ in loaded_dict['state_dict'].keys() if "keyframe_model" in _}
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, prefix="keyframe_model.")
+        load_state_dict(self.keyframe_model, state_dict)
         if 'optimizer' in loaded_dict.keys():
             load_state_dict(self.keyframe_optim, loaded_dict['optimizer'])
 
@@ -205,7 +211,7 @@ class KeyDiffAgent(DiffAgent):
 
         return masked_loss, info
 
-    def keyframe_gpt_loss(self, states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=None):
+    def keyframe_gpt_loss(self, obs, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=None):
         keytime_differences /= self.max_horizon
 
         if self.pose_only:
@@ -217,7 +223,7 @@ class KeyDiffAgent(DiffAgent):
             gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
             gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
 
-        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
+        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(obs, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
         
         if self.pose_only:
             state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
@@ -292,8 +298,12 @@ class KeyDiffAgent(DiffAgent):
                 pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
         else:
             pred_keyframe = pred_keyframe_states[:, :self.pred_keyframe_num]
+            pred_keyframe_actions = torch.zeros((pred_keyframe.shape[0], pred_keyframe.shape[1], self.state_dim - pred_keyframe.shape[2] + 1 + self.action_dim), dtype=states.dtype,device=self.device)
 
         pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
+        data = torch.cat([pred_keyframe, pred_keyframe_actions], dim=-1)
+        data = self.normalizer.unnormalize(data)
+        pred_keyframe_states, pred_keyframe_actions = data[..., :self.pose_dim], data[..., -self.action_dim:]
         
         pred_keytime_differences = pred_keytime_differences.cpu().numpy()
         # pred_keytime_differences = np.around(self.max_horizon * pred_keytime_differences, decimals=0)
@@ -548,8 +558,9 @@ class KeyDiffAgent(DiffAgent):
                     keyframe_loss, info = self.keyframe_bc_loss(keyframe_obs_fea, keyframe_states, keytime_differences, keyframe_masks)
                 
                 elif self.keyframe_model_type == "gpt":
+                    keyframe_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
                     timesteps = sampled_batch["timesteps"]
-                    states = masked_obs["state"]
+                    # states = masked_obs["state"]
                     ep_first_state = None
                     if ep_first_obs is not None:
                         if len(ep_first_obs['state'].shape) == 2:
@@ -562,7 +573,7 @@ class KeyDiffAgent(DiffAgent):
                     keytime_differences = keytime_differences[:,obs_mask,...][:,-1]
                     keyframe_masks = keyframe_masks[:,obs_mask,...][:,-1]
 
-                    keyframe_loss, info = self.keyframe_gpt_loss(states, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=ep_first_state)
+                    keyframe_loss, info = self.keyframe_gpt_loss(keyframe_obs_fea, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=ep_first_state)
                 
                 ret_dict.update(info)
                 loss += keyframe_loss
