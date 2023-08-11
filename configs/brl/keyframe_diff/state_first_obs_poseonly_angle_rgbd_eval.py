@@ -7,7 +7,7 @@ pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    train_keyframe_model=False,
+    # train_keyframe_model=False,
     batch_size=320,
     action_seq_len=horizon,
     diffuse_state=True,
@@ -73,6 +73,8 @@ agent_cfg = dict(
     ),
     diffusion_updates=100000,
     pose_dim=pose_dim,
+
+    keyframe_model_path="logs/PegInsertionSide-v0/KeyDiffAgent/newkeyframe-posediff-poseonly-angle-rgbd-keyframe/20230806_130909/models/model_100000.ckpt"
 )
 
 env_cfg = dict(

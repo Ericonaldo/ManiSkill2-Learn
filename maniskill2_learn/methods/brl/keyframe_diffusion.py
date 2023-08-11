@@ -94,6 +94,7 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe_num=1,
         pose_only=False,
         keyframe_model_type="gpt",
+        keyframe_state_only=True,
         pose_dim=7,
         extra_dim=0,
         **kwargs,
@@ -135,7 +136,8 @@ class KeyDiffAgent(DiffAgent):
             extra_dim=extra_dim,
         )
         if keyframe_model_type == "gpt":
-            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, self.obs_feature_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
+            keyframe_state_dim = keyframe_model_cfg.state_dim if keyframe_state_only else self.obs_feature_dim
+            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
         elif keyframe_model_type == "bc":
             self.keyframe_obs_encoder = build_model(visual_nn_cfg)
             self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=self.pose_dim+1, hidden_dims=[2048, 512, 128])
@@ -174,6 +176,7 @@ class KeyDiffAgent(DiffAgent):
             self.load_keyframe_model()
 
         self.last_state = None
+        self.keyframe_state_only = keyframe_state_only
 
     def load_keyframe_model(self):
         if self.keyframe_model_path is None:
@@ -558,10 +561,11 @@ class KeyDiffAgent(DiffAgent):
                     keyframe_loss, info = self.keyframe_bc_loss(keyframe_obs_fea, keyframe_states, keytime_differences, keyframe_masks)
                 
                 elif self.keyframe_model_type == "gpt":
-                    img_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
                     timesteps = sampled_batch["timesteps"]
-                    states = masked_obs["state"]
-                    keyframe_obs_fea = torch.cat([img_obs_fea, states], dim=1) # concat on the time dimension
+                    keyframe_obs_fea = states = masked_obs["state"]
+                    if self.keyframe_state_only:
+                        img_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs, img_fea_only=True)
+                        keyframe_obs_fea = torch.cat([img_obs_fea, states], dim=1) # concat on the time dimension
                     ep_first_state = None
                     if ep_first_obs is not None:
                         if len(ep_first_obs['state'].shape) == 2:

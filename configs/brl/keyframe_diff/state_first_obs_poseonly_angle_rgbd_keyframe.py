@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-keyframe"
+workdir = "newkeyframe-posediff-poseonly-angle-rgbd-keyframe-keyframewithimg"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
@@ -72,6 +72,7 @@ agent_cfg = dict(
     ),
     diffusion_updates=150000,
     pose_dim=pose_dim,
+    keyframe_state_only=False,
 )
 
 # env_cfg = dict(
