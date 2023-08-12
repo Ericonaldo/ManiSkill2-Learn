@@ -231,6 +231,7 @@ class MultiImageObsEncoder(CNNBase):
 
         if get_output_dim or output_mlp or output_vae:
             self.out_feature_dim = self.output_shape()
+        self.img_feature_dim = self.output_shape(img_fea_only=True)[1]
 
         if output_mlp:
             self.output_mlp = MLP(
@@ -337,6 +338,13 @@ class MultiImageObsEncoder(CNNBase):
                         )
                 # (B,N,D) or (B,N,L,D)
                 feature = torch.moveaxis(feature, 0, 1)
+                if img_fea_only:
+                    if horizon > 1: # (B,L,N,D)
+                        feature = torch.moveaxis(feature, 1, 2)
+                        feature = feature.reshape(batch_size, horizon, -1)
+                    else:
+                        feature = feature.reshape(batch_size, -1)
+                    return feature
                 # (B,N*D) or (B,N*L*D)
                 feature = feature.reshape(batch_size, -1)
                 features.append(feature)
@@ -359,9 +367,6 @@ class MultiImageObsEncoder(CNNBase):
                         self.feature_shape_map[key] = feature.shape[-1]
                     features.append(feature)
 
-        if img_fea_only:
-            return torch.Tensor(features)
-        
         # process pcd input
         if self.use_pcd_model and len(self.pcd_keys):
             pcd_obs_dict = {k: v for k, v in obs_dict.items() if k in self.pcd_keys}
@@ -415,7 +420,7 @@ class MultiImageObsEncoder(CNNBase):
         return result  # B, feature_size
 
     @torch.no_grad()
-    def output_shape(self):
+    def output_shape(self, img_fea_only=False):
         example_obs_dict = dict()
         obs_shape_meta = self.shape_meta["obs"]
         batch_size = 1
@@ -436,7 +441,7 @@ class MultiImageObsEncoder(CNNBase):
                 )
                 example_ep_first_obs_dict[key] = this_obs
 
-        example_output = self.forward(example_obs_dict, example_ep_first_obs_dict)
+        example_output = self.forward(example_obs_dict, example_ep_first_obs_dict, img_fea_only=img_fea_only)
         output_shape = list(example_output.shape[1:])
         if len(output_shape) == 1:
             output_shape = output_shape[0]

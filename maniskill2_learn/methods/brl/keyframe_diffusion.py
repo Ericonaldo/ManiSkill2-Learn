@@ -135,11 +135,13 @@ class KeyDiffAgent(DiffAgent):
             pose_dim=pose_dim,
             extra_dim=extra_dim,
         )
+        self.keyframe_obs_encoder = build_model(visual_nn_cfg)
         if keyframe_model_type == "gpt":
-            keyframe_state_dim = keyframe_model_cfg.state_dim if keyframe_state_only else self.obs_feature_dim
+            keyframe_state_dim = keyframe_model_cfg.state_dim
+            if not keyframe_state_only:
+                keyframe_state_dim += self.img_feature_dim
             self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
         elif keyframe_model_type == "bc":
-            self.keyframe_obs_encoder = build_model(visual_nn_cfg)
             self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=self.pose_dim+1, hidden_dims=[2048, 512, 128])
         else:
             raise NotImplementedError
@@ -150,7 +152,7 @@ class KeyDiffAgent(DiffAgent):
         self.keyframe_optim = None
         if self.train_keyframe_model:
             if keyframe_model_type == "gpt":
-                self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers()
+                self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers(extra_model=self.keyframe_obs_encoder)
             elif keyframe_model_type == "bc":
                 self.keyframe_optim = build_optimizer([self.keyframe_obs_encoder,self.keyframe_model], optim_cfg)
                 self.actor_optim = build_optimizer([self.model,self.obs_encoder], optim_cfg) # Update using the same optimizer
@@ -161,7 +163,7 @@ class KeyDiffAgent(DiffAgent):
         if not train_diff_model:
             self.actor_optim = None
             del self.model
-            del self.obs_encoder
+            # del self.obs_encoder
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
 
@@ -230,7 +232,6 @@ class KeyDiffAgent(DiffAgent):
         
         if self.pose_only:
             state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
-
             masked_state_loss = state_loss*keyframe_masks
 
             masked_loss = masked_state_loss.sum(-1).mean()
@@ -563,9 +564,9 @@ class KeyDiffAgent(DiffAgent):
                 elif self.keyframe_model_type == "gpt":
                     timesteps = sampled_batch["timesteps"]
                     keyframe_obs_fea = states = masked_obs["state"]
-                    if self.keyframe_state_only:
+                    if not self.keyframe_state_only:
                         img_obs_fea = self.keyframe_obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs, img_fea_only=True)
-                        keyframe_obs_fea = torch.cat([img_obs_fea, states], dim=1) # concat on the time dimension
+                        keyframe_obs_fea = torch.cat([img_obs_fea, states], dim=-1)
                     ep_first_state = None
                     if ep_first_obs is not None:
                         if len(ep_first_obs['state'].shape) == 2:
@@ -584,6 +585,7 @@ class KeyDiffAgent(DiffAgent):
                 loss += keyframe_loss
         
         loss.backward()
+        nn.utils.clip_grad_norm_(self.parameters(), 0.1)
         if self.actor_optim is not None:
             self.actor_optim.step()
         if self.keyframe_optim is not None:

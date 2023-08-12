@@ -196,7 +196,7 @@ class KeyframeGPTWithHist(nn.Module):
         
         # State embeddings.
         if self.state_dim > 1000:
-            self.state_encoder = MLP(self.state_dim, self.config.n_embd, hidden_dims=[512, 512, 256])
+            self.state_encoder = MLP(self.state_dim, self.config.n_embd, hidden_dims=[512, 256])
         else:
             self.state_encoder = MLP(self.state_dim, self.config.n_embd, hidden_dims=[256])
         
@@ -297,7 +297,7 @@ class KeyframeGPTWithHist(nn.Module):
     
         return key_state_preds, key_act_preds, {}  # Action + timestep diffrence
 
-    def configure_adamw_optimizers(self):
+    def configure_adamw_optimizers(self, extra_model=None):
         """
         This long function is unfortunately doing something very simple and is being very defensive:
         We are separating out all parameters of the model into two buckets: those that will experience
@@ -323,6 +323,14 @@ class KeyframeGPTWithHist(nn.Module):
                 elif pn.endswith('weight') and isinstance(m, blacklist_weight_modules):
                     # weights of blacklist modules will NOT be weight decayed
                     no_decay.add(fpn)
+                    
+        extra_para_dict = {}
+        if extra_model is not None:
+            extra_para_dict.update({pn: p for pn, p in extra_model.named_parameters()})
+            for mn, m in extra_model.named_modules():
+                for pn, _ in m.named_parameters():
+                    fpn = '%s.%s' % (mn, pn) if mn else pn # full param name
+                    no_decay.add(fpn)
 
         # special case the position embedding parameter in the root GPT module as not decayed
         no_decay.add('local_pos_emb')
@@ -333,6 +341,8 @@ class KeyframeGPTWithHist(nn.Module):
 
         # validate that we considered every parameter
         param_dict = {pn: p for pn, p in self.named_parameters()}
+        param_dict.update(extra_para_dict)
+
         inter_params = decay & no_decay
         union_params = decay | no_decay
         assert len(inter_params) == 0, \

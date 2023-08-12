@@ -64,8 +64,8 @@ agent_cfg = dict(
         max_timestep=200,
         hist_horizon=n_obs_steps,
         optim_cfg=dict(
-            init_lr=5e-4,
-            weight_decay=0,
+            init_lr=3e-4,
+            weight_decay=0.9,
             beta1=0.9,
             beta2=0.95,
         ),
@@ -108,7 +108,7 @@ train_cfg = dict(
     total_steps=151000,
     warm_steps=0,
     n_steps=0,
-    n_updates=500,
+    n_updates=5,
     n_eval=10000,
     n_checkpoint=10000,
 )

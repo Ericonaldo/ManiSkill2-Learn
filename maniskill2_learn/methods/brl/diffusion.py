@@ -68,6 +68,7 @@ class DiffAgent(BaseAgent):
         visual_nn_cfg['n_obs_steps'] = n_obs_steps
         self.obs_encoder = build_model(visual_nn_cfg)
         self.obs_feature_dim = self.obs_encoder.out_feature_dim
+        self.img_feature_dim = self.obs_encoder.img_feature_dim
 
         lr_scheduler_cfg = lr_scheduler_cfg
         self.action_dim = env_params['action_shape']
