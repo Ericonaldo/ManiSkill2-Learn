@@ -1,13 +1,13 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-keyframe-keyframewithimg"
+workdir = "newkeyframe-posediff-poseonly-angle-rgbd-targetpos"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
-    train_diff_model=False,
-    # train_keyframe_model=False,
-    batch_size=400,
+    # train_diff_model=True,
+    train_keyframe_model=False,
+    batch_size=320,
     action_seq_len=horizon,
     diffuse_state=True,
     # use_ep_first_obs=True,
@@ -64,15 +64,15 @@ agent_cfg = dict(
         max_timestep=200,
         hist_horizon=n_obs_steps,
         optim_cfg=dict(
-            init_lr=3e-4,
-            weight_decay=0.9,
+            init_lr=5e-4,
+            weight_decay=0,
             beta1=0.9,
             beta2=0.95,
         ),
     ),
     diffusion_updates=150000,
     pose_dim=pose_dim,
-    keyframe_state_only=False,
+    extra_dim=6,
 )
 
 # env_cfg = dict(
@@ -108,9 +108,9 @@ train_cfg = dict(
     total_steps=151000,
     warm_steps=0,
     n_steps=0,
-    n_updates=100,
+    n_updates=500,
     n_eval=10000,
-    n_checkpoint=1000,
+    n_checkpoint=10000,
 )
 
 # eval_cfg = dict(

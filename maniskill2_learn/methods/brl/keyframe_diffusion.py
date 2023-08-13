@@ -468,15 +468,18 @@ class KeyDiffAgent(DiffAgent):
     
     def update_parameters(self, memory, updates):
         if not self.init_normalizer:
-            # Fit normalizer
-            action_data = memory.get_all("actions")
-            # data = action_data
-            obs_data = memory.get_all("obs", "state")
-            if self.diffuse_state:
-                data = np.concatenate([obs_data, action_data], axis=-1)
+            if False: # self.train_keyframe_model and (not self.train_diff_model):
+                self.normalizer = None
             else:
-                data = action_data
-            self.normalizer.fit(data, last_n_dims=1, mode='limits', range_eps=1e-7)
+                # Fit normalizer
+                action_data = memory.get_all("actions")
+                # data = action_data
+                obs_data = memory.get_all("obs", "state")
+                if self.diffuse_state:
+                    data = np.concatenate([obs_data, action_data], axis=-1)
+                else:
+                    data = action_data
+                self.normalizer.fit(data, last_n_dims=1, mode='limits', range_eps=1e-7)
             self.init_normalizer = True
 
         batch_size = self.batch_size
@@ -585,7 +588,9 @@ class KeyDiffAgent(DiffAgent):
                 loss += keyframe_loss
         
         loss.backward()
-        nn.utils.clip_grad_norm_(self.parameters(), 0.1)
+        nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+        # for param in self.keyframe_obs_encoder.parameters():
+        #     print(param.name, param.grad)
         if self.actor_optim is not None:
             self.actor_optim.step()
         if self.keyframe_optim is not None:

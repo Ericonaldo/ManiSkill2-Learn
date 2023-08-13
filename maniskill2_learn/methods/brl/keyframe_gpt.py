@@ -94,7 +94,8 @@ class CausalSelfAttentionWithHist(nn.Module):
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float('-inf'))  # Masked attention
+        # att = att.masked_fill(self.mask[:,:,:T,:T] == 0, float('-inf'))  # Masked attention
+        att = att.masked_fill(self.mask[:,:,:T,:T] == 0, -99999999)  # Masked attention
 
         att = F.softmax(att, dim=-1)
         att = torch.where(torch.isnan(att), torch.full_like(att, 0), att) # replace nan with 0.

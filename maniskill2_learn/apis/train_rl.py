@@ -143,7 +143,7 @@ def train_rl(
     recent_traj_replay=None,
 
     total_steps=2500000,
-    warm_steps=10000,
+    warm_steps=0,
     resume_steps=0,
     use_policy_to_warm_up=False,
     print_steps=None,

@@ -334,13 +334,13 @@ class ReplayMemory:
         if device is not None:
             ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
 
+        ret["states"] = ret["obs"]["state"]
         if action_normalizer is not None:
             for key in ["actions", "keyframe_actions"]:
                 if key in ret:
                     ret[key] = action_normalizer.normalize(ret[key])
         elif obsact_normalizer is not None:
             if "actions" in ret and "obs" in ret:
-                ret["states"] = ret["obs"]["state"]
                 action_dim = ret["actions"].shape[-1]
                 data = torch.cat([ret["obs"]["state"], ret["actions"]], dim=-1)
                 data = obsact_normalizer.normalize(data)
