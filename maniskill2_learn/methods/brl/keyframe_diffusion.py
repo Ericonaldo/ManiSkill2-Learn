@@ -588,9 +588,7 @@ class KeyDiffAgent(DiffAgent):
                 loss += keyframe_loss
         
         loss.backward()
-        nn.utils.clip_grad_norm_(self.parameters(), 1.0)
-        # for param in self.keyframe_obs_encoder.parameters():
-        #     print(param.name, param.grad)
+        # nn.utils.clip_grad_norm_(self.parameters(), 1.0)
         if self.actor_optim is not None:
             self.actor_optim.step()
         if self.keyframe_optim is not None:

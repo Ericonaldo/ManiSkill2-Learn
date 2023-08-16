@@ -7,7 +7,7 @@ agent_cfg = dict(
     type="KeyDiffAgent",
     train_diff_model=False,
     # train_keyframe_model=False,
-    batch_size=400,
+    batch_size=300,
     action_seq_len=horizon,
     diffuse_state=True,
     # use_ep_first_obs=True,
@@ -108,7 +108,7 @@ train_cfg = dict(
     total_steps=151000,
     warm_steps=0,
     n_steps=0,
-    n_updates=100,
+    n_updates=500,
     n_eval=10000,
     n_checkpoint=1000,
 )
