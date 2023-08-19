@@ -190,9 +190,14 @@ class KeyDiffAgent(DiffAgent):
             if 'optimizer' in loaded_dict:
                 torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(loaded_dict['optimizer'], prefix="module.")
         
-        state_dict = {_:loaded_dict['state_dict'][_] for _ in loaded_dict['state_dict'].keys() if "keyframe_model" in _}
-        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict, prefix="keyframe_model.")
-        load_state_dict(self.keyframe_model, state_dict)
+        keyframe_state_dict = {_:loaded_dict['state_dict'][_] for _ in loaded_dict['state_dict'].keys() if "keyframe_model" in _}
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(keyframe_state_dict, prefix="keyframe_model.")
+        load_state_dict(self.keyframe_model, keyframe_state_dict)
+
+        keyframe_obs_encoder_state_dict = {_:loaded_dict['state_dict'][_] for _ in loaded_dict['state_dict'].keys() if "keyframe_obs_encoder" in _}
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(keyframe_obs_encoder_state_dict, prefix="keyframe_obs_encoder.")
+        load_state_dict(self.keyframe_obs_encoder, keyframe_obs_encoder_state_dict)
+        
         if 'optimizer' in loaded_dict.keys():
             load_state_dict(self.keyframe_optim, loaded_dict['optimizer'])
 
@@ -293,36 +298,52 @@ class KeyDiffAgent(DiffAgent):
             ep_first_obs_state = ep_first_obs['state']
         
         self.set_mode(mode=mode)
-        
-        pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(states, timesteps, action_history, first_state=ep_first_obs_state)
-        if pred_keyframe_actions is not None:
-            pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
-            if self.diffuse_state:
-                pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
-                pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
-        else:
-            pred_keyframe = pred_keyframe_states[:, :self.pred_keyframe_num]
-            pred_keyframe_actions = torch.zeros((pred_keyframe.shape[0], pred_keyframe.shape[1], self.state_dim - pred_keyframe.shape[2] + 1 + self.action_dim), dtype=states.dtype,device=self.device)
+        if self.use_keyframe:
+            keyframe_inputs = states
+            if not self.keyframe_state_only:
+                img_obs_fea = self.keyframe_obs_encoder(observation, ep_first_obs_dict=ep_first_obs, img_fea_only=True)
+                keyframe_inputs = torch.cat([img_obs_fea, states], dim=-1)
+            pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(keyframe_inputs, timesteps, action_history, first_state=ep_first_obs_state)
+            if pred_keyframe_actions is not None:
+                pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
+                pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
+                # data = pred_keyframe
+                if self.diffuse_state:
+                    pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
+                    pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
+                    pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
+                #     data = torch.cat([pred_keyframe, pred_keyframe_actions], dim=-1)
+                # data = self.normalizer.unnormalize(data)
+                # pred_keyframe = data
+                # if self.diffuse_state:
+                #     pred_keyframe_states, pred_keyframe_actions = data[..., :self.pose_dim], data[..., -self.action_dim:]
+                #     pred_keyframe = pred_keyframe_states
+            else:
+                pred_keyframe = pred_keyframe_states[:, :self.pred_keyframe_num]
+                pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
+                
+                # pred_keyframe_states = torch.zeros((pred_keyframe.shape[0], pred_keyframe.shape[1], self.state_dim - pred_keyframe.shape[-1]), dtype=states.dtype,device=self.device)
+                # pred_keyframe_states = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
+                # pred_keyframe_actions = torch.zeros((pred_keyframe.shape[0], pred_keyframe.shape[1], self.action_dim), dtype=states.dtype,device=self.device)
+                # data = torch.cat([pred_keyframe_states, pred_keyframe_actions], dim=-1)
+                # data = self.normalizer.unnormalize(data)
+                # pred_keyframe_states, pred_keyframe_actions = data[..., :-self.action_dim], data[..., -self.action_dim:]
+                # pred_keyframe = pred_keyframe_states[..., -self.pose_dim:]
+            
+            pred_keytime_differences = pred_keytime_differences.cpu().numpy()
+            # pred_keytime_differences = np.around(self.max_horizon * pred_keytime_differences, decimals=0)
+            pred_keytime_differences = np.ceil(self.max_horizon * pred_keytime_differences)
+            pred_keytime_differences = np.clip(pred_keytime_differences.astype(int), a_min=0, a_max=None)
 
-        pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
-        data = torch.cat([pred_keyframe, pred_keyframe_actions], dim=-1)
-        data = self.normalizer.unnormalize(data)
-        pred_keyframe_states, pred_keyframe_actions = data[..., :self.pose_dim], data[..., -self.action_dim:]
-        
-        pred_keytime_differences = pred_keytime_differences.cpu().numpy()
-        # pred_keytime_differences = np.around(self.max_horizon * pred_keytime_differences, decimals=0)
-        pred_keytime_differences = np.ceil(self.max_horizon * pred_keytime_differences)
-        pred_keytime_differences = np.clip(pred_keytime_differences.astype(int), a_min=0, a_max=None)
-
-        # Method 2: If bigger than max_horizon, then return keyframe util the keyframe is inside the prediction
-        # if pred_keytime_differences[0] > self.max_horizon and mode == "eval": # Only support batch size = 1
-        #     return self.normalizer.unnormalize(pred_keyframe.unsqueeze(1)) # [B, len, action_dim]
-        
-        # Method 1: Clip the difference to be in the range of max_horizon
-        # pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=self.max_horizon) # [B,]
-        pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=None) # [B,]
-        
-        pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
+            # Method 2: If bigger than max_horizon, then return keyframe util the keyframe is inside the prediction
+            # if pred_keytime_differences[0] > self.max_horizon and mode == "eval": # Only support batch size = 1
+            #     return self.normalizer.unnormalize(pred_keyframe.unsqueeze(1)) # [B, len, action_dim]
+            
+            # Method 1: Clip the difference to be in the range of max_horizon
+            # pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=self.max_horizon) # [B,]
+            pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=None) # [B,]
+            
+            pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
 
         act_mask, obs_mask, data_mask = None, None, None
         if self.fix_obs_steps:
@@ -386,19 +407,19 @@ class KeyDiffAgent(DiffAgent):
         # data_history = self.normalizer.normalize(data_history)
         data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim-self.extra_dim], data_history[...,-self.action_dim:]], dim=-1)
         
-        if self.use_keyframe:
-            if not self.pose_only:
-                pred_keyframe = pred_keyframe[...,-self.pose_dim:]
-            for i in range(len(pred_keytime_differences[0])):
-                if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
-                # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-                    # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
-                    data_history[range(bs),pred_keytime[:,i:i+1], :-self.action_dim] = pred_keyframe[:,i:i+1]
-                    data_mask = data_mask.clone()
-                    data_mask[range(bs),pred_keytime[:,i:i+1],:-self.action_dim] = True
-                    # data_mask[range(bs),pred_keytime[:,i],:] = True
-                else:
-                    break
+        # if self.use_keyframe:
+        #     if not self.pose_only:
+        #         pred_keyframe = pred_keyframe[...,-self.pose_dim:]
+        #     for i in range(len(pred_keytime_differences[0])):
+        #         if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
+        #         # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+        #             # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
+        #             data_history[range(bs),pred_keytime[:,i:i+1], :-self.action_dim] = pred_keyframe[:,i:i+1]
+        #             data_mask = data_mask.clone()
+        #             data_mask[range(bs),pred_keytime[:,i:i+1],:-self.action_dim] = True
+        #             # data_mask[range(bs),pred_keytime[:,i],:] = True
+        #         else:
+        #             break
         # print("after: ", data_mask[...,0], pred_keytime_differences)
 
         # Predict action seq based on key frames
@@ -448,16 +469,16 @@ class KeyDiffAgent(DiffAgent):
 
 
             # # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,:]
-            if self.use_keyframe:
-                if self.n_obs_steps < pred_keytime_differences[0][-1] <= self.max_horizon and pred_keytime_differences[0][-1] > 0: # Method3: only set key frame when less than horizon
-                # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-                    # print("keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe), pred_action_seq[:,pred_keytime[0],:])
-                    # pred_action = pred_action_seq[:,hist_len:pred_keytime[0][-1]+1,-self.action_dim:] # do not support batch evaluation
-                    pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
-                else:
-                #     # print("no keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe))
-                    # pred_action = pred_action_seq[:,hist_len:hist_len+self.eval_action_len,-self.action_dim:] # do not support batch evaluation
-                    pred_action = pred_action_seq[:,hist_len:hist_len+self.n_obs_steps,-self.action_dim:] # do not support batch evaluation
+            # if self.use_keyframe:
+            #     if self.n_obs_steps < pred_keytime_differences[0][-1] <= self.max_horizon and pred_keytime_differences[0][-1] > 0: # Method3: only set key frame when less than horizon
+            #     # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+            #         # print("keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe), pred_action_seq[:,pred_keytime[0],:])
+            #         # pred_action = pred_action_seq[:,hist_len:pred_keytime[0][-1]+1,-self.action_dim:] # do not support batch evaluation
+            #         pred_action = pred_action_seq[:,hist_len:,:] # do not support batch evaluation
+            #     else:
+            #     #     # print("no keyframe", timesteps[0,-1,0], pred_keytime_differences, self.normalizer.unnormalize(pred_keyframe))
+            #         # pred_action = pred_action_seq[:,hist_len:hist_len+self.eval_action_len,-self.action_dim:] # do not support batch evaluation
+            #         pred_action = pred_action_seq[:,hist_len:hist_len+self.n_obs_steps,-self.action_dim:] # do not support batch evaluation
             # # Only used for ms-skill challenge online evaluation
             # # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),:]
             # # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
