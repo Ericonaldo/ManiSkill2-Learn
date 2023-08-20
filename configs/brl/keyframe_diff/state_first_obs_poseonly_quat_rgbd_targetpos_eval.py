@@ -6,8 +6,6 @@ pose_dim = 7
 eval_action_len = 34
 agent_cfg = dict(
     type="KeyDiffAgent",
-    # train_diff_model=True,
-    train_keyframe_model=False,
     batch_size=320,
     action_seq_len=horizon,
     diffuse_state=True,
@@ -45,7 +43,7 @@ agent_cfg = dict(
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
         # input_dim="agent_shape+action_shape",
-        input_dim="6+action_shape", # We only diffuse tcp pose
+        input_dim="7+action_shape", # We only diffuse tcp pose
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
@@ -84,7 +82,8 @@ env_cfg = dict(
     obs_mode="rgbd",
     control_mode="pd_ee_delta_pose", # "pd_ee_pose", # 
     concat_rgbd=True,
-    using_angle=True,
+    using_angle=False,
+    using_target=True,
 )
 
 

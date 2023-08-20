@@ -211,6 +211,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         using_depth=True,
         history_len=1,
         using_angle=False,
+        using_target=False,
     ):
         super().__init__(env)
         
@@ -237,6 +238,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         self.timestep = 0
 
         self.using_angle = using_angle
+        self.using_target = using_target
 
         self.init_queue()
 
@@ -514,8 +516,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             
             obs['extra'].pop('target_points', None)
             # # NOTE: We want to remove extra info about goals
-            # obs['extra'].pop('goal_pos', None)
-            # obs['extra'].pop('tcp_to_goal_pos', None)
+            if not self.using_target:
+                obs['extra'].pop('goal_pos', None)
+                obs['extra'].pop('tcp_to_goal_pos', None)
             obs.pop('camera_param', None)
             
             s = flatten_state_dict(obs) # Other observation keys should be already ordered and such orders shouldn't change across different maniskill2 versions, so we just flatten them
