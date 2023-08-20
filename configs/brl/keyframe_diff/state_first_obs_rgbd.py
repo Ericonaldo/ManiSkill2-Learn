@@ -1,15 +1,16 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "posediff-epfirstobs-rgbd"
-pose_dim = 6
+workdir = "newkeyframe-statediff-rgbd-angle-notarpos"
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    batch_size=200,
+    # train_keyframe_model=False,
+    batch_size=350,
     action_seq_len=horizon,
     diffuse_state=True,
-    use_ep_first_obs=True,
+    use_ep_first_obs=False,
+    pose_only=False,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
@@ -41,8 +42,7 @@ agent_cfg = dict(
     optim_cfg=dict(type="Adam", lr=3e-4),
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
-        # input_dim="agent_shape+action_shape",
-        input_dim="6+action_shape", # We only diffuse tcp pose
+        input_dim="agent_shape+action_shape",
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
@@ -69,7 +69,6 @@ agent_cfg = dict(
         ),
     ),
     diffusion_updates=100000,
-    pose_dim=pose_dim,
 )
 
 # env_cfg = dict(

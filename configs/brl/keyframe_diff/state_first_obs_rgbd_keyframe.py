@@ -1,17 +1,15 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-keyframe-keyframewithimg"
-pose_dim = 6
+workdir = "newkeyframe-statediff-rgbd-quat-notarpos"
 agent_cfg = dict(
     type="KeyDiffAgent",
     train_diff_model=False,
-    # train_keyframe_model=False,
-    batch_size=300,
+    batch_size=350,
     action_seq_len=horizon,
     diffuse_state=True,
-    # use_ep_first_obs=True,
-    pose_only=True,
+    use_ep_first_obs=False,
+    pose_only=False,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
@@ -43,8 +41,7 @@ agent_cfg = dict(
     optim_cfg=dict(type="Adam", lr=3e-4),
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
-        # input_dim="agent_shape+action_shape",
-        input_dim="6+action_shape", # We only diffuse tcp pose
+        input_dim="agent_shape+action_shape",
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
@@ -64,15 +61,13 @@ agent_cfg = dict(
         max_timestep=200,
         hist_horizon=n_obs_steps,
         optim_cfg=dict(
-            init_lr=3e-4,
-            weight_decay=0.9,
+            init_lr=5e-4,
+            weight_decay=0,
             beta1=0.9,
             beta2=0.95,
         ),
     ),
-    diffusion_updates=150000,
-    pose_dim=pose_dim,
-    keyframe_state_only=False,
+    diffusion_updates=100000,
 )
 
 # env_cfg = dict(
@@ -98,19 +93,19 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=8,
+    num_procs=128,
     synchronized=False,
     max_threads=5,
 )
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=151000,
+    total_steps=250000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
     n_eval=10000,
-    n_checkpoint=10,
+    n_checkpoint=10000,
 )
 
 # eval_cfg = dict(

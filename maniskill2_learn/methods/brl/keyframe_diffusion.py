@@ -532,10 +532,13 @@ class KeyDiffAgent(DiffAgent):
         
         # generate impainting mask
         if self.diffuse_state:
-            if self.extra_dim > 0:
-                traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+            if self.pose_only:
+                if self.extra_dim > 0:
+                    traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+                else:
+                    traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
             else:
-                traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+                traj_data = torch.cat([sampled_batch["states"],sampled_batch["actions"]], dim=-1)
         else:
             traj_data = sampled_batch["actions"]
         # Need Normalize! (Already did in replay buffer)

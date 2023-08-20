@@ -157,8 +157,9 @@ class DiffAgent(BaseAgent):
         if not obs_as_global_cond:
             obs_dim = self.obs_feature_dim
         if diffuse_state:
-            # obs_dim = self.state_dim
-            obs_dim = pose_dim # We only diffuse tcp pose
+            obs_dim = self.state_dim
+            if pose_only:
+                obs_dim = pose_dim # We only diffuse tcp pose
         self.mask_generator = LowdimMaskGenerator(
             action_dim=self.action_dim,
             obs_dim=obs_dim,
