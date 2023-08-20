@@ -84,6 +84,7 @@ env_cfg = dict(
     control_mode="pd_ee_delta_pose", # "pd_ee_pose", # 
     concat_rgbd=True,
     using_angle=True,
+    using_target=True,
 )
 
 

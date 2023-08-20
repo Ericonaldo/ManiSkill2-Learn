@@ -89,7 +89,7 @@ class KeyDiffAgent(DiffAgent):
         diffusion_updates=None,
         keyframe_model_updates=None,
         keyframe_model_path=None,
-        use_keyframe=True,
+        use_keyframe=False,
         use_ep_first_obs=False,
         pred_keyframe_num=1,
         pose_only=False,
