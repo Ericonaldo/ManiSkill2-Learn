@@ -349,7 +349,10 @@ class KeyDiffAgent(DiffAgent):
         if self.fix_obs_steps:
             act_mask, obs_mask, data_mask = self.act_mask, self.obs_mask, self.data_mask
         
-        data_dim = self.action_dim+self.pose_dim if self.diffuse_state else self.action_dim
+        if not self.diffuse_state:
+            data_dim = self.action_dim
+        else:
+            data_dim = self.action_dim+self.pose_dim if self.pose_only else self.action_dim+self.state_dim
         # data_dim = self.action_dim+self.state_dim if self.diffuse_state else self.action_dim
                 
         if data_mask is None:
@@ -404,9 +407,9 @@ class KeyDiffAgent(DiffAgent):
                 )
             data_history = torch.cat([data_history, supp], dim=1)
         
-        # data_history = self.normalizer.normalize(data_history)
-        data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim-self.extra_dim], data_history[...,-self.action_dim:]], dim=-1)
-        
+        if self.diffuse_state and self.pose_only:
+            data_history = torch.cat([data_history[...,-self.action_dim-self.state_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
+
         # if self.use_keyframe:
         #     if not self.pose_only:
         #         pred_keyframe = pred_keyframe[...,-self.pose_dim:]
@@ -532,13 +535,10 @@ class KeyDiffAgent(DiffAgent):
         
         # generate impainting mask
         if self.diffuse_state:
-            if self.pose_only:
-                if self.extra_dim > 0:
-                    traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
-                else:
-                    traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+            if self.extra_dim > 0:
+                traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
             else:
-                traj_data = torch.cat([sampled_batch["states"],sampled_batch["actions"]], dim=-1)
+                traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
         else:
             traj_data = sampled_batch["actions"]
         # Need Normalize! (Already did in replay buffer)
@@ -612,7 +612,9 @@ class KeyDiffAgent(DiffAgent):
                 loss += keyframe_loss
         
         loss.backward()
-        # nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+        nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+        # for param in self.keyframe_obs_encoder.parameters():
+        #     print(param.name, param.grad)
         if self.actor_optim is not None:
             self.actor_optim.step()
         if self.keyframe_optim is not None:
