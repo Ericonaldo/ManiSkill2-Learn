@@ -65,7 +65,7 @@ class MultiImageObsEncoder(CNNBase):
     def __init__(
         self,
         shape_meta: dict,
-        rgb_model: Union[nn.Module, Dict[str, nn.Module]] = get_resnet("resnet18"),
+        rgb_model: Union[nn.Module, Dict[str, nn.Module]] = None,
         pcd_model: dict = None,
         resize_shape: Union[Tuple[int, int], Dict[str, tuple], None] = None,
         crop_shape: Union[
@@ -104,6 +104,9 @@ class MultiImageObsEncoder(CNNBase):
         self.n_obs_steps = n_obs_steps
         self.use_pcd_model = use_pcd_model
         self.use_ep_first_obs = use_ep_first_obs
+
+        if rgb_model is None:
+            rgb_model = get_resnet("resnet18")
 
         obs_shape_meta = shape_meta["obs"]
         # handle sharing vision backbone

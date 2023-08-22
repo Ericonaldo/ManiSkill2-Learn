@@ -136,6 +136,7 @@ class KeyDiffAgent(DiffAgent):
             extra_dim=extra_dim,
         )
         self.keyframe_obs_encoder = build_model(visual_nn_cfg)
+        
         if keyframe_model_type == "gpt":
             keyframe_state_dim = keyframe_model_cfg.state_dim
             if not keyframe_state_only:
@@ -408,21 +409,23 @@ class KeyDiffAgent(DiffAgent):
             data_history = torch.cat([data_history, supp], dim=1)
         
         if self.diffuse_state and self.pose_only:
-            data_history = torch.cat([data_history[...,-self.action_dim-self.state_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
+            data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
 
-        # if self.use_keyframe:
-        #     if not self.pose_only:
-        #         pred_keyframe = pred_keyframe[...,-self.pose_dim:]
-        #     for i in range(len(pred_keytime_differences[0])):
-        #         if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
-        #         # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
-        #             # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
-        #             data_history[range(bs),pred_keytime[:,i:i+1], :-self.action_dim] = pred_keyframe[:,i:i+1]
-        #             data_mask = data_mask.clone()
-        #             data_mask[range(bs),pred_keytime[:,i:i+1],:-self.action_dim] = True
-        #             # data_mask[range(bs),pred_keytime[:,i],:] = True
-        #         else:
-        #             break
+        if self.use_keyframe:
+            if not self.pose_only:
+                pred_keyframe = pred_keyframe[...,-self.pose_dim:]
+            for i in range(len(pred_keytime_differences[0])):
+                if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
+                # if self.n_obs_steps < pred_keytime_differences[0]: 
+                # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+                    # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
+                    # pred_keytime[:,i:i+1] = min(self.action_seq_len-1, pred_keytime[:,i:i+1])
+                    data_history[range(bs),pred_keytime[:,i:i+1], :-self.action_dim] = pred_keyframe[:,i:i+1]
+                    data_mask = data_mask.clone()
+                    data_mask[range(bs),pred_keytime[:,i:i+1],:-self.action_dim] = True
+                    # data_mask[range(bs),pred_keytime[:,i],:] = True
+                else:
+                    break
         # print("after: ", data_mask[...,0], pred_keytime_differences)
 
         # Predict action seq based on key frames

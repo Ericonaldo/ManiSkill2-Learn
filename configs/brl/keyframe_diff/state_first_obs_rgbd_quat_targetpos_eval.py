@@ -1,16 +1,18 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-keyframewithimg"
-eval_action_len = 34
+eval_action_len = 34 # 6 # how many actions to be executed in the following timesteps for one input
+workdir = "newkeyframe-statediff-rgbd-angle-notarpos"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
-    batch_size=320,
+    # train_diff_model=True,
+    # train_keyframe_model=False,
+    batch_size=350,
     action_seq_len=horizon,
     diffuse_state=True,
-    # use_ep_first_obs=True,
-    pose_only=True,
+    use_ep_first_obs=False,
+    pose_only=False,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
@@ -42,8 +44,7 @@ agent_cfg = dict(
     optim_cfg=dict(type="Adam", lr=3e-4),
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
-        # input_dim="agent_shape+action_shape",
-        input_dim="6+action_shape", # We only diffuse tcp pose
+        input_dim="agent_shape+action_shape",
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
@@ -70,10 +71,6 @@ agent_cfg = dict(
         ),
     ),
     diffusion_updates=100000,
-    pose_dim=pose_dim,
-    keyframe_state_only=False,
-
-    keyframe_model_path="logs/StackCube-v0/KeyDiffAgent/newkeyframe-posediff-poseonly-angle-rgbd-keyframe-keyframewithimg/20230816_173550/models/model_140000.ckpt"
 )
 
 env_cfg = dict(
@@ -84,7 +81,8 @@ env_cfg = dict(
     obs_mode="rgbd",
     control_mode="pd_ee_delta_pose", # "pd_ee_pose", # 
     concat_rgbd=True,
-    using_angle=True,
+    using_angle=False,
+    using_target=True,
 )
 
 
@@ -101,7 +99,7 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=8,
+    num_procs=128,
     synchronized=False,
     max_threads=5,
 )

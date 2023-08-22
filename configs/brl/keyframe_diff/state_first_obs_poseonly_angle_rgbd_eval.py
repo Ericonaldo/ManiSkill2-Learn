@@ -74,7 +74,7 @@ agent_cfg = dict(
     diffusion_updates=100000,
     pose_dim=pose_dim,
 
-    keyframe_model_path="logs/PegInsertionSide-v0/KeyDiffAgent/newkeyframe-posediff-poseonly-angle-rgbd-keyframe/20230806_130909/models/model_100000.ckpt"
+    # keyframe_model_path="logs/StackCube-v0/KeyDiffAgent/newkeyframe-posediff-poseonly-angle-rgbd-keyframe-keyframewithimg/20230816_173550/models/model_140000.ckpt"
 )
 
 env_cfg = dict(
