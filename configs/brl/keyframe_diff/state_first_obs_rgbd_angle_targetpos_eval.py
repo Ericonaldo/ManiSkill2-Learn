@@ -1,6 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
+eval_action_len = 34 # 6 # how many actions to be executed in the following timesteps for one input
 workdir = "newkeyframe-statediff-rgbd-angle-tarpos"
 agent_cfg = dict(
     type="KeyDiffAgent",
@@ -71,14 +72,17 @@ agent_cfg = dict(
     diffusion_updates=100000,
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-#     history_len=n_obs_steps,
-#     obs_mode="rgbd",
-#     control_mode="pd_joint_pos"
-# )
+env_cfg = dict(
+    type="gym",
+    env_name="PickCube-v0",
+    unwrapped=False,
+    history_len=n_obs_steps,
+    obs_mode="rgbd",
+    control_mode="pd_ee_delta_pose", # "pd_ee_pose", # 
+    concat_rgbd=True,
+    using_angle=True,
+    using_target=True,
+)
 
 
 replay_cfg = dict(
@@ -109,11 +113,13 @@ train_cfg = dict(
     n_checkpoint=10000,
 )
 
-# eval_cfg = dict(
-#     type="OfflineDiffusionEvaluation",
-#     num=10,
-#     num_procs=1,
-#     use_hidden_state=False,
-#     save_traj=False,
-#     use_log=False,
-# )
+eval_cfg = dict(
+    type="Evaluation",
+    num=10,
+    num_procs=1,
+    use_hidden_state=False,
+    save_traj=False,
+    save_video=True,
+    use_log=False,
+    eval_action_len=eval_action_len,
+)

@@ -48,7 +48,9 @@ def convert_state_representation(keys, args, worker_id, main_process_id):
         "n_points": args.n_points,
         "n_goal_points": args.n_goal_points,
         "camera_cfgs": {},
-        "concat_rgbd": args.concat_rgbd
+        "concat_rgbd": args.concat_rgbd,
+        "using_angle": args.using_angle,
+        "using_target": args.using_target,
     }
     if args.enable_seg:
         input_dict["camera_cfgs"]["add_segmentation"] = True
@@ -170,6 +172,8 @@ def parse_args():
     parser.add_argument("--render", default=False, action="store_true", help="Render the environment while generating demonstrations")
     parser.add_argument("--debug", default=False, action="store_true", help="Debug print")
     parser.add_argument("--force", default=False, action="store_true", help="Force-regenerate the output trajectory file")
+    parser.add_argument("--using_angle", default=False, action="store_true", help="Using angle instead of quat in state vector")
+    parser.add_argument("--using_target", default=False, action="store_true", help="Using target position")
     
     # Extra observation args
     parser.add_argument("--enable-seg", action='store_true', help="Enable ground truth segmentation")
