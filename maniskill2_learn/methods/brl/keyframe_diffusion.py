@@ -164,7 +164,10 @@ class KeyDiffAgent(DiffAgent):
         if not train_diff_model:
             self.actor_optim = None
             del self.model
-            # del self.obs_encoder
+            del self.obs_encoder
+
+        if train_diff_model and train_keyframe_model:
+            assert id(self.obs_encoder.rgb_model) != id(self.keyframe_obs_encoder.rgb_model), "same encoder?????"
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
 
