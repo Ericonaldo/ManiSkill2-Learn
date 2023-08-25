@@ -584,6 +584,10 @@ class KeyDiffAgent(DiffAgent):
                 loss += diff_loss
 
                 self.train_diff_model = False
+                for param in self.model.parameters():
+                    param.requires_grad = False
+                for param in self.obs_encoder.parameters():
+                    param.requires_grad = False
 
         if self.train_keyframe_model:
             if (self.keyframe_model_updates is None) or ((self.keyframe_model_updates is not None) and updates <= self.keyframe_model_updates):
