@@ -167,7 +167,7 @@ class KeyDiffAgent(DiffAgent):
             del self.obs_encoder
 
         if train_diff_model and train_keyframe_model:
-            assert id(self.obs_encoder.rgb_model) != id(self.keyframe_obs_encoder.rgb_model), "same encoder?????"
+            assert id(self.obs_encoder.key_model_map["rgb"]) != id(self.keyframe_obs_encoder.key_model_map["rgb"]), "same encoder?????"
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
 
@@ -239,7 +239,7 @@ class KeyDiffAgent(DiffAgent):
 
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(obs, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
         
-        if self.pose_only:
+        if False: # self.pose_only:
             state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
             masked_state_loss = state_loss*keyframe_masks
 

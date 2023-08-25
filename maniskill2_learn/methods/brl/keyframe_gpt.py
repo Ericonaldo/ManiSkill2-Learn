@@ -212,7 +212,7 @@ class KeyframeGPTWithHist(nn.Module):
             self.key_frame_state_predictor = MLP(self.config.n_embd, self.pose_dim+1, hidden_dims=[256,256]) # We only predict pose
         else:
             self.key_frame_action_predictor = MLP(self.config.n_embd, action_dim+1, hidden_dims=[256,256]) # Action + timestep diffrence
-            self.key_frame_state_predictor = MLP(self.config.n_embd, state_dim, hidden_dims=[256,256])
+        self.key_frame_state_predictor = MLP(self.config.n_embd, state_dim, hidden_dims=[256,256])
 
         self.apply(self._init_weights)
         print(f"Total # of parameters: {sum(p.numel() for p in self.parameters())}")
@@ -284,7 +284,7 @@ class KeyframeGPTWithHist(nn.Module):
         ####     key_state_act_preds = key_state_act_preds[:,T:] 
         
         # Remove the extra tokens (history) when in eval mode.
-        if self.pose_only:
+        if False: # self.pose_only:
             # Simplify the model, we only predict the tcp pose
             key_state_preds = self.key_frame_state_predictor(key_state_act_preds[:,T:]) # The next tokens after s history
             key_act_preds = None

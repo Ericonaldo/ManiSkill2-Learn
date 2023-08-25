@@ -1,17 +1,16 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-targetpos"
+eval_action_len = 34 # 6 # how many actions to be executed in the following timesteps for one input
+workdir = "statediff-epfirstobs-rgbd"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    # train_keyframe_model=False,
-    batch_size=250,
+    batch_size=200,
     action_seq_len=horizon,
     diffuse_state=True,
-    # use_ep_first_obs=True,
-    pose_only=True,
+    use_ep_first_obs=True,
     visual_nn_cfg=dict(
         type="MultiImageObsEncoder", 
         shape_meta=dict(
@@ -43,8 +42,7 @@ agent_cfg = dict(
     optim_cfg=dict(type="Adam", lr=3e-4),
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
-        # input_dim="agent_shape+action_shape",
-        input_dim="6+action_shape", # We only diffuse tcp pose
+        input_dim="6+action_shape",
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
@@ -70,19 +68,19 @@ agent_cfg = dict(
             beta2=0.95,
         ),
     ),
-    diffusion_updates=150000,
+    diffusion_updates=100000,
     pose_dim=pose_dim,
-    extra_dim=6,
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-#     history_len=n_obs_steps,
-#     obs_mode="rgbd",
-#     control_mode="pd_joint_pos"
-# )
+env_cfg = dict(
+    type="gym",
+    env_name="PickCube-v0",
+    unwrapped=False,
+    history_len=n_obs_steps,
+    obs_mode="rgbd",
+    control_mode="pd_ee_delta_pose", # "pd_ee_pose", # 
+    concat_rgbd=True,
+)
 
 
 replay_cfg = dict(
@@ -98,14 +96,14 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=8,
+    num_procs=128,
     synchronized=False,
     max_threads=5,
 )
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=151000,
+    total_steps=250000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
@@ -113,11 +111,13 @@ train_cfg = dict(
     n_checkpoint=10000,
 )
 
-# eval_cfg = dict(
-#     type="OfflineDiffusionEvaluation",
-#     num=10,
-#     num_procs=1,
-#     use_hidden_state=False,
-#     save_traj=False,
-#     use_log=False,
-# )
+eval_cfg = dict(
+    type="Evaluation",
+    num=10,
+    num_procs=1,
+    use_hidden_state=False,
+    save_traj=False,
+    save_video=True,
+    use_log=False,
+    eval_action_len=eval_action_len,
+)
