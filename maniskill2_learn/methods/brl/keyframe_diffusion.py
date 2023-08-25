@@ -234,8 +234,8 @@ class KeyDiffAgent(DiffAgent):
             else:
                 gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
         else:
-            gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
             gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
+        gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
 
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(obs, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
         
@@ -524,9 +524,9 @@ class KeyDiffAgent(DiffAgent):
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
         
-        if self.actor_optim is not None:
+        if self.train_diff_model and self.actor_optim is not None:
             self.actor_optim.zero_grad()
-        if self.keyframe_optim is not None:
+        if self.train_keyframe_model and self.keyframe_optim is not None:
             self.keyframe_optim.zero_grad()
         # {'obs': {'base_camera_rgbd': [(bs, horizon, 4, 128, 128)], 'hand_camera_rgbd': [(bs, horizon, 4, 128, 128)], 
         # 'state': (bs, horizon, 38)}, 'actions': (bs, horizon, 7), 'dones': (bs, 1), 
@@ -583,6 +583,8 @@ class KeyDiffAgent(DiffAgent):
                 ret_dict.update(info)
                 loss += diff_loss
 
+                self.train_diff_model = False
+
         if self.train_keyframe_model:
             if (self.keyframe_model_updates is None) or ((self.keyframe_model_updates is not None) and updates <= self.keyframe_model_updates):
                 keyframe_actions = sampled_batch["keyframe_actions"] # Need Normalize! (Already did in replay buffer)
@@ -626,9 +628,9 @@ class KeyDiffAgent(DiffAgent):
         nn.utils.clip_grad_norm_(self.parameters(), 1.0)
         # for param in self.keyframe_obs_encoder.parameters():
         #     print(param.name, param.grad)
-        if self.actor_optim is not None:
+        if self.train_diff_model and self.actor_optim is not None:
             self.actor_optim.step()
-        if self.keyframe_optim is not None:
+        if self.train_keyframe_model and self.keyframe_optim is not None:
             self.keyframe_optim.step()
 
         ## Not implement yet
