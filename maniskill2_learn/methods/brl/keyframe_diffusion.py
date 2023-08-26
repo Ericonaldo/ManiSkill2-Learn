@@ -64,6 +64,7 @@ class KeyDiffAgent(DiffAgent):
         optim_cfg,
         env_params,
         action_seq_len,
+        keyframe_state_only,
         eval_action_len=1,
         pcd_cfg=None,
         lr_scheduler_cfg=None,
@@ -94,7 +95,6 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe_num=1,
         pose_only=False,
         keyframe_model_type="gpt",
-        keyframe_state_only=True,
         pose_dim=7,
         extra_dim=0,
         **kwargs,
@@ -412,7 +412,10 @@ class KeyDiffAgent(DiffAgent):
             data_history = torch.cat([data_history, supp], dim=1)
         
         if self.diffuse_state and self.pose_only:
-            data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
+            if self.extra_dim > 0:
+                data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim-self.extra_dim], data_history[...,-self.action_dim:]], dim=-1)
+            else:
+                data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
 
         if self.use_keyframe:
             if self.diffuse_state:
@@ -583,6 +586,7 @@ class KeyDiffAgent(DiffAgent):
                 ret_dict.update(info)
                 loss += diff_loss
 
+            else:
                 self.train_diff_model = False
                 for param in self.model.parameters():
                     param.requires_grad = False

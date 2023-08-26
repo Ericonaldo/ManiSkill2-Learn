@@ -69,6 +69,7 @@ agent_cfg = dict(
         ),
     ),
     diffusion_updates=100000,
+    keyframe_state_only=False,
 )
 
 # env_cfg = dict(

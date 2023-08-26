@@ -1,13 +1,13 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-quat-rgbd-keyframe-keyframewithimg-targetpos"
+workdir = "newkeyframe-posediff-poseonly-quat-rgbd"
 pose_dim = 7
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
-    train_keyframe_model=False,
-    batch_size=250,
+    # train_keyframe_model=False,
+    batch_size=256,
     action_seq_len=horizon,
     diffuse_state=True,
     # use_ep_first_obs=True,
@@ -72,6 +72,7 @@ agent_cfg = dict(
     ),
     diffusion_updates=150000,
     pose_dim=pose_dim,
+    keyframe_state_only=False,
 )
 
 # env_cfg = dict(
