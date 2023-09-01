@@ -380,8 +380,6 @@ class DiffAgent(BaseAgent):
         #         return self.eval_action_queue.popleft()
         
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
-        if "state" in observation:
-            observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
         
         action_history = observation["actions"]
         action_history = self.normalizer.normalize(action_history)

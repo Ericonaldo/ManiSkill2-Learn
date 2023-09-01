@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-keyframewithimg-targetpos"
+workdir = "newkeyframe-posediff-poseonly-angle-rgbd-targetpos"
 eval_action_len = 34
 pose_dim = 6
 agent_cfg = dict(

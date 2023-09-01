@@ -73,6 +73,12 @@ agent_cfg = dict(
     diffusion_updates=150000,
     pose_dim=pose_dim,
     keyframe_state_only=False,
+    keyframe_lr_scheduler_cfg=dict(
+        type="CosineAnnealingWarmRestarts",
+        T_0=5,
+        T_mult=2,
+        eta_min=1e-7,
+    )
 )
 
 # env_cfg = dict(

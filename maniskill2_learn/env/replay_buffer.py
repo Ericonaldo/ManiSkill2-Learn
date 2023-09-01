@@ -6,6 +6,7 @@ from itertools import count
 from h5py import File
 import _thread, threading
 import torch
+import copy
 
 from maniskill2_learn.utils.meta import get_filename_suffix, get_total_memory, get_memory_list, get_logger, TqdmToLogger, parse_files
 from maniskill2_learn.utils.data import is_seq_of, DictArray, GDict, is_h5, is_null, DataCoder, is_not_null
@@ -334,30 +335,31 @@ class ReplayMemory:
         if device is not None:
             ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
 
-        ret["states"] = ret["obs"]["state"]
+        ret["normed_states"] = copy.deepcopy(ret["obs"]["state"])
         if action_normalizer is not None:
-            for key in ["actions", "keyframe_actions"]:
-                if key in ret:
-                    ret[key] = action_normalizer.normalize(ret[key])
+            # for key in ["actions", "keyframe_actions"]:
+            #     if key in ret:
+            #         ret[key] = action_normalizer.normalize(ret[key])
+            ret["normed_actions"] = action_normalizer.normalize(ret["actions"])
         elif obsact_normalizer is not None:
             if "actions" in ret and "obs" in ret:
                 action_dim = ret["actions"].shape[-1]
                 data = torch.cat([ret["obs"]["state"], ret["actions"]], dim=-1)
                 data = obsact_normalizer.normalize(data)
-                ret["obs"]["state"] = ret["states"] = data[...,:-action_dim]
-                ret["actions"] = data[...,-action_dim:]
-            if "keyframe_states" in ret and "keyframe_actions" in ret:
-                data = torch.cat([ret["keyframe_states"], ret["keyframe_actions"]], dim=-1)
-                data = obsact_normalizer.normalize(data)
-                ret["keyframe_states"] = data[...,:-action_dim]
-                ret["keyframe_actions"] = data[...,-action_dim:]
-            if "ep_first_obs" in ret:
-                data = torch.cat([ret['ep_first_obs']['state'][:,0], ret["actions"][:,0]], dim=-1)
-                data = obsact_normalizer.normalize(data)
-                ret['ep_first_obs']['state'] = data[...,:-action_dim]
-                for key in ret['ep_first_obs']:
-                    if key != "state":
-                        ret['ep_first_obs'][key] = ret['ep_first_obs'][key][:,0]
+                ret["normed_states"] = data[...,:-action_dim]
+                ret["normed_actions"] = data[...,-action_dim:]
+            # if "keyframe_states" in ret and "keyframe_actions" in ret: # We do not norm for keyframe prediction
+            #     data = torch.cat([ret["keyframe_states"], ret["keyframe_actions"]], dim=-1)
+            #     data = obsact_normalizer.normalize(data)
+            #     ret["keyframe_states"] = data[...,:-action_dim]
+            #     ret["keyframe_actions"] = data[...,-action_dim:]
+            # if "ep_first_obs" in ret: # We do not consider ep first obs for now
+            #     data = torch.cat([ret['ep_first_obs']['state'][:,0], ret["actions"][:,0]], dim=-1)
+            #     data = obsact_normalizer.normalize(data)
+            #     ret['ep_first_obs']['state'] = data[...,:-action_dim]
+            #     for key in ret['ep_first_obs']:
+            #         if key != "state":
+            #             ret['ep_first_obs'][key] = ret['ep_first_obs'][key][:,0]
 
         if (obs_mask is not None) and ("obs" in ret.keys()):
             obs_mask = obs_mask.cpu().numpy()

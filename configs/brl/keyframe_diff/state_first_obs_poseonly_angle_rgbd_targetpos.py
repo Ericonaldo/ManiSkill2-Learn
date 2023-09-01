@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-targetpos"
+workdir = "newkeyframe-posediff-poseonly-angle-rgbd-targetpos-nogradnorm"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
@@ -64,7 +64,7 @@ agent_cfg = dict(
         max_timestep=200,
         hist_horizon=n_obs_steps,
         optim_cfg=dict(
-            init_lr=5e-4,
+            init_lr=8e-4,
             weight_decay=0,
             beta1=0.9,
             beta2=0.95,
@@ -73,6 +73,13 @@ agent_cfg = dict(
     diffusion_updates=150000,
     pose_dim=pose_dim,
     extra_dim=6,
+    keyframe_state_only=False,
+    keyframe_lr_scheduler_cfg=dict(
+        type="CosineAnnealingWarmRestarts",
+        T_0=5,
+        T_mult=2,
+        eta_min=1e-7,
+    )
 )
 
 # env_cfg = dict(

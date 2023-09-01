@@ -61,12 +61,13 @@ agent_cfg = dict(
         max_timestep=200,
         hist_horizon=n_obs_steps,
         optim_cfg=dict(
-            init_lr=5e-4,
+            init_lr=8e-4,
             weight_decay=0,
             beta1=0.9,
             beta2=0.95,
         ),
-    ),
+    ), 
+    keyframe_state_only=False,
     # keyframe_model_path="logs/PickCube-v0/KeyDiffAgent/statediff-rgbd/20230714_214853/models/model_140000.ckpt"
     # keyframe_model_path="logs/StackCube-v0/KeyDiffAgent/statediff-rgbd/20230715_014339/models/model_250000.ckpt"
     # keyframe_model_path="logs/PickCube-v0/KeyDiffAgent/statediff-keynorm-rgbd/20230718_170744/models/model_120000.ckpt"

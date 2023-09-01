@@ -163,7 +163,7 @@ class KeyframeGPTWithHist(nn.Module):
     is specified as block_size, which does not count the history query tokens. 
     """
 
-    def __init__(self, config, state_dim=-1, action_dim=-1, use_first_state=False, pose_only=False, pose_dim=7):
+    def __init__(self, config, state_dim=-1, action_dim=-1, pred_state_dim=-1, use_first_state=False, pose_only=False, pose_dim=7):
         super().__init__()
 
         assert state_dim > 0 and action_dim > 0
@@ -177,6 +177,8 @@ class KeyframeGPTWithHist(nn.Module):
         self.len_history = self.config.len_history
         self.pose_only = pose_only
         self.use_first_state = use_first_state
+
+        self.pred_state_dim = pred_state_dim if pred_state_dim > 0 else state_dim
 
         # Set up learnable position embedding synchronized for s and a tokens, as proposed
         # in Decision Transformer. We use a similar global+local position embedding design.
@@ -211,7 +213,7 @@ class KeyframeGPTWithHist(nn.Module):
         if self.pose_only:
             self.key_frame_state_predictor = MLP(self.config.n_embd, self.pose_dim+1, hidden_dims=[256,256]) # We only predict pose
         else:
-            self.key_frame_state_predictor = MLP(self.config.n_embd, state_dim, hidden_dims=[256,256])
+            self.key_frame_state_predictor = MLP(self.config.n_embd, self.pred_state_dim, hidden_dims=[256,256])
         self.key_frame_action_predictor = MLP(self.config.n_embd, action_dim+1, hidden_dims=[256,256]) # Action + timestep diffrence
 
         self.apply(self._init_weights)

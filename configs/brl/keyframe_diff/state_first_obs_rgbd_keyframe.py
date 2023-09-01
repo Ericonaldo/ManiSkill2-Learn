@@ -61,13 +61,19 @@ agent_cfg = dict(
         max_timestep=200,
         hist_horizon=n_obs_steps,
         optim_cfg=dict(
-            init_lr=5e-4,
+            init_lr=8e-4,
             weight_decay=0,
             beta1=0.9,
             beta2=0.95,
         ),
     ),
     diffusion_updates=100000,
+    keyframe_lr_scheduler_cfg=dict(
+        type="CosineAnnealingWarmRestarts",
+        T_0=5,
+        T_mult=2,
+        eta_min=1e-7,
+    )
 )
 
 # env_cfg = dict(

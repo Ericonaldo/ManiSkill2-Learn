@@ -65,9 +65,11 @@ class KeyDiffAgent(DiffAgent):
         env_params,
         action_seq_len,
         keyframe_state_only,
+        keyframe_optim_cfg=None,
         eval_action_len=1,
         pcd_cfg=None,
         lr_scheduler_cfg=None,
+        keyframe_lr_scheduler_cfg=None,
         batch_size=256,
         n_timesteps=150,
         loss_type="l1",
@@ -135,13 +137,15 @@ class KeyDiffAgent(DiffAgent):
             pose_dim=pose_dim,
             extra_dim=extra_dim,
         )
+        if keyframe_optim_cfg is None:
+            keyframe_optim_cfg = optim_cfg
         self.keyframe_obs_encoder = build_model(visual_nn_cfg)
         
         if keyframe_model_type == "gpt":
             keyframe_state_dim = keyframe_model_cfg.state_dim
             if not keyframe_state_only:
                 keyframe_state_dim += self.img_feature_dim
-            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_state_dim, keyframe_model_cfg.action_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
+            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_state_dim, keyframe_model_cfg.action_dim, pred_state_dim=keyframe_model_cfg.state_dim, use_first_state=use_ep_first_obs, pose_only=pose_only, pose_dim=pose_dim)
         elif keyframe_model_type == "bc":
             self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=self.pose_dim+1, hidden_dims=[2048, 512, 128])
         else:
@@ -155,18 +159,25 @@ class KeyDiffAgent(DiffAgent):
             if keyframe_model_type == "gpt":
                 self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers(extra_model=self.keyframe_obs_encoder)
             elif keyframe_model_type == "bc":
-                self.keyframe_optim = build_optimizer([self.keyframe_obs_encoder,self.keyframe_model], optim_cfg)
+                self.keyframe_optim = build_optimizer([self.keyframe_obs_encoder,self.keyframe_model], keyframe_optim_cfg)
                 self.actor_optim = build_optimizer([self.model,self.obs_encoder], optim_cfg) # Update using the same optimizer
         else:
             del self.keyframe_model
             del self.keyframe_obs_encoder
+        
+        if keyframe_lr_scheduler_cfg is None:
+            self.keyframe_lr_scheduler = None
+        else:
+            if self.keyframe_optim is not None:
+                keyframe_lr_scheduler_cfg["optimizer"] = self.keyframe_optim
+            self.keyframe_lr_scheduler = build_lr_scheduler(keyframe_lr_scheduler_cfg)
                 
         if not train_diff_model:
             self.actor_optim = None
             del self.model
             del self.obs_encoder
 
-        if train_diff_model and train_keyframe_model:
+        if train_diff_model and train_keyframe_model and (not keyframe_state_only):
             assert id(self.obs_encoder.key_model_map["rgb"]) != id(self.keyframe_obs_encoder.key_model_map["rgb"]), "same encoder?????"
 
         self.max_horizon = self.action_seq_len - self.n_obs_steps # range [0, self.action_seq_len - self.n_obs_steps-1]
@@ -273,19 +284,21 @@ class KeyDiffAgent(DiffAgent):
         # if mode=="eval": # Only used for ms-skill challenge online evaluation
         #     if self.eval_action_queue is not None and len(self.eval_action_queue):
         #         return self.eval_action_queue.popleft()
-        
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         # if "state" in observation:
         #     observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
+        
 
-        data = torch.cat([observation["state"], torch.cat([observation["actions"], observation["actions"][:,0:1,:]], dim=1)], dim=-1)
-        data = self.normalizer.normalize(data)
-        observation["state"] = data[..., :-self.action_dim]
-        observation["actions"] = data[..., :-1, -self.action_dim:]
+        # data = torch.cat([observation["state"], torch.cat([observation["actions"], observation["actions"][:,0:1,:]], dim=1)], dim=-1)
+        # data = self.normalizer.normalize(data)
+        # observation["state"] = data[..., :-self.action_dim]
+        # observation["actions"] = data[..., :-1, -self.action_dim:]
+        # states = data[..., :-self.action_dim]
+        # action_history = data[..., :-1, -self.action_dim:]
         
         states = observation["state"]
-        timesteps = observation["timesteps"]
         action_history = observation["actions"]
+        timesteps = observation["timesteps"]
         bs = action_history.shape[0]
         hist_len = action_history.shape[1]
         observation.pop("actions")
@@ -293,7 +306,7 @@ class KeyDiffAgent(DiffAgent):
 
         ep_first_obs = None
         ep_first_obs_state = None
-        if self.use_ep_first_obs and 'ep_first_obs' in observation:
+        if self.use_ep_first_obs and ('ep_first_obs' in observation):
             ep_first_obs = observation['ep_first_obs']
             observation.pop("ep_first_obs")
             data = torch.cat([ep_first_obs['state'], torch.zeros((ep_first_obs['state'].shape[0], self.action_dim), dtype=states.dtype,device=self.device,)], dim=-1)
@@ -411,6 +424,8 @@ class KeyDiffAgent(DiffAgent):
                 )
             data_history = torch.cat([data_history, supp], dim=1)
         
+        data_history = self.normalizer.normalize(data_history)
+
         if self.diffuse_state and self.pose_only:
             if self.extra_dim > 0:
                 data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim-self.extra_dim], data_history[...,-self.action_dim:]], dim=-1)
@@ -526,6 +541,8 @@ class KeyDiffAgent(DiffAgent):
         
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
+        if self.keyframe_lr_scheduler is not None:
+            self.keyframe_lr_scheduler.step()
         
         if self.train_diff_model and self.actor_optim is not None:
             self.actor_optim.zero_grad()
@@ -539,7 +556,7 @@ class KeyDiffAgent(DiffAgent):
         ret_dict = {}
 
         ep_first_obs = None
-        if self.use_ep_first_obs and 'ep_first_obs' in sampled_batch:
+        if self.use_ep_first_obs and ('ep_first_obs' in sampled_batch):
             ep_first_obs = sampled_batch['ep_first_obs']
             # for key in ep_first_obs:
             #     print(ep_first_obs[key].shape)
@@ -548,16 +565,16 @@ class KeyDiffAgent(DiffAgent):
         if self.diffuse_state:
             if self.pose_only:
                 if self.extra_dim > 0:
-                    traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+                    traj_data = torch.cat([sampled_batch["normed_states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["normed_actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
                 else:
-                    traj_data = torch.cat([sampled_batch["states"][...,-self.pose_dim:],sampled_batch["actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+                    traj_data = torch.cat([sampled_batch["normed_states"][...,-self.pose_dim:],sampled_batch["normed_actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
             else:
-                traj_data = torch.cat([sampled_batch["states"],sampled_batch["actions"]], dim=-1)
+                traj_data = torch.cat([sampled_batch["normed_states"],sampled_batch["normed_actions"]], dim=-1)
         else:
-            traj_data = sampled_batch["actions"]
+            traj_data = sampled_batch["normed_actions"]
         # Need Normalize! (Already did in replay buffer)
         # traj_data = self.normalizer.normalize(traj_data)
-        masked_obs = sampled_batch['obs']
+        masked_obs = sampled_batch['obs'] # This is not normalized
         act_mask, obs_mask, data_mask = None, None, None
         if self.fix_obs_steps:
             act_mask, obs_mask, data_mask = self.act_mask, self.obs_mask, self.data_mask
@@ -576,7 +593,7 @@ class KeyDiffAgent(DiffAgent):
                     masked_obs[key] = masked_obs[key][:,obs_mask,...]
                     
             else:
-                raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+                raise NotImplementedError("Not support obs not as cond! Please set obs_as_global_cond=True")
 
         if self.train_diff_model:
             if (self.diffusion_updates is None) or ((self.diffusion_updates is not None) and updates <= self.diffusion_updates):
@@ -633,12 +650,12 @@ class KeyDiffAgent(DiffAgent):
                 loss += keyframe_loss
         
         loss.backward()
-        nn.utils.clip_grad_norm_(self.parameters(), 1.0)
+        # nn.utils.clip_grad_norm_(self.parameters(), 1.0) # I doubt this may cause diffusion not work!!!!
         # for param in self.keyframe_obs_encoder.parameters():
         #     print(param.name, param.grad)
-        if self.train_diff_model and self.actor_optim is not None:
+        if self.train_diff_model and (self.actor_optim is not None):
             self.actor_optim.step()
-        if self.train_keyframe_model and self.keyframe_optim is not None:
+        if self.train_keyframe_model and (self.keyframe_optim is not None):
             self.keyframe_optim.step()
 
         ## Not implement yet

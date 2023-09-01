@@ -62,7 +62,7 @@ agent_cfg = dict(
         max_timestep=200,
         hist_horizon=n_obs_steps,
         optim_cfg=dict(
-            init_lr=5e-4,
+            init_lr=8e-4,
             weight_decay=0,
             beta1=0.9,
             beta2=0.95,
@@ -70,6 +70,7 @@ agent_cfg = dict(
     ),
     diffusion_updates=100000,
     pose_dim=pose_dim,
+    keyframe_state_only=False,
 )
 
 env_cfg = dict(
