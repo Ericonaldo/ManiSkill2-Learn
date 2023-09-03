@@ -321,20 +321,22 @@ class KeyDiffAgent(DiffAgent):
                 img_obs_fea = self.keyframe_obs_encoder(observation, ep_first_obs_dict=ep_first_obs, img_fea_only=True)
                 keyframe_inputs = torch.cat([img_obs_fea, states], dim=-1)
             pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(keyframe_inputs, timesteps, action_history, first_state=ep_first_obs_state)
+            
             if pred_keyframe_actions is not None:
+                pred_keyframe_actions, pred_keytime_differences = pred_keyframe_actions[:,:,:-1], pred_keyframe_actions[:,:,-1] # split keyframe and predicted timestep
                 pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
-                pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
-                # data = pred_keyframe
                 if self.diffuse_state:
                     pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
                     pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
-                    pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
-                #     data = torch.cat([pred_keyframe, pred_keyframe_actions], dim=-1)
-                # data = self.normalizer.unnormalize(data)
-                # pred_keyframe = data
-                # if self.diffuse_state:
-                #     pred_keyframe_states, pred_keyframe_actions = data[..., :self.pose_dim], data[..., -self.action_dim:]
-                #     pred_keyframe = pred_keyframe_states
+                    
+                    # Norm the pred keyframe
+                    # pred_keyframe = self.normalizer.normalize(pred_keyframe)
+
+                    # Only select the states as the keyframe
+                    pred_keyframe_states, pred_keyframe_actions = pred_keyframe[..., :self.state_dim], pred_keyframe[..., -self.action_dim:]
+                    if self.pose_only:
+                        pred_keyframe_states = pred_keyframe[..., :self.pose_dim]
+                    pred_keyframe = pred_keyframe_states
             else:
                 pred_keyframe = pred_keyframe_states[:, :self.pred_keyframe_num]
                 pred_keyframe, pred_keytime_differences = pred_keyframe[:,:,:-1], pred_keyframe[:,:,-1] # split keyframe and predicted timestep
@@ -361,6 +363,12 @@ class KeyDiffAgent(DiffAgent):
             pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=None) # [B,]
             
             pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
+
+            if self.extra_dim > 0:
+                # states[...,-6:-3]-states[...,-13:-10] == states[...,-3:]
+                pred_keyframe[...,-6:-3] = states[0,0,-6:-3] # Target pos
+                pred_keyframe[...,-3:] = states[0,0,-6:-3]-pred_keyframe[...,-13:-10] # Delta pos to predicted tcp
+                # print(pred_keyframe[...,-13:], "\n", states[...,-13:])
 
         act_mask, obs_mask, data_mask = None, None, None
         if self.fix_obs_steps:
@@ -433,14 +441,15 @@ class KeyDiffAgent(DiffAgent):
                 data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
 
         if self.use_keyframe:
-            if self.diffuse_state:
-                if self.pose_only:
-                    pred_keyframe = pred_keyframe[...,-self.pose_dim:]
+            if self.pose_only:
+                pred_keyframe = pred_keyframe[...,:self.pose_dim]
+            else:
+                pred_keyframe = pred_keyframe[...,:self.state_dim]
 
-            for i in range(len(pred_keytime_differences[0])):
-                if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
+            for i in range(self.pred_keyframe_num):
+                # if self.n_obs_steps < pred_keytime_differences[0][i] <= self.max_horizon and pred_keytime_differences[0][i] > 0: # Method3: only set key frame when less than horizon
                 # if self.n_obs_steps < pred_keytime_differences[0]: 
-                # if 0 < pred_keytime_differences[0] <= self.max_horizon: # Method3: only set key frame when less than horizon
+                if 0 < pred_keytime_differences[0,i] <= self.max_horizon: # Method3: only set key frame when less than horizon
                     # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
                     # pred_keytime[:,i:i+1] = min(self.action_seq_len-1, pred_keytime[:,i:i+1])
                     data_history[range(bs),pred_keytime[:,i:i+1], :-self.action_dim] = pred_keyframe[:,i:i+1]
@@ -612,7 +621,7 @@ class KeyDiffAgent(DiffAgent):
 
         if self.train_keyframe_model:
             if (self.keyframe_model_updates is None) or ((self.keyframe_model_updates is not None) and updates <= self.keyframe_model_updates):
-                keyframe_actions = sampled_batch["keyframe_actions"] # Need Normalize! (Already did in replay buffer)
+                keyframe_actions = sampled_batch["keyframe_actions"]
                 keyframe_states = sampled_batch["keyframe_states"]
                 # keyframes = self.normalizer.normalize(keyframes)
                 keytime_differences = sampled_batch["keytime_differences"]
@@ -650,7 +659,7 @@ class KeyDiffAgent(DiffAgent):
                 loss += keyframe_loss
         
         loss.backward()
-        # nn.utils.clip_grad_norm_(self.parameters(), 1.0) # I doubt this may cause diffusion not work!!!!
+        # nn.utils.clip_grad_norm_(self.parameters(), 1.0) # This may cause diffusion not work!!!!
         # for param in self.keyframe_obs_encoder.parameters():
         #     print(param.name, param.grad)
         if self.train_diff_model and (self.actor_optim is not None):
