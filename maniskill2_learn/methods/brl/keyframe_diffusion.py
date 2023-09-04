@@ -296,7 +296,7 @@ class KeyDiffAgent(DiffAgent):
         # states = data[..., :-self.action_dim]
         # action_history = data[..., :-1, -self.action_dim:]
         
-        states = observation["state"]
+        states = observation["state"].clone()
         action_history = observation["actions"]
         timesteps = observation["timesteps"]
         bs = action_history.shape[0]
@@ -308,31 +308,48 @@ class KeyDiffAgent(DiffAgent):
         ep_first_obs_state = None
         if self.use_ep_first_obs and ('ep_first_obs' in observation):
             ep_first_obs = observation['ep_first_obs']
-            observation.pop("ep_first_obs")
+            
             data = torch.cat([ep_first_obs['state'], torch.zeros((ep_first_obs['state'].shape[0], self.action_dim), dtype=states.dtype,device=self.device,)], dim=-1)
             data = self.normalizer.normalize(data)
             ep_first_obs['state'] = data[...,:-self.action_dim]
             ep_first_obs_state = ep_first_obs['state']
+        observation.pop("ep_first_obs", None)
         
         self.set_mode(mode=mode)
         if self.use_keyframe:
-            keyframe_inputs = states
+            keyframe_inputs = states.clone()
             if not self.keyframe_state_only:
-                img_obs_fea = self.keyframe_obs_encoder(observation, ep_first_obs_dict=ep_first_obs, img_fea_only=True)
-                keyframe_inputs = torch.cat([img_obs_fea, states], dim=-1)
-            pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(keyframe_inputs, timesteps, action_history, first_state=ep_first_obs_state)
+                tmp_observation = dict()
+                for key in observation:
+                    tmp_observation[key] = observation[key].clone()
+                img_obs_fea = self.keyframe_obs_encoder(tmp_observation, ep_first_obs_dict=ep_first_obs, img_fea_only=True)
+                keyframe_inputs = torch.cat([img_obs_fea, states.clone()], dim=-1)
+            pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(keyframe_inputs, timesteps, action_history.clone(), first_state=ep_first_obs_state)
             
             if pred_keyframe_actions is not None:
                 pred_keyframe_actions, pred_keytime_differences = pred_keyframe_actions[:,:,:-1], pred_keyframe_actions[:,:,-1] # split keyframe and predicted timestep
                 pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
                 if self.diffuse_state:
                     pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
-                    pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
                     
+                    # Set the robot pose from the history
+                    pred_keyframe_states[...,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim] = states[:,-1,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim].clone()
+                    # Compute the information of the extra dim
+                    if self.extra_dim > 0:
+                        assert self.extra_dim == 6, "extra dim should be 6!"
+                        # states[...,-6:-3]-states[...,-13:-10] == states[...,-3:]
+                        pred_keyframe_states[...,-6:-3] = states[0,0,-6:-3].clone() # Target pos
+                        pred_keyframe_states[...,-3:] = states[0,0,-6:-3]-pred_keyframe_states[...,-13:-10] # Delta pos to predicted tcp
+                        # print(pred_keyframe_states[...,:], "\n", states[...,:])
+                        # print("==========")
+
+                    pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
+                        
                     # Norm the pred keyframe
-                    # pred_keyframe = self.normalizer.normalize(pred_keyframe)
+                    pred_keyframe = self.normalizer.normalize(pred_keyframe)
 
                     # Only select the states as the keyframe
+                    # print(self.state_dim, self.action_dim, pred_keyframe.shape)
                     pred_keyframe_states, pred_keyframe_actions = pred_keyframe[..., :self.state_dim], pred_keyframe[..., -self.action_dim:]
                     if self.pose_only:
                         pred_keyframe_states = pred_keyframe[..., :self.pose_dim]
@@ -363,12 +380,6 @@ class KeyDiffAgent(DiffAgent):
             pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=None) # [B,]
             
             pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
-
-            if self.extra_dim > 0:
-                # states[...,-6:-3]-states[...,-13:-10] == states[...,-3:]
-                pred_keyframe[...,-6:-3] = states[0,0,-6:-3] # Target pos
-                pred_keyframe[...,-3:] = states[0,0,-6:-3]-pred_keyframe[...,-13:-10] # Delta pos to predicted tcp
-                # print(pred_keyframe[...,-13:], "\n", states[...,-13:])
 
         act_mask, obs_mask, data_mask = None, None, None
         if self.fix_obs_steps:
@@ -452,10 +463,12 @@ class KeyDiffAgent(DiffAgent):
                 if 0 < pred_keytime_differences[0,i] <= self.max_horizon: # Method3: only set key frame when less than horizon
                     # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
                     # pred_keytime[:,i:i+1] = min(self.action_seq_len-1, pred_keytime[:,i:i+1])
+                    # print(data_history[:,:6,:-self.action_dim], "\n 2:", pred_keyframe)
                     data_history[range(bs),pred_keytime[:,i:i+1], :-self.action_dim] = pred_keyframe[:,i:i+1]
+                    # data_history[range(bs),pred_keytime[:,i:i+1], -self.extra_dim-self.pose_dim-self.action_dim:-self.action_dim-self.extra_dim] = pred_keyframe[:,i:i+1][...,-self.extra_dim-self.pose_dim:-self.extra_dim]
                     data_mask = data_mask.clone()
-                    data_mask[range(bs),pred_keytime[:,i:i+1],:-self.action_dim] = True
-                    # data_mask[range(bs),pred_keytime[:,i],:] = True
+                    # data_mask[range(bs),pred_keytime[:,i:i+1],-self.extra_dim-self.pose_dim-self.action_dim:-self.action_dim-self.extra_dim] = True
+                    data_mask[range(bs),pred_keytime[:,i],:] = True
                 else:
                     break
         # print("after: ", data_mask[...,0], pred_keytime_differences)

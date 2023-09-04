@@ -20,6 +20,11 @@ class ExtendedModuleBase(Module):
         for module in self.children():
             if isinstance(module, ExtendedModuleBase):
                 module.set_mode(mode)
+            else:
+                if mode=="train":
+                    module.train()
+                elif mode=="train":
+                    module.eval()
         return self
 
     @property
