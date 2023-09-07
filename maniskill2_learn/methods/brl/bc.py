@@ -58,8 +58,6 @@ class BC(BaseAgent):
         self.extra_parameters = dict(kwargs)
 
     def forward(self, obs, **kwargs):
-        if "state" in obs:
-            obs["state"] = np.concatenate([obs["state"][...,:9], obs["state"][...,18:]], axis=-1)
         obs = GDict(obs).to_torch(dtype="float32", device=self.device, non_blocking=True, wrapper=False)
         if self.loss_type != "vae":
             act = self.actor(obs, **kwargs)
