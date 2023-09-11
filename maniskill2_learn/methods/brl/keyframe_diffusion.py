@@ -247,7 +247,7 @@ class KeyDiffAgent(DiffAgent):
             if self.extra_dim > 0:
                 gt_states = torch.cat([keyframe_states[...,-self.pose_dim-self.extra_dim:-self.extra_dim], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
             else:
-                gt_states = torch.cat([keyframe_states[...,-self.pose_dim:], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
+                gt_states = keyframe_states[...,-self.pose_dim:] # (B, max_key_frame_len, self.pose_dim)
         else:
             gt_states = keyframe_states # (B, max_key_frame_len, state_dim)
         gt_actions = torch.cat([keyframe_actions, keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, act_dim+1)
@@ -334,10 +334,12 @@ class KeyDiffAgent(DiffAgent):
                 pred_keyframe_actions, pred_keytime_differences = pred_keyframe_actions[:,:,:-1], pred_keyframe_actions[:,:,-1] # split keyframe and predicted timestep
                 pred_keyframe = pred_keyframe_actions[:, :self.pred_keyframe_num] # take the first key frame for diffusion
                 if self.diffuse_state:
+                    if pred_keyframe_states.shape[-1] == self.pose_dim + 1: # Old problem, for compatibility
+                        pred_keyframe_states, tmp_pred_keytime_differences = pred_keyframe_states[:,:,:-1], pred_keyframe_states[:,:,-1] # split keyframe and predicted timestep
                     pred_keyframe_states = pred_keyframe_states[:,:self.pred_keyframe_num]
 
                     if self.keyframe_pose_only and (pred_keyframe_states.shape[-1] < self.state_dim):
-                        assert pred_keyframe_states.shape[-1] == self.pose_dim, "what are you predicting?"
+                        assert pred_keyframe_states.shape[-1] == self.pose_dim, "what are you predicting? pose should be {} but your prediction is {}".format(self.pose_dim, pred_keyframe_states.shape)
                         # pred_keyframe_states is only the pose
                         pred_keyframe_poses = pred_keyframe_states
                         extra_supp = torch.zeros(
@@ -352,8 +354,9 @@ class KeyDiffAgent(DiffAgent):
                         )
                         pred_keyframe_states = torch.cat([before_pose_supp, pred_keyframe_poses, extra_supp], dim=-1)
                     
-                    # Set the robot pose from the history
-                    pred_keyframe_states[...,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim] = states[:,-1,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim].clone()
+                    if not self.keyframe_pose_only:
+                        # Set the robot pose from the history
+                        pred_keyframe_states[...,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim] = states[:,-1:,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim].clone()
                     # Compute the information of the extra dim
                     if self.extra_dim > 0:
                         assert self.extra_dim == 6, "extra dim should be 6!"
@@ -475,7 +478,10 @@ class KeyDiffAgent(DiffAgent):
                     # print(data_history[:,:6,:-self.action_dim], "\n 2:", pred_keyframe)
 
                     if self.keyframe_pose_only:
-                        data_history[range(bs),pred_keytime[:,i:i+1], -self.extra_dim-self.pose_dim-self.action_dim:-self.action_dim-self.extra_dim] = pred_keyframe[:,i:i+1][...,-self.extra_dim-self.pose_dim:-self.extra_dim]
+                        if self.extra_dim > 0:
+                            data_history[range(bs),pred_keytime[:,i:i+1], -self.extra_dim-self.pose_dim-self.action_dim:-self.action_dim-self.extra_dim] = pred_keyframe[:,i:i+1][...,-self.extra_dim-self.pose_dim:-self.extra_dim]
+                        else:
+                            data_history[range(bs),pred_keytime[:,i:i+1], -self.pose_dim-self.action_dim:-self.action_dim] = pred_keyframe[:,i:i+1][...,-self.pose_dim:]
                         data_mask = data_mask.clone()
                         data_mask[range(bs),pred_keytime[:,i:i+1],-self.extra_dim-self.pose_dim-self.action_dim:-self.action_dim-self.extra_dim] = True
                     else:

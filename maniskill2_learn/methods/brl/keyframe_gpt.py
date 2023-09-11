@@ -211,6 +211,7 @@ class KeyframeGPTWithHist(nn.Module):
         self.ln = nn.LayerNorm(self.config.n_embd)
         self.pose_dim = pose_dim
         if self.pose_only:
+            # self.key_frame_state_predictor = MLP(self.config.n_embd, self.pose_dim, hidden_dims=[256,256]) # We only predict pose
             self.key_frame_state_predictor = MLP(self.config.n_embd, self.pose_dim+1, hidden_dims=[256,256]) # We only predict pose
         else:
             self.key_frame_state_predictor = MLP(self.config.n_embd, self.pred_state_dim, hidden_dims=[256,256])
