@@ -79,7 +79,8 @@ agent_cfg = dict(
         T_0=5,
         T_mult=2,
         eta_min=1e-7,
-    )
+    ),
+    keyframe_pose_only=True
 )
 
 # env_cfg = dict(

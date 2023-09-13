@@ -83,12 +83,12 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=250000,
+    total_steps=50000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
     n_eval=50000,
-    n_checkpoint=10000,
+    n_checkpoint=2000,
 )
 
 # eval_cfg = dict(

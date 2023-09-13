@@ -255,14 +255,14 @@ class KeyDiffAgent(DiffAgent):
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(obs, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
         
         if False: # self.pose_only:
-            state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
+            state_loss = ((pred_keyframe_states[:,:gt_states.shape[1]] - gt_states) ** 2).sum(-1)
             masked_state_loss = state_loss*keyframe_masks
 
             masked_loss = masked_state_loss.sum(-1).mean()
 
         else:
             act_loss = ((pred_keyframe_actions[:,:keyframe_actions.shape[1]] - gt_actions) ** 2).sum(-1)
-            state_loss = ((pred_keyframe_states[:,:keyframe_states.shape[1]] - gt_states) ** 2).sum(-1)
+            state_loss = ((pred_keyframe_states[:,:gt_states.shape[1]] - gt_states) ** 2).sum(-1)
 
             masked_act_loss = act_loss*keyframe_masks
             masked_state_loss = state_loss*keyframe_masks

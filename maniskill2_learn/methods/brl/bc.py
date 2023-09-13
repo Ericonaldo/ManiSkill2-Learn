@@ -74,6 +74,7 @@ class BC(BaseAgent):
             mask = torch.ones_like(target_action[..., 0])
         assert mask.ndim == target_action.ndim - 1
         print_dict = defaultdict(list)
+        # print(pred_action.shape, target_action.shape)
         print_dict["abs_err"] = ((torch.abs(pred_action - target_action).mean(-1) * mask).sum() / mask.sum()).item()
         if hasattr(F, self.loss_type):
             assert self.loss_type in ["mse_loss", "l1_loss", "smooth_l1_loss"]
@@ -112,7 +113,8 @@ class BC(BaseAgent):
 
         if self.loss_type != "vae":
             [pred_dist, pred_action] = self.actor(sampled_batch["obs"], mode="dist_mean")
-            loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"][:, -1])
+            # loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"][:, -1])
+            loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
         else:
             if isinstance(self.actor, RNNVisuomotor):
                 raise NotImplementedError("RNNVisuomotor is not supported for vae training")
