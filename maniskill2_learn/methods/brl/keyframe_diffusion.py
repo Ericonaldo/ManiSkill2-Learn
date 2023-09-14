@@ -100,6 +100,7 @@ class KeyDiffAgent(DiffAgent):
         keyframe_model_type="gpt",
         pose_dim=7,
         extra_dim=0,
+        compatible=False,
         **kwargs,
     ):
         visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
@@ -149,7 +150,9 @@ class KeyDiffAgent(DiffAgent):
             keyframe_state_dim = keyframe_model_cfg.state_dim
             if not keyframe_state_only:
                 keyframe_state_dim += self.img_feature_dim
-            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_state_dim, keyframe_model_cfg.action_dim, pred_state_dim=keyframe_model_cfg.state_dim, use_first_state=use_ep_first_obs, pose_only=keyframe_pose_only, pose_dim=pose_dim)
+            self.keyframe_model = KeyframeGPTWithHist(keyframe_model_cfg, keyframe_state_dim, keyframe_model_cfg.action_dim, 
+                                                      pred_state_dim=keyframe_model_cfg.state_dim, use_first_state=use_ep_first_obs, 
+                                                      pose_only=keyframe_pose_only, pose_dim=pose_dim, compatible=compatible)
         elif keyframe_model_type == "bc":
             self.keyframe_model = MLP(input_dim=self.obs_feature_dim, output_dim=self.pose_dim+1, hidden_dims=[2048, 512, 128])
         else:
@@ -462,7 +465,8 @@ class KeyDiffAgent(DiffAgent):
 
         if self.diffuse_state and self.pose_only:
             if self.extra_dim > 0:
-                data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim-self.extra_dim], data_history[...,-self.action_dim:]], dim=-1)
+                # data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim-self.extra_dim], data_history[...,-self.action_dim:]], dim=-1)
+                data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1) # We include extra dim for diffusion
             else:
                 data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
 
@@ -483,7 +487,7 @@ class KeyDiffAgent(DiffAgent):
                         else:
                             data_history[range(bs),pred_keytime[:,i:i+1], -self.pose_dim-self.action_dim:-self.action_dim] = pred_keyframe[:,i:i+1][...,-self.pose_dim:]
                         data_mask = data_mask.clone()
-                        data_mask[range(bs),pred_keytime[:,i:i+1],-self.extra_dim-self.pose_dim-self.action_dim:-self.action_dim-self.extra_dim] = True
+                        data_mask[range(bs),pred_keytime[:,i:i+1],-self.extra_dim-self.pose_dim-self.action_dim:-self.action_dim] = True # We set pose and extra dim as True
                     else:
                         if self.pose_only:
                             data_history[range(bs),pred_keytime[:,i:i+1], -self.pose_dim-self.action_dim-self.extra_dim:-self.action_dim-self.extra_dim] = pred_keyframe[:,i:i+1][...,-self.pose_dim:]
@@ -612,7 +616,8 @@ class KeyDiffAgent(DiffAgent):
         if self.diffuse_state:
             if self.pose_only:
                 if self.extra_dim > 0:
-                    traj_data = torch.cat([sampled_batch["normed_states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["normed_actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+                    # traj_data = torch.cat([sampled_batch["normed_states"][...,-self.pose_dim-self.extra_dim:-self.extra_dim],sampled_batch["normed_actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
+                    traj_data = torch.cat([sampled_batch["normed_states"][...,-self.pose_dim-self.extra_dim:],sampled_batch["normed_actions"]], dim=-1)  # We preserve the tcp pose and target pos for diffusion
                 else:
                     traj_data = torch.cat([sampled_batch["normed_states"][...,-self.pose_dim:],sampled_batch["normed_actions"]], dim=-1)  # We only preserve the tcp pose for diffusion
             else:
