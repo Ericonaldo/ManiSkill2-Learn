@@ -24,6 +24,7 @@ WRAPPERS = Registry("wrappers of gym environments")
 
 
 from transforms3d.quaternions import quat2axangle
+from transforms3d.euler import quat2euler
 
 def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
     theta, omega = quat2axangle(quat)
@@ -211,6 +212,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         using_depth=True,
         history_len=1,
         using_angle=False,
+        using_euler=False,
         using_target=False,
     ):
         super().__init__(env)
@@ -230,6 +232,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         self.ignore_dones = ignore_dones
         self.concat_rgbd = concat_rgbd
         self.using_depth = using_depth
+        self.using_euler = using_euler
 
         self.fix_seed = fix_seed
 
@@ -513,6 +516,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 if self.using_angle:
                     cur_tcq_pose_np = obs["extra"]["tcp_pose"]
                     obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose_np[:3], compact_axis_angle_from_quaternion(cur_tcq_pose_np[3:])]
+                elif self.using_euler:
+                    cur_tcq_pose_np = obs["extra"]["tcp_pose"]
+                    obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose_np[:3], quat2euler(cur_tcq_pose_np[3:])]
             
             obs['extra'].pop('target_points', None)
             # # NOTE: We want to remove extra info about goals

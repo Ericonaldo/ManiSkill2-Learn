@@ -101,6 +101,7 @@ class KeyDiffAgent(DiffAgent):
         pose_dim=7,
         extra_dim=0,
         compatible=False,
+        keyframe_relative_pose=False,
         **kwargs,
     ):
         visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
@@ -141,6 +142,7 @@ class KeyDiffAgent(DiffAgent):
         )
 
         self.keyframe_pose_only = pose_only and keyframe_pose_only
+        self.keyframe_relative_pose = keyframe_relative_pose
 
         if keyframe_optim_cfg is None:
             keyframe_optim_cfg = optim_cfg
@@ -246,7 +248,7 @@ class KeyDiffAgent(DiffAgent):
     def keyframe_gpt_loss(self, obs, timesteps, actions, keyframe_states, keyframe_actions, keytime_differences, keyframe_masks, ep_first_state=None):
         keytime_differences /= self.max_horizon
 
-        if self.pose_only:
+        if self.keyframe_pose_only:
             if self.extra_dim > 0:
                 gt_states = torch.cat([keyframe_states[...,-self.pose_dim-self.extra_dim:-self.extra_dim], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
             else:
@@ -257,7 +259,7 @@ class KeyDiffAgent(DiffAgent):
 
         pred_keyframe_states, pred_keyframe_actions, info = self.keyframe_model(obs, timesteps, actions, first_state=ep_first_state) # (B, future_seq_len, act_dim+1)
         
-        if False: # self.pose_only:
+        if False: # self.pose_only: # We always choose to predict the action, so forget this path
             state_loss = ((pred_keyframe_states[:,:gt_states.shape[1]] - gt_states) ** 2).sum(-1)
             masked_state_loss = state_loss*keyframe_masks
 
@@ -666,6 +668,7 @@ class KeyDiffAgent(DiffAgent):
             if (self.keyframe_model_updates is None) or ((self.keyframe_model_updates is not None) and updates <= self.keyframe_model_updates):
                 keyframe_actions = sampled_batch["keyframe_actions"]
                 keyframe_states = sampled_batch["keyframe_states"]
+
                 # keyframes = self.normalizer.normalize(keyframes)
                 keytime_differences = sampled_batch["keytime_differences"]
                 keyframe_masks = sampled_batch["keyframe_masks"]
