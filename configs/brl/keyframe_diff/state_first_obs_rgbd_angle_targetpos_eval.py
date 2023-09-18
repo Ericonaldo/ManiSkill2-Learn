@@ -71,6 +71,7 @@ agent_cfg = dict(
     ),
     diffusion_updates=100000,
     keyframe_state_only=False,
+    pose_dim=6,
     extra_dim=6,
 )
 

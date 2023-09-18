@@ -326,14 +326,14 @@ class ReplayMemory:
                             # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
         ret["is_valid"] = is_valid
 
+        if device is not None:
+            ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
+
         if keyframe_type == "bc":
             ret["keyframe_states"] = ret["keyframe_states"][:,:,0] # Only keep the first state and tcp pose
             ret["keytime_differences"] = ret["keytime_differences"][:,:,0]
             ret["keyframe_actions"] = ret["keyframe_actions"][:,:,0]
             ret["keyframe_masks"] = ret["keyframe_masks"][:,:,0]
-
-        if device is not None:
-            ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
 
         ret["normed_states"] = copy.deepcopy(ret["obs"]["state"])
         if action_normalizer is not None:

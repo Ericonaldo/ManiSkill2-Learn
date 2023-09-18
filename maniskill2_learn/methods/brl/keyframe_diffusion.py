@@ -30,7 +30,15 @@ from .keyframe_gpt import KeyframeGPTWithHist
 
 from ..builder import BRL
 
-from transforms3d.quaternions import quat2axangle
+from transforms3d.quaternions import quat2axangle, axangle2quat
+from transforms3d.euler import quat2euler, euler2quat, euler2axangle
+from sapien.core.pysapien import Pose
+
+def quaternion_from_compact_axis_angle(compact_axis_angle: np.ndarray) -> np.ndarray:
+    axis = compact_axis_angle / np.linalg.norm(compact_axis_angle)  
+    theta = np.linalg.norm(compact_axis_angle)  
+    quat = axangle2quat(axis, theta)
+    return quat
 
 def inv_scale_action(action, low, high):
     """Inverse of `clip_and_scale_action` without clipping."""
@@ -102,6 +110,8 @@ class KeyDiffAgent(DiffAgent):
         extra_dim=0,
         compatible=False,
         keyframe_relative_pose=False,
+        keyframe_eval=False,
+        using_euler=False,
         **kwargs,
     ):
         visual_nn_cfg.update(use_ep_first_obs = use_ep_first_obs)
@@ -143,6 +153,8 @@ class KeyDiffAgent(DiffAgent):
 
         self.keyframe_pose_only = pose_only and keyframe_pose_only
         self.keyframe_relative_pose = keyframe_relative_pose
+        self.keyframe_eval = keyframe_eval
+        self.using_euler = using_euler
 
         if keyframe_optim_cfg is None:
             keyframe_optim_cfg = optim_cfg
@@ -325,7 +337,7 @@ class KeyDiffAgent(DiffAgent):
         observation.pop("ep_first_obs", None)
         
         self.set_mode(mode=mode)
-        if self.use_keyframe:
+        if self.use_keyframe or self.keyframe_eval:
             keyframe_inputs = states.clone()
             if not self.keyframe_state_only:
                 tmp_observation = dict()
@@ -358,6 +370,70 @@ class KeyDiffAgent(DiffAgent):
                             device=self.device,
                         )
                         pred_keyframe_states = torch.cat([before_pose_supp, pred_keyframe_poses, extra_supp], dim=-1)
+
+                    if self.keyframe_relative_pose or self.keyframe_eval:
+                        if self.extra_dim > 0:
+                            pred_pose = pred_keyframe_states[...,0,-self.pose_dim-self.extra_dim:-self.extra_dim] # Only consider the first keyframe
+                            cur_pose = states[...,-1,-self.pose_dim-self.extra_dim:-self.extra_dim]
+                        else:
+                            pred_pose = pred_keyframe_states[...,0,-self.pose_dim:] # Only consider the first keyframe
+                            cur_pose = pred_keyframe_states[...,-1,-self.pose_dim:]
+                        
+                    if self.keyframe_eval and self.keyframe_relative_pose:
+                        assert pred_pose.shape[0] == 1, "Not supported batch eval now"
+                        pred_pose = pred_pose[0]
+                        cur_pose = cur_pose[0]
+                        if self.pose_dim == 6:
+                            if self.using_euler: # Transfer euler to axis-angle (action)
+                                pred_pose = np.r_[pred_pose[:3], euler2axangle(*pred_pose[3:])]
+                        else: # Transfer quat to axis-angle (action)
+                            pred_pose = np.r_[pred_pose[:3], compact_axis_angle_from_quaternion(pred_pose[3:])]
+                        return pred_pose.unsqueeze(0).unsqueeze(0) # Return relative pose (by axis-angle) directly
+                        
+                    if self.keyframe_relative_pose:
+                        assert pred_pose.shape[0] == 1, "Not supported batch eval now"
+                        pred_pose = pred_pose[0]
+                        cur_pose = cur_pose[0]
+                        if self.pose_dim == 6: 
+                            if self.using_euler: # Transfer euler to quat
+                                pred_pose = np.r_[pred_pose[:3], euler2quat(pred_pose[3], pred_pose[4], pred_pose[5])]
+                                cur_pose = np.r_[cur_pose[:3], euler2quat(cur_pose[3], cur_pose[4], cur_pose[5])]
+                            else: # Transfer angle to quat
+                                pred_pose = np.r_[pred_pose[:3], quaternion_from_compact_axis_angle(pred_pose[3:])]
+                                cur_pose = np.r_[cur_pose[:3], quaternion_from_compact_axis_angle(cur_pose[3:])]
+                        pred_pose = Pose(p=pred_pose[:3], q=pred_pose[3:])
+                        cur_pose = Pose(p=cur_pose[:3], q=cur_pose[3:])
+                        pred_pose_at_world = cur_pose * pred_pose # !! Compute pose in the world
+                        pred_pose_at_world = np.r_[pred_pose_at_world.p, pred_pose_at_world.q]
+                        if self.pose_dim == 6:
+                            if self.using_euler: # Transfer quat to euler
+                                pred_pose = np.r_[pred_pose_at_world.p, quat2euler(pred_pose_at_world.q)]
+                            else:
+                                pred_pose = np.r_[pred_pose_at_world.p, compact_axis_angle_from_quaternion(pred_pose_at_world.q)]
+
+                    if self.keyframe_eval:
+                        if len(pred_pose.shape) > 1:
+                            assert pred_pose.shape[0] == 1, "Not supported batch eval now"
+                        pred_pose = pred_pose.squeeze()
+                        cur_pose = cur_pose.squeeze()
+                        # Compute relative pose
+                        if self.pose_dim == 6: 
+                            if self.using_euler: # Transfer euler to quat
+                                pred_pose = np.r_[pred_pose[:3], euler2quat(pred_pose[3], pred_pose[4], pred_pose[5])]
+                                cur_pose = np.r_[cur_pose[:3], euler2quat(cur_pose[3], cur_pose[4], cur_pose[5])]
+                            else: # Transfer angle to quat
+                                pred_pose = np.r_[pred_pose[:3], quaternion_from_compact_axis_angle(pred_pose[3:])]
+                                cur_pose = np.r_[cur_pose[:3], quaternion_from_compact_axis_angle(cur_pose[3:])]
+                        pred_pose = Pose(p=pred_pose[:3], q=pred_pose[3:])
+                        cur_pose = Pose(p=cur_pose[:3], q=cur_pose[3:])
+                        key_pose_at_ee = cur_pose.inv() * pred_pose
+                        pred_pose = np.r_[key_pose_at_ee.p, compact_axis_angle_from_quaternion(key_pose_at_ee.q)] # We need axis-angle as the action
+                        return pred_pose.unsqueeze(0).unsqueeze(0)
+                    
+                    if self.extra_dim > 0:
+                        pred_keyframe_states[...,0,-self.pose_dim-self.extra_dim:-self.extra_dim] = pred_pose
+                    else:
+                        pred_keyframe_states[...,0,-self.pose_dim-self.extra_dim:] = pred_pose
                     
                     if not self.keyframe_pose_only:
                         # Set the robot pose from the history

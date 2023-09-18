@@ -3,7 +3,6 @@ n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 eval_action_len = 34 # 6 # how many actions to be executed in the following timesteps for one input
 workdir = "newkeyframe-statediff-rgbd-quat-notarpos"
-pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
     # train_diff_model=True,
@@ -72,6 +71,7 @@ agent_cfg = dict(
     ),
     diffusion_updates=100000,
     keyframe_state_only=False,
+    pose_dim = 7,
 )
 
 env_cfg = dict(
