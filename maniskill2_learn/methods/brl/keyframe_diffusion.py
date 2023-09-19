@@ -388,7 +388,7 @@ class KeyDiffAgent(DiffAgent):
                                 pred_pose = np.r_[pred_pose[:3], euler2axangle(*pred_pose[3:])]
                         else: # Transfer quat to axis-angle (action)
                             pred_pose = np.r_[pred_pose[:3], compact_axis_angle_from_quaternion(pred_pose[3:])]
-                        return pred_pose.unsqueeze(0).unsqueeze(0) # Return relative pose (by axis-angle) directly
+                        return pred_pose[np.newaxis][np.newaxis] # Return relative pose (by axis-angle) directly
                         
                     if self.keyframe_relative_pose:
                         assert pred_pose.shape[0] == 1, "Not supported batch eval now"
@@ -428,12 +428,13 @@ class KeyDiffAgent(DiffAgent):
                         cur_pose = Pose(p=cur_pose[:3], q=cur_pose[3:])
                         key_pose_at_ee = cur_pose.inv() * pred_pose
                         pred_pose = np.r_[key_pose_at_ee.p, compact_axis_angle_from_quaternion(key_pose_at_ee.q)] # We need axis-angle as the action
-                        return pred_pose.unsqueeze(0).unsqueeze(0)
+                        return pred_pose[np.newaxis][np.newaxis]
                     
-                    if self.extra_dim > 0:
-                        pred_keyframe_states[...,0,-self.pose_dim-self.extra_dim:-self.extra_dim] = pred_pose
-                    else:
-                        pred_keyframe_states[...,0,-self.pose_dim-self.extra_dim:] = pred_pose
+                    if self.keyframe_relative_pose:
+                        if self.extra_dim > 0:
+                            pred_keyframe_states[...,0,-self.pose_dim-self.extra_dim:-self.extra_dim] = pred_pose
+                        else:
+                            pred_keyframe_states[...,0,-self.pose_dim-self.extra_dim:] = pred_pose
                     
                     if not self.keyframe_pose_only:
                         # Set the robot pose from the history
