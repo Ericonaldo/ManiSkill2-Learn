@@ -377,7 +377,7 @@ class KeyDiffAgent(DiffAgent):
                             cur_pose = states[...,-1,-self.pose_dim-self.extra_dim:-self.extra_dim]
                         else:
                             pred_pose = pred_keyframe_states[...,0,-self.pose_dim:] # Only consider the first keyframe
-                            cur_pose = pred_keyframe_states[...,-1,-self.pose_dim:]
+                            cur_pose = states[...,-1,-self.pose_dim:]
                         
                     if self.keyframe_eval and self.keyframe_relative_pose:
                         assert pred_pose.shape[0] == 1, "Not supported batch eval now"
@@ -387,7 +387,7 @@ class KeyDiffAgent(DiffAgent):
                             if self.using_euler: # Transfer euler to axis-angle (action)
                                 pred_pose = np.r_[pred_pose[:3], euler2axangle(*pred_pose[3:])]
                         else: # Transfer quat to axis-angle (action)
-                            pred_pose = np.r_[pred_pose[:3], compact_axis_angle_from_quaternion(pred_pose[3:])]
+                            pred_pose = np.r_[pred_pose[:3], compact_axis_angle_from_quaternion(pred_pose[3:]), pred_keyframe_actions[0,0,-1]]
                         return pred_pose[np.newaxis][np.newaxis] # Return relative pose (by axis-angle) directly
                         
                     if self.keyframe_relative_pose:
@@ -427,7 +427,7 @@ class KeyDiffAgent(DiffAgent):
                         pred_pose = Pose(p=pred_pose[:3], q=pred_pose[3:])
                         cur_pose = Pose(p=cur_pose[:3], q=cur_pose[3:])
                         key_pose_at_ee = cur_pose.inv() * pred_pose
-                        pred_pose = np.r_[key_pose_at_ee.p, compact_axis_angle_from_quaternion(key_pose_at_ee.q)] # We need axis-angle as the action
+                        pred_pose = np.r_[key_pose_at_ee.p, compact_axis_angle_from_quaternion(key_pose_at_ee.q), pred_keyframe_actions[0,0,-1]] # We need axis-angle as the action
                         return pred_pose[np.newaxis][np.newaxis]
                     
                     if self.keyframe_relative_pose:
@@ -439,14 +439,12 @@ class KeyDiffAgent(DiffAgent):
                     if not self.keyframe_pose_only:
                         # Set the robot pose from the history
                         pred_keyframe_states[...,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim] = states[:,-1:,-self.extra_dim-self.pose_dim-self.action_dim-7:-self.extra_dim-self.pose_dim-self.action_dim].clone()
+                    
                     # Compute the information of the extra dim
                     if self.extra_dim > 0:
                         assert self.extra_dim == 6, "extra dim should be 6!"
-                        # states[...,-6:-3]-states[...,-13:-10] == states[...,-3:]
                         pred_keyframe_states[...,-6:-3] = states[0,0,-6:-3].clone() # Target pos
                         pred_keyframe_states[...,-3:] = states[0,0,-6:-3]-pred_keyframe_states[...,-13:-10] # Delta pos to predicted tcp
-                        # print(pred_keyframe_states[...,:], "\n", states[...,:])
-                        # print("==========")
 
                     pred_keyframe = torch.cat([pred_keyframe_states, pred_keyframe], dim=-1)
                         
@@ -485,7 +483,7 @@ class KeyDiffAgent(DiffAgent):
         if not self.diffuse_state:
             data_dim = self.action_dim
         else:
-            data_dim = self.action_dim+self.pose_dim if self.pose_only else self.action_dim+self.state_dim
+            data_dim = self.action_dim+self.pose_dim+self.extra_dim if self.pose_only else self.action_dim+self.state_dim
         # data_dim = self.action_dim+self.state_dim if self.diffuse_state else self.action_dim
                 
         if data_mask is None:
@@ -548,7 +546,7 @@ class KeyDiffAgent(DiffAgent):
                 data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim-self.extra_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1) # We include extra dim for diffusion
             else:
                 data_history = torch.cat([data_history[...,-self.action_dim-self.pose_dim:-self.action_dim], data_history[...,-self.action_dim:]], dim=-1)
-
+        
         if self.use_keyframe:
             pred_keyframe = pred_keyframe[...,:self.state_dim]
 
@@ -559,6 +557,10 @@ class KeyDiffAgent(DiffAgent):
                     # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
                     # pred_keytime[:,i:i+1] = min(self.action_seq_len-1, pred_keytime[:,i:i+1])
                     # print(data_history[:,:6,:-self.action_dim], "\n 2:", pred_keyframe)
+
+                    if self.keyframe_relative_pose:
+                        # Do something
+                        raise NotImplementedError
 
                     if self.keyframe_pose_only:
                         if self.extra_dim > 0:

@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "newkeyframe-posediff-poseonly-angle-rgbd-targetpos-nogradnorm"
+workdir = "newkeyframe-tarposediff-poseonly-angle-rgbd-targetpos-nogradnorm"
 pose_dim = 6
 agent_cfg = dict(
     type="KeyDiffAgent",
@@ -44,7 +44,7 @@ agent_cfg = dict(
     diff_nn_cfg=dict(
         type="ConditionalUnet1D",
         # input_dim="agent_shape+action_shape",
-        input_dim="6+action_shape", # We only diffuse tcp pose
+        input_dim="6+6+action_shape", # We only diffuse tcp pose+target pose
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
