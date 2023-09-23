@@ -411,6 +411,7 @@ class KeyDiffAgent(DiffAgent):
                                 pred_pose = np.r_[pred_pose_at_world.p, quat2euler(pred_pose_at_world.q)]
                             else:
                                 pred_pose = np.r_[pred_pose_at_world.p, compact_axis_angle_from_quaternion(pred_pose_at_world.q)]
+                        pred_pose = torch.from_numpy(pred_pose).to(pred_keyframe.device)
 
                     if self.keyframe_eval:
                         if len(pred_pose.shape) > 1:
@@ -558,10 +559,6 @@ class KeyDiffAgent(DiffAgent):
                     # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
                     # pred_keytime[:,i:i+1] = min(self.action_seq_len-1, pred_keytime[:,i:i+1])
                     # print(data_history[:,:6,:-self.action_dim], "\n 2:", pred_keyframe)
-
-                    if self.keyframe_relative_pose:
-                        # Do something
-                        raise NotImplementedError
 
                     if self.keyframe_pose_only:
                         if self.extra_dim > 0:
