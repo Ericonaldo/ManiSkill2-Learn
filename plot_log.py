@@ -6,7 +6,7 @@ import os
 def plot_training_curve(log_file):  
     step_pattern = r"(\d+)/\d+"  
     # loss_pattern = r"action_diff_loss: (\d+\.\d+)"
-    loss_pattern = r"keyframe_loss: (\d+\.\d+)"  
+    loss_pattern = r"keyframe_loss: (\d+(?:\.\d+)?(?:e[-+]?\d+)?)"  
     steps = []  
     losses = []  
   
@@ -15,10 +15,10 @@ def plot_training_curve(log_file):
   
         matches = re.findall(step_pattern + r".*?" + loss_pattern, log_entries)  
         for match in matches:
-            step = int(match[0])  
-            loss = float(match[1])  
-            steps.append(step)  
-            losses.append(loss)  
+            step = int(match[0])
+            loss = float(match[1])
+            steps.append(step)
+            losses.append(loss)
   
     plt.plot(steps, losses)  
     plt.xlabel('Step')  
@@ -26,6 +26,9 @@ def plot_training_curve(log_file):
     plt.title('Training Curve')  
     plt.grid(True)  
     # plt.show() 
+
+    # Set a non-uniform y-axis scale  
+    plt.yscale('symlog', linthresh=0.01) 
 
     # Save the plot with the same name as the log file  
     plot_filename = os.path.splitext(log_file)[0] + ".png"  

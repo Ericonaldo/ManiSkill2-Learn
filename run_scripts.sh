@@ -178,3 +178,6 @@ python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-policy.py --num-gpu
 
 python maniskill2_learn/apis/run_rl.py configs/brl/clip/rgbd-curobs.py --num-gpus 8 --env-id PickCube-v0 \
 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5"
+
+
+CUDA_VISIBLE_DEVICES=1 python maniskill2_learn/apis/run_rl.py configs/brl/bc/rgbd-mioe.py --seed 0 --cfg-options "replay_cfg.buffer_filenames='./demos/rigid_body/PickCube-v0/trajmslearn.targetpos.keyframes.rgbd.pd_ee_delta_pose.h5"  --num-gpus 1 --env-id PickCube-v0

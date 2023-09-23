@@ -262,7 +262,8 @@ class KeyDiffAgent(DiffAgent):
 
         if self.keyframe_pose_only:
             if self.extra_dim > 0:
-                gt_states = torch.cat([keyframe_states[...,-self.pose_dim-self.extra_dim:-self.extra_dim], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
+                gt_states = torch.cat([keyframe_states[...,-self.pose_dim-self.extra_dim:-self.extra_dim]], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
+                # gt_states = torch.cat([keyframe_states[...,-self.pose_dim-self.extra_dim:-self.extra_dim], keytime_differences.unsqueeze(-1)], dim=-1) # (B, max_key_frame_len, self.pose_dim+1)
             else:
                 gt_states = keyframe_states[...,-self.pose_dim:] # (B, max_key_frame_len, self.pose_dim)
         else:
@@ -404,7 +405,7 @@ class KeyDiffAgent(DiffAgent):
                         pred_pose = Pose(p=pred_pose[:3], q=pred_pose[3:])
                         cur_pose = Pose(p=cur_pose[:3], q=cur_pose[3:])
                         pred_pose_at_world = cur_pose * pred_pose # !! Compute pose in the world
-                        pred_pose_at_world = np.r_[pred_pose_at_world.p, pred_pose_at_world.q]
+                        pred_pose = np.r_[pred_pose_at_world.p, pred_pose_at_world.q]
                         if self.pose_dim == 6:
                             if self.using_euler: # Transfer quat to euler
                                 pred_pose = np.r_[pred_pose_at_world.p, quat2euler(pred_pose_at_world.q)]
