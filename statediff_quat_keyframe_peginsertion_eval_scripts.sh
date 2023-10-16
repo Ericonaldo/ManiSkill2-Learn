@@ -22,3 +22,4 @@ python maniskill2_learn/apis/run_rl.py configs/brl/keyframe_diff/state_first_obs
 "workdir=statediff-quat-diff100000-key$2" \
 "agent_cfg.keyframe_model_path=./logs/PegInsertionSide-v0/KeyDiffAgent/newkeyframe-statediff-rgbd-quat-nogradnorm-keylrschedule/20230907_013059/models/model_$2.ckpt" \
 --evaluation --resume-from ./logs/PegInsertionSide-v0/KeyDiffAgent/newkeyframe-statediff-rgbd-quat-nogradnorm-keylrschedule/20230907_013059/models/model_100000.ckpt
+
