@@ -70,7 +70,7 @@ agent_cfg = dict(
             beta2=0.95,
         ),
     ),
-    diffusion_updates=150000,
+    diffusion_updates=251000,
     pose_dim=pose_dim,
     keyframe_state_only=False,
     keyframe_lr_scheduler_cfg=dict(
@@ -112,7 +112,7 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=151000,
+    total_steps=251000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,

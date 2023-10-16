@@ -68,7 +68,7 @@ agent_cfg = dict(
             beta2=0.95,
         ),
     ),
-    diffusion_updates=100000,
+    diffusion_updates=251000,
     keyframe_state_only=False,
     keyframe_lr_scheduler_cfg=dict(
         type="CosineAnnealingWarmRestarts",
@@ -108,7 +108,7 @@ replay_cfg = dict(
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=250000,
+    total_steps=251000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,

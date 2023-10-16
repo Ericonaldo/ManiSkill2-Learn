@@ -176,6 +176,7 @@ class KeyDiffAgent(DiffAgent):
         self.train_diff_model = train_diff_model
 
         self.keyframe_optim = None
+        self.keyframe_lr_scheduler = None
         if self.train_keyframe_model:
             if keyframe_model_type == "gpt":
                 self.keyframe_optim = self.keyframe_model.configure_adamw_optimizers(extra_model=self.keyframe_obs_encoder)
@@ -191,7 +192,7 @@ class KeyDiffAgent(DiffAgent):
         else:
             if self.keyframe_optim is not None:
                 keyframe_lr_scheduler_cfg["optimizer"] = self.keyframe_optim
-            self.keyframe_lr_scheduler = build_lr_scheduler(keyframe_lr_scheduler_cfg)
+                self.keyframe_lr_scheduler = build_lr_scheduler(keyframe_lr_scheduler_cfg)
                 
         if not train_diff_model:
             self.actor_optim = None
