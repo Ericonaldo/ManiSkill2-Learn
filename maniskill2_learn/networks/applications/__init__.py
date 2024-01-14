@@ -1,1 +1,6 @@
-from .actor_critic import ContinuousActor, ContinuousCritic, DiscreteActor, DiscreteCritic
+from .actor_critic import (
+    ContinuousActor,
+    ContinuousCritic,
+    DiscreteActor,
+    DiscreteCritic,
+)

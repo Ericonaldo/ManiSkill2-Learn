@@ -21,7 +21,9 @@ def set_flat_params(model, flat_params, trainable=False):
         if trainable and not param.requires_grad:
             continue
         flat_size = int(param.numel())
-        param.data.copy_(flat_params[prev_ind : prev_ind + flat_size].view(param.size()))
+        param.data.copy_(
+            flat_params[prev_ind : prev_ind + flat_size].view(param.size())
+        )
         prev_ind += flat_size
 
 
@@ -47,7 +49,9 @@ def set_flat_grads(net, flat_grads):
             continue
         flat_size = int(param.numel())
         if param.grad is not None:
-            param.grad.data.copy_(flat_grads[prev_ind : prev_ind + flat_size].view(param.size()))
+            param.grad.data.copy_(
+                flat_grads[prev_ind : prev_ind + flat_size].view(param.size())
+            )
         prev_ind += flat_size
 
 
@@ -58,8 +62,12 @@ def soft_update(target, source, tau):
         for target_param, param in zip(target.parameters(), source.parameters()):
             target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
     else:
-        assert isinstance(tau, dict), f"tau should be a number or a dict, but the type of tau is {type(tau)}."
-        assert "default" in tau, f"The dict needs key default! You dict contains keys: {list(tau.keys())}"
+        assert isinstance(
+            tau, dict
+        ), f"tau should be a number or a dict, but the type of tau is {type(tau)}."
+        assert (
+            "default" in tau
+        ), f"The dict needs key default! You dict contains keys: {list(tau.keys())}"
         tau = copy.deepcopy(tau)
         default = tau.pop("default")
         source_param_dict = dict(source.named_parameters())
@@ -71,7 +79,9 @@ def soft_update(target, source, tau):
                 if regex_match(name, pattern):
                     tau_i = value
                     break
-            target_param.data.copy_(target_param.data * (1.0 - tau_i) + param.data * tau_i)
+            target_param.data.copy_(
+                target_param.data * (1.0 - tau_i) + param.data * tau_i
+            )
 
 
 def hard_update(target, source):
@@ -86,24 +96,38 @@ def batch_random_perm(batch_size, num_features, mask=None, device="cuda"):
     if mask is None:
         return torch.rand(batch_size, num_features, device=device).argsort(dim=-1)
     else:
-        assert mask.ndim == 2 and mask.shape[0] == batch_size and mask.shape[1] == num_features
-        return (torch.rand(batch_size, num_features, device=device) * mask).argsort(dim=-1)
+        assert (
+            mask.ndim == 2
+            and mask.shape[0] == batch_size
+            and mask.shape[1] == num_features
+        )
+        return (torch.rand(batch_size, num_features, device=device) * mask).argsort(
+            dim=-1
+        )
 
 
 def masked_average(x, axis, mask=None, keepdim=False):
     if mask is None:
         return torch.mean(x, dim=axis, keepdim=keepdim)
     else:
-        return torch.sum(x * mask, dim=axis, keepdim=keepdim) / (torch.sum(mask, dim=axis, keepdim=keepdim) + 1e-6)
+        return torch.sum(x * mask, dim=axis, keepdim=keepdim) / (
+            torch.sum(mask, dim=axis, keepdim=keepdim) + 1e-6
+        )
 
 
 def masked_max(x, axis, mask=None, keepdim=False, empty_value=0):
     if mask is None:
         return torch.max(x, dim=axis, keepdim=keepdim).values
     else:
-        value_with_inf = torch.max(x * mask + -1e18 * (1 - mask), dim=axis, keepdim=keepdim).values
+        value_with_inf = torch.max(
+            x * mask + -1e18 * (1 - mask), dim=axis, keepdim=keepdim
+        ).values
         # The masks are all zero will cause inf
-        value = torch.where(value_with_inf > -1e17, value_with_inf, torch.ones_like(value_with_inf) * empty_value)
+        value = torch.where(
+            value_with_inf > -1e17,
+            value_with_inf,
+            torch.ones_like(value_with_inf) * empty_value,
+        )
         return value
 
 
@@ -139,7 +163,9 @@ def smooth_cross_entropy(input, target, label_smoothing):
     assert input.size(0) == target.size(0)
     batch_size, num_classes = input.shape
     one_hot = torch.zeros_like(input).scatter(1, target.unsqueeze(1), 1)
-    smooth_one_hot = one_hot * (1 - label_smoothing) + torch.ones_like(input) * (label_smoothing / num_classes)
+    smooth_one_hot = one_hot * (1 - label_smoothing) + torch.ones_like(input) * (
+        label_smoothing / num_classes
+    )
     log_prob = F.log_softmax(input, dim=1)
     loss = (-smooth_one_hot * log_prob).sum(1).mean()
     return loss

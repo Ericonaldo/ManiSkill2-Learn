@@ -192,9 +192,14 @@ class RNNVisuomotor(ExtendedModule):
         if feature is None:
             if visual_feature is None:
                 batch_size = obs["state"].shape[0]
-                obs = {k: v.reshape(v.shape[0] * v.shape[1], *v.shape[2:]) for k, v in obs.items()}
+                obs = {
+                    k: v.reshape(v.shape[0] * v.shape[1], *v.shape[2:])
+                    for k, v in obs.items()
+                }
                 feat = self.visual_nn(obs)
-                feat = feat.reshape(batch_size, feat.shape[0] // batch_size, *feat.shape[1:])
+                feat = feat.reshape(
+                    batch_size, feat.shape[0] // batch_size, *feat.shape[1:]
+                )
                 if detach_visual:
                     feat = feat.detach()
             else:

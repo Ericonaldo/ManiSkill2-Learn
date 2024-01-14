@@ -14,9 +14,15 @@ class RunningMeanStdTorch(ExtendedModule):
     def __init__(self, shape, mean=0, var=1, clip_max=None, with_std=True):
         super(RunningMeanStdTorch, self).__init__()
         self.with_std = with_std
-        self._mean = nn.Parameter(torch.tensor(np.ones(shape) * mean, dtype=torch.float64), requires_grad=False)
+        self._mean = nn.Parameter(
+            torch.tensor(np.ones(shape) * mean, dtype=torch.float64),
+            requires_grad=False,
+        )
         if with_std:
-            self._var = nn.Parameter(torch.tensor(np.ones(shape) * var, dtype=torch.float64), requires_grad=False)
+            self._var = nn.Parameter(
+                torch.tensor(np.ones(shape) * var, dtype=torch.float64),
+                requires_grad=False,
+            )
         self.n = nn.Parameter(torch.tensor(0, dtype=torch.int64), requires_grad=False)
         self.clip_max = clip_max
 
@@ -80,7 +86,9 @@ class RunningMeanStdTorch(ExtendedModule):
 
 class RunningSecondMomentumTorch(RunningMeanStdTorch):
     def __init__(self, shape, clip_max=5):
-        super(RunningSecondMomentumTorch, self).__init__(shape=shape, clip_max=clip_max, with_std=False)
+        super(RunningSecondMomentumTorch, self).__init__(
+            shape=shape, clip_max=clip_max, with_std=False
+        )
 
     @property
     @no_grad
@@ -101,8 +109,13 @@ class MovingMeanStdTorch(nn.Module):
 
     def __init__(self, shape, mean=0, var=1, momentum=0.5):
         super(MovingMeanStdTorch, self).__init__()
-        self._mean = nn.Parameter(torch.tensor(np.ones(shape) * mean, dtype=torch.float64), requires_grad=False)
-        self._var = nn.Parameter(torch.tensor(np.ones(shape) * var, dtype=torch.float64), requires_grad=False)
+        self._mean = nn.Parameter(
+            torch.tensor(np.ones(shape) * mean, dtype=torch.float64),
+            requires_grad=False,
+        )
+        self._var = nn.Parameter(
+            torch.tensor(np.ones(shape) * var, dtype=torch.float64), requires_grad=False
+        )
         self.n = nn.Parameter(torch.tensor(0, dtype=torch.int64), requires_grad=False)
         self.momentum = momentum
 
@@ -127,6 +140,10 @@ class MovingMeanStdTorch(nn.Module):
         m = n * var
         """
         self.n += 1
-        self._mean.data = self._mean.data * self.momentum + x.mean(dim=0) * (1 - self.momentum)
-        self._var.data = self._var.data * self.momentum + x.var(dim=0) * (1 - self.momentum)
+        self._mean.data = self._mean.data * self.momentum + x.mean(dim=0) * (
+            1 - self.momentum
+        )
+        self._var.data = self._var.data * self.momentum + x.var(dim=0) * (
+            1 - self.momentum
+        )
         return (x - self.mean) / self.std

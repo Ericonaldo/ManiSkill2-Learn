@@ -29,7 +29,15 @@ from .geometric import (
     imtranslate,
     rescale_size,
 )
-from .io import imfrombytes, imread, imwrite, supported_backends, use_backend, imencode, imdecode
+from .io import (
+    imfrombytes,
+    imread,
+    imwrite,
+    supported_backends,
+    use_backend,
+    imencode,
+    imdecode,
+)
 from .misc import tensor2imgs
 from .photometric import (
     adjust_brightness,
@@ -45,4 +53,10 @@ from .photometric import (
     posterize,
     solarize,
 )
-from .video_utils import concat_videos, put_names_on_image, grid_images, video_to_frames, images_to_video
+from .video_utils import (
+    concat_videos,
+    put_names_on_image,
+    grid_images,
+    video_to_frames,
+    images_to_video,
+)

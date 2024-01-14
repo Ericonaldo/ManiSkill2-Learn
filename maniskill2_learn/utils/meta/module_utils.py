@@ -46,7 +46,10 @@ def import_modules_from_strings(imports, allow_failed_imports=False):
 
 
 def check_prerequisites(
-    prerequisites, checker, msg_tmpl='Prerequisites "{}" are required in method "{}" ' "but not found, please install them first."
+    prerequisites,
+    checker,
+    msg_tmpl='Prerequisites "{}" are required in method "{}" '
+    "but not found, please install them first.",
 ):  # yapf: disable
     """A decorator factory to check if prerequisites are satisfied.
     Args:
@@ -60,7 +63,9 @@ def check_prerequisites(
     def wrap(func):
         @functools.wraps(func)
         def wrapped_func(*args, **kwargs):
-            requirements = [prerequisites] if isinstance(prerequisites, str) else prerequisites
+            requirements = (
+                [prerequisites] if isinstance(prerequisites, str) else prerequisites
+            )
             missing = []
             for item in requirements:
                 if not checker(item):
@@ -121,12 +126,18 @@ def deprecated_api_warning(name_dict, cls_name=None):
                 arg_names = args_info.args[: len(args)]
                 for src_arg_name, dst_arg_name in name_dict.items():
                     if src_arg_name in arg_names:
-                        warnings.warn(f'"{src_arg_name}" is deprecated in `{func_name}`, please use "{dst_arg_name}" ' "instead")
+                        warnings.warn(
+                            f'"{src_arg_name}" is deprecated in `{func_name}`, please use "{dst_arg_name}" '
+                            "instead"
+                        )
                         arg_names[arg_names.index(src_arg_name)] = dst_arg_name
             if kwargs:
                 for src_arg_name, dst_arg_name in name_dict.items():
                     if src_arg_name in kwargs:
-                        warnings.warn(f'"{src_arg_name}" is deprecated in `{func_name}`, please use "{dst_arg_name}" ' "instead")
+                        warnings.warn(
+                            f'"{src_arg_name}" is deprecated in `{func_name}`, please use "{dst_arg_name}" '
+                            "instead"
+                        )
                         kwargs[dst_arg_name] = kwargs.pop(src_arg_name)
 
             # apply converted arguments to the decorated method

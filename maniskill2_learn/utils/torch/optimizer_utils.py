@@ -6,6 +6,7 @@ from maniskill2_learn.utils.data import regex_match
 
 OPTIMIZERS = Registry("optimizer")
 
+
 def register_torch_optimizers():
     torch_optimizers = []
     for module_name in dir(torch.optim):
@@ -30,7 +31,9 @@ def get_mean_lr(optimizer, mean=True):
 
 def build_optimizer(model, cfg):
     cfg = copy.deepcopy(cfg)
-    constructor_type = cfg.pop("constructor", "default") # keyword "type" is saved for specify optimizer.
+    constructor_type = cfg.pop(
+        "constructor", "default"
+    )  # keyword "type" is saved for specify optimizer.
     if constructor_type == "default":
         param_cfg = cfg.pop("param_cfg", None)
 
@@ -58,10 +61,12 @@ def build_optimizer(model, cfg):
                                 break
                     if param_i is None:
                         continue
-                    param_i = {'params': param}
+                    param_i = {"params": param}
                     params.append(param_i)
             else:
-                params += [model, ]
+                params += [
+                    model,
+                ]
         cfg["params"] = params
         optimizer = build_from_cfg(cfg, OPTIMIZERS)
     else:

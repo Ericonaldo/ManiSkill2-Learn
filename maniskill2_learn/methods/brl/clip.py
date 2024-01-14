@@ -139,10 +139,14 @@ class ClipAgent(BaseAgent):
         return super().eval()
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
-        assert self.model_type == "policy", "only policy type CLIP agent can be used as policy"
+        assert (
+            self.model_type == "policy"
+        ), "only policy type CLIP agent can be used as policy"
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
         if "state" in observation:
-            observation["state"] = torch.cat([observation["state"][...,:9], observation["state"][...,18:]], axis=-1)
+            observation["state"] = torch.cat(
+                [observation["state"][..., :9], observation["state"][..., 18:]], axis=-1
+            )
 
         action_history = observation["actions"]
         action_history = self.normalizer.normalize(action_history)
@@ -171,7 +175,10 @@ class ClipAgent(BaseAgent):
                 observation[key] = observation[key][:, obs_mask, ...]
 
         if self.current_obs_only:
-            observation = {key: value[:, self.n_obs_steps: self.n_obs_steps + 1, ...] for key, value in observation.items()}
+            observation = {
+                key: value[:, self.n_obs_steps : self.n_obs_steps + 1, ...]
+                for key, value in observation.items()
+            }
         obs_fea = self.obs_encoder(
             observation
         )  # No need to mask out since the history is set as the desired length
@@ -204,13 +211,22 @@ class ClipAgent(BaseAgent):
             mask = torch.ones_like(target_action[..., 0])
         assert mask.ndim == target_action.ndim - 1
         print_dict = {}
-        print_dict["abs_err"] = ((torch.abs(pred_action - target_action).mean(-1) * mask).sum() / mask.sum()).item()
+        print_dict["abs_err"] = (
+            (torch.abs(pred_action - target_action).mean(-1) * mask).sum() / mask.sum()
+        ).item()
         if hasattr(F, self.bc_loss_type):
             assert self.bc_loss_type in ["mse_loss", "l1_loss", "smooth_l1_loss"]
-            actor_loss = (getattr(F, self.bc_loss_type)(pred_action, target_action, reduction="none").mean(-1) * mask).sum() / mask.sum()
+            actor_loss = (
+                getattr(F, self.bc_loss_type)(
+                    pred_action, target_action, reduction="none"
+                ).mean(-1)
+                * mask
+            ).sum() / mask.sum()
             print_dict[f"{self.bc_loss_type}"] = actor_loss.item()
         else:
-            raise NotImplementedError(f"BC loss type {self.bc_loss_type} not implemented!")
+            raise NotImplementedError(
+                f"BC loss type {self.bc_loss_type} not implemented!"
+            )
 
         return actor_loss, print_dict
 
@@ -250,7 +266,9 @@ class ClipAgent(BaseAgent):
             act_mask, obs_mask = self.act_mask, self.obs_mask
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(traj_data.shape, self.device)
+                act_mask, obs_mask, _ = self.mask_generator(
+                    traj_data.shape, self.device
+                )
                 self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
                     masked_obs[key] = masked_obs[key][:, obs_mask, ...]

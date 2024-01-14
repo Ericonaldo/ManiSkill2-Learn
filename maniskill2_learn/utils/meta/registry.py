@@ -18,7 +18,9 @@ class Registry:
         return self.get(key) is not None
 
     def __repr__(self):
-        format_str = self.__class__.__name__ + f"(name={self._name}, items={self._module_dict})"
+        format_str = (
+            self.__class__.__name__ + f"(name={self._name}, items={self._module_dict})"
+        )
         return format_str
 
     @property
@@ -40,7 +42,9 @@ class Registry:
 
     def _register_module(self, module_class, module_name=None, force=False):
         if not (inspect.isclass(module_class) or inspect.isfunction(module_class)):
-            raise TypeError("module must be a class or a function, but got {type(module_class)}")
+            raise TypeError(
+                "module must be a class or a function, but got {type(module_class)}"
+            )
         if module_name is None:
             module_name = module_class.__name__
         if not force and module_name in self._module_dict:
@@ -111,12 +115,18 @@ def build_from_cfg(cfg, registry, default_args=None):
         raise TypeError(f"cfg must be a dict, but got {type(cfg)}")
     if "type" not in cfg:
         if default_args is None or "type" not in default_args:
-            raise KeyError(f'`cfg` or `default_args` must contain the key "type", but got {cfg}\n{default_args}')
+            raise KeyError(
+                f'`cfg` or `default_args` must contain the key "type", but got {cfg}\n{default_args}'
+            )
 
     if not isinstance(registry, Registry):
-        raise TypeError(f"registry must be an maniskill2_learn.Registry object, but got {type(registry)}")
+        raise TypeError(
+            f"registry must be an maniskill2_learn.Registry object, but got {type(registry)}"
+        )
     if not (isinstance(default_args, dict) or default_args is None):
-        raise TypeError(f"default_args must be a dict or None, but got {type(default_args)}")
+        raise TypeError(
+            f"default_args must be a dict or None, but got {type(default_args)}"
+        )
 
     args = cfg.copy()
 

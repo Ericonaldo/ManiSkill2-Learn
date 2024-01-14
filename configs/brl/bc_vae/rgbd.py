@@ -12,19 +12,12 @@ agent_cfg = dict(
                 shape_meta=dict(
                     obs=dict(
                         base_camera_rgbd=dict(
-                            type="rgbd",
-                            shape="image_size",
-                            channel=4
+                            type="rgbd", shape="image_size", channel=4
                         ),
                         hand_camera_rgbd=dict(
-                            type="rgbd",
-                            shape="image_size",
-                            channel=4
+                            type="rgbd", shape="image_size", channel=4
                         ),
-                        state=dict(
-                            type="low_dim",
-                            shape="agent_shape"
-                        )
+                        state=dict(type="low_dim", shape="agent_shape"),
                     )
                 ),
                 output_vae=True,
@@ -32,7 +25,11 @@ agent_cfg = dict(
             ),
         ),
         mlp_cfg=dict(
-            type="GaussianMLP", norm_cfg=None, mlp_spec=[256, 128, "action_shape"], bias=True, inactivated_output=True
+            type="GaussianMLP",
+            norm_cfg=None,
+            mlp_spec=[256, 128, "action_shape"],
+            bias=True,
+            inactivated_output=True,
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
     ),

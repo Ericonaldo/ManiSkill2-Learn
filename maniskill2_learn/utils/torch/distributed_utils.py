@@ -112,7 +112,11 @@ def allreduce_grads(params, coalesce=True, bucket_size_mb=-1):
         coalesce (bool, optional): Whether allreduce parameters as a whole. Defaults to True.
         bucket_size_mb (int, optional): Size of bucket, the unit is MB. Defaults to -1.
     """
-    grads = [param.grad.data for param in params if param.requires_grad and param.grad is not None]
+    grads = [
+        param.grad.data
+        for param in params
+        if param.requires_grad and param.grad is not None
+    ]
     _, world_size = get_dist_info()
     if world_size == 1:
         return
@@ -140,7 +144,9 @@ def _allreduce_coalesced(tensors, world_size, bucket_size_mb=-1):
         flat_tensors = _flatten_dense_tensors(bucket)
         dist.all_reduce(flat_tensors)
         flat_tensors.div_(world_size)
-        for tensor, synced in zip(bucket, _unflatten_dense_tensors(flat_tensors, bucket)):
+        for tensor, synced in zip(
+            bucket, _unflatten_dense_tensors(flat_tensors, bucket)
+        ):
             tensor.copy_(synced)
 
 
@@ -203,7 +209,9 @@ def get_tcp_store():
         world_rank, world_size = get_dist_info()
         tcp_port = int(os.environ["PYRL_TCP_PORT"])  # 15015
         if world_rank == 0:
-            tcp_store = dist.TCPStore("127.0.0.1", tcp_port, world_size, True, timedelta(seconds=30))
+            tcp_store = dist.TCPStore(
+                "127.0.0.1", tcp_port, world_size, True, timedelta(seconds=30)
+            )
         else:
             tcp_store = dist.TCPStore("127.0.0.1", tcp_port, world_size, False)
     return tcp_store

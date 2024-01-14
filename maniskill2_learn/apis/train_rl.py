@@ -7,9 +7,20 @@ from datetime import datetime
 
 import numpy as np
 from maniskill2_learn.env import ReplayMemory, save_eval_statistics
-from maniskill2_learn.utils.data import GDict, dict_to_str, is_not_null, num_to_str, to_float
+from maniskill2_learn.utils.data import (
+    GDict,
+    dict_to_str,
+    is_not_null,
+    num_to_str,
+    to_float,
+)
 from maniskill2_learn.utils.math import EveryNSteps
-from maniskill2_learn.utils.meta import get_logger, get_total_memory, get_world_rank, td_format
+from maniskill2_learn.utils.meta import (
+    get_logger,
+    get_total_memory,
+    get_world_rank,
+    td_format,
+)
 from maniskill2_learn.utils.torch import TensorboardLogger, save_checkpoint
 
 
@@ -30,16 +41,23 @@ class EpisodicStatistics:
         self.reset_history()
 
     def push(self, trajs):
-        rewards, dones, index, infos = trajs["rewards"], trajs["episode_dones"], trajs.get("worker_indices", None), trajs.get("infos", None)
+        rewards, dones, index, infos = (
+            trajs["rewards"],
+            trajs["episode_dones"],
+            trajs.get("worker_indices", None),
+            trajs.get("infos", None),
+        )
         dones = dones.reshape(-1)
         self.expand_buffer(index)
         for j in range(len(rewards)):
             i = 0 if index is None else int(index[j])
             self.current[i]["lens"] += 1
             self.current[i]["rewards"] += to_float(rewards[j])
-            if 'max_single_R' not in self.current[i]:
-                self.current[i]['max_single_R'] = -np.inf
-            self.current[i]['max_single_R'] = max(self.current[i]['max_single_R'], to_float(rewards[j]))
+            if "max_single_R" not in self.current[i]:
+                self.current[i]["max_single_R"] = -np.inf
+            self.current[i]["max_single_R"] = max(
+                self.current[i]["max_single_R"], to_float(rewards[j])
+            )
 
             if infos is not None:
                 for key, manner in self.info_keys_mode.items():
@@ -49,16 +67,23 @@ class EpisodicStatistics:
                         elif manner[1] == "min":
                             if key not in self.current[i]:
                                 self.current[i][key] = np.inf
-                            self.current[i][key] = np.minimum(self.current[i][key], to_float(infos[key][j]))
+                            self.current[i][key] = np.minimum(
+                                self.current[i][key], to_float(infos[key][j])
+                            )
                         elif manner[1] == "max":
                             if key not in self.current[i]:
                                 self.current[i][key] = -np.inf
-                            self.current[i][key] = np.maximum(self.current[i][key], to_float(infos[key][j]))
+                            self.current[i][key] = np.maximum(
+                                self.current[i][key], to_float(infos[key][j])
+                            )
 
             if dones[j]:
                 # print('Done', i, self.current[i]["lens"])
                 for key, value in self.current[i].items():
-                    if key not in ["rewards", "max_single_R", "lens"] and self.info_keys_mode[key][1] == "mean":
+                    if (
+                        key not in ["rewards", "max_single_R", "lens"]
+                        and self.info_keys_mode[key][1] == "mean"
+                    ):
                         value /= self.current[i]["lens"]
                     self.history[key].append(value)
                 self.current[i] = defaultdict(float)
@@ -78,7 +103,7 @@ class EpisodicStatistics:
 
     def get_sync_stats(self):
         num_ep = GDict(len(self.history["rewards"])).allreduce(op="SUM", wrapper=False)
-        
+
         history_min, history_max, history_sum = {}, {}, {}
         for key, value in self.history.items():
             value = np.stack(value, axis=0)
@@ -100,7 +125,9 @@ class EpisodicStatistics:
         history_min, history_max, history_mean = self.get_sync_stats()
         ret = ""
         for key, item in self.info_keys_mode.items():
-            if not (key in history_mean and item[0]) or (isinstance(history_mean[key], np.ndarray) and history_mean[key].size > 1):
+            if not (key in history_mean and item[0]) or (
+                isinstance(history_mean[key], np.ndarray) and history_mean[key].size > 1
+            ):
                 continue
             if len(ret) > 0:
                 ret += ", "
@@ -124,7 +151,7 @@ class EpisodicStatistics:
         ret = {}
         for key in self.info_keys_mode:
             if key in history_mean:
-                out_key = key if '/' in key else f"env/{key}" 
+                out_key = key if "/" in key else f"env/{key}"
                 ret[f"{out_key}_mean"] = history_mean[key]
                 ret[f"{out_key}_min"] = history_min[key]
                 ret[f"{out_key}_max"] = history_max[key]
@@ -138,17 +165,14 @@ def train_rl(
     replay,
     on_policy,
     work_dir,
-    
     expert_replay=None,
     recent_traj_replay=None,
-
     total_steps=2500000,
     warm_steps=0,
     resume_steps=0,
     use_policy_to_warm_up=False,
     print_steps=None,
     n_steps=1,
-
     n_updates=1,
     n_checkpoint=None,
     n_log=1000,
@@ -177,7 +201,9 @@ def train_rl(
     if rollout is not None:
         obs = rollout.reset()
         agent.reset()
-        logger.info(f"Rollout state dim: {GDict(obs).shape}, action dim: {rollout.action_space.sample().shape}!")
+        logger.info(
+            f"Rollout state dim: {GDict(obs).shape}, action dim: {rollout.action_space.sample().shape}!"
+        )
         episode_statistics = EpisodicStatistics(rollout.num_envs, **ep_stats_cfg)
         total_episodes = 0
     else:
@@ -196,15 +222,19 @@ def train_rl(
     print_replay_shape = False
 
     if warm_steps > 0:
-        logger.info(f"Begin {warm_steps} warm-up steps with {'initial policy' if use_policy_to_warm_up else 'random policy'}!")
+        logger.info(
+            f"Begin {warm_steps} warm-up steps with {'initial policy' if use_policy_to_warm_up else 'random policy'}!"
+        )
         # Randomly warm up replay buffer for model-free RL and learned model for mode-based RL
         assert not on_policy
         assert rollout is not None
-        trajectories = rollout.forward_with_policy(agent if use_policy_to_warm_up else None, warm_steps)
+        trajectories = rollout.forward_with_policy(
+            agent if use_policy_to_warm_up else None, warm_steps
+        )
 
         episode_statistics.push(trajectories)
         replay.push_batch(trajectories)
-        logger.info(f'Warm up samples stats: {episode_statistics.get_stats_str()}!')
+        logger.info(f"Warm up samples stats: {episode_statistics.get_stats_str()}!")
 
         # print(GDict(trajectories).shape)
         # print(episode_statistics.get_stats_str())
@@ -223,13 +253,19 @@ def train_rl(
         if warm_up_train_q_only > 0:
             for i in range(warm_up_train_q_only):
                 total_updates += 1
-                training_infos = agent.update_parameters(replay, updates=total_updates, q_only=True)
-                logger.info(f"Warmup pretrain q network: {i}/{warm_up_train_q_only} {dict_to_str(training_infos)}")
+                training_infos = agent.update_parameters(
+                    replay, updates=total_updates, q_only=True
+                )
+                logger.info(
+                    f"Warmup pretrain q network: {i}/{warm_up_train_q_only} {dict_to_str(training_infos)}"
+                )
         if warm_up_training:
             tf_logs.reset()
             for i in range(n_updates):
                 total_updates += 1
-                training_infos = GDict(agent.update_parameters(replay, updates=total_updates)).to_numpy()
+                training_infos = GDict(
+                    agent.update_parameters(replay, updates=total_updates)
+                ).to_numpy()
                 tf_logs.push(training_infos)
 
     steps = warm_steps + resume_steps
@@ -261,7 +297,6 @@ def train_rl(
         time_begin_episode = time.time()
         tmp_steps = 0
 
-
         if n_steps > 0:
             # For online RL
             collect_sample_time = 0
@@ -276,7 +311,9 @@ def train_rl(
                 # Collect samples
                 start_time = time.time()
                 agent.eval()  # For things like batch norm
-                trajectories = rollout.forward_with_policy(agent, n_steps, on_policy, replay)
+                trajectories = rollout.forward_with_policy(
+                    agent, n_steps, on_policy, replay
+                )
 
                 if not print_replay_shape:
                     print_replay_shape = True
@@ -297,8 +334,14 @@ def train_rl(
                 for i in range(n_updates):
                     total_updates += 1
                     start_time = time.time()
-                    extra_args = {} if expert_replay is None else dict(expert_replay=expert_replay)
-                    training_infos = agent.update_parameters(replay, updates=total_updates, **extra_args)
+                    extra_args = (
+                        {}
+                        if expert_replay is None
+                        else dict(expert_replay=expert_replay)
+                    )
+                    training_infos = agent.update_parameters(
+                        replay, updates=total_updates, **extra_args
+                    )
                     # torch.cuda.empty_cache()
 
                     for key in training_infos:
@@ -308,7 +351,9 @@ def train_rl(
                 if hasattr(agent, "update_discriminator"):
                     assert recent_traj_replay is not None
                     start_time = time.time()
-                    disc_update_applied = agent.update_discriminator(expert_replay, recent_traj_replay, n_ep)
+                    disc_update_applied = agent.update_discriminator(
+                        expert_replay, recent_traj_replay, n_ep
+                    )
                     if disc_update_applied:
                         recent_traj_replay.reset()
                     update_time += time.time() - start_time
@@ -316,17 +361,25 @@ def train_rl(
 
             ep_stats = episode_statistics.get_stats()
 
-            episode_time, collect_sample_time = GDict([time.time() - time_begin_episode, collect_sample_time]).allreduce(op="MAX", wrapper=False)
-            tmp_steps, num_episodes = GDict([tmp_steps, int(num_episodes)]).allreduce(op="SUM", wrapper=False)
+            episode_time, collect_sample_time = GDict(
+                [time.time() - time_begin_episode, collect_sample_time]
+            ).allreduce(op="MAX", wrapper=False)
+            tmp_steps, num_episodes = GDict([tmp_steps, int(num_episodes)]).allreduce(
+                op="SUM", wrapper=False
+            )
 
             steps += tmp_steps
             total_episodes += num_episodes
 
             print_log["samples_stats"] = episode_statistics.get_stats_str()
-            tb_print.update(dict(episode_time=episode_time, collect_sample_time=collect_sample_time))
+            tb_print.update(
+                dict(episode_time=episode_time, collect_sample_time=collect_sample_time)
+            )
 
             tb_log.update(ep_stats)
-            tb_log.update(dict(num_episodes=num_episodes, total_episodes=total_episodes))
+            tb_log.update(
+                dict(num_episodes=num_episodes, total_episodes=total_episodes)
+            )
         else:
             print("offline training")
             # For offline RL
@@ -346,9 +399,13 @@ def train_rl(
         tb_log["buffer_size"] = len(replay)
 
         tb_print, tb_log = GDict([tb_print, tb_log]).allreduce(wrapper=False)
-        total_memory = GDict(get_total_memory("G", False)).allreduce(op="SUM", wrapper=False)
+        total_memory = GDict(get_total_memory("G", False)).allreduce(
+            op="SUM", wrapper=False
+        )
         tb_print["memory"] = total_memory
-        print_log.update(get_cuda_info(device=torch.cuda.current_device(), number_only=False))
+        print_log.update(
+            get_cuda_info(device=torch.cuda.current_device(), number_only=False)
+        )
 
         if world_rank != 0:
             ConnectionRefusedError
@@ -364,17 +421,27 @@ def train_rl(
             tf_logger.log(tb_log, n_iter=steps, tag_name="train")
             # exit(0)
 
-        percentage = f"{((steps - begin_steps) / (total_steps - begin_steps)) * 100:.0f}%"
+        percentage = (
+            f"{((steps - begin_steps) / (total_steps - begin_steps)) * 100:.0f}%"
+        )
         passed_time = td_format(datetime.now() - begin_time)
-        ETA = td_format((datetime.now() - begin_time) * max((total_steps - begin_steps) / (steps - begin_steps) - 1, 0))
+        ETA = td_format(
+            (datetime.now() - begin_time)
+            * max((total_steps - begin_steps) / (steps - begin_steps) - 1, 0)
+        )
         if max_ETA_len is None:
             max_ETA_len = len(ETA)
 
-        logger.info(f"{steps}/{total_steps}({percentage}) Passed time:{passed_time} ETA:{ETA} {dict_to_str(print_log)}")
+        logger.info(
+            f"{steps}/{total_steps}({percentage}) Passed time:{passed_time} ETA:{ETA} {dict_to_str(print_log)}"
+        )
 
         if check_eval.check(steps) and is_not_null(evaluator):
             standardized_eval_step = check_eval.standard(steps)
-            logger.info(f"Begin to evaluate at step: {steps}. " f"The evaluation info will be saved at eval_{standardized_eval_step}")
+            logger.info(
+                f"Begin to evaluate at step: {steps}. "
+                f"The evaluation info will be saved at eval_{standardized_eval_step}"
+            )
             eval_dir = osp.join(work_dir, f"eval_{standardized_eval_step}")
 
             agent.eval()  # For things like batch norm
@@ -394,15 +461,21 @@ def train_rl(
 
         if check_checkpoint.check(steps):
             standardized_ckpt_step = check_checkpoint.standard(steps)
-            model_path = osp.join(checkpoint_dir, f"model_{standardized_ckpt_step}.ckpt")
-            logger.info(f"Save model at step: {steps}. The model will be saved at {model_path}")
+            model_path = osp.join(
+                checkpoint_dir, f"model_{standardized_ckpt_step}.ckpt"
+            )
+            logger.info(
+                f"Save model at step: {steps}. The model will be saved at {model_path}"
+            )
             agent.to_normal()
             save_checkpoint(agent, model_path)
             agent.recover_ddp()
 
     if n_checkpoint and world_rank == 0:
         model_path = osp.join(checkpoint_dir, f"model_final.ckpt")
-        logger.info(f"Save checkpoint at final step {total_steps}. The model will be saved at {model_path}.")
+        logger.info(
+            f"Save checkpoint at final step {total_steps}. The model will be saved at {model_path}."
+        )
         agent.to_normal()
         save_checkpoint(agent, model_path)
         agent.recover_ddp()

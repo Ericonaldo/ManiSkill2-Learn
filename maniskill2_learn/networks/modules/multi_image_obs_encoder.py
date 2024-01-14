@@ -45,14 +45,14 @@ class MultiImageObsEncoder(CNNBase):
                             inputs[key][:, :, :3, :, :] /= 255.0
                         elif len(inputs[key].shape) == 3:  # (C,H,W)
                             inputs[key][:3, :, :] /= 255.0
-                        if len(inputs[key].shape) == 4: # B, 1, C, W, H
+                        if len(inputs[key].shape) == 4:  # B, 1, C, W, H
                             inputs[key] = inputs[key].unsqueeze(1)
 
             if "state" in inputs:
-                if len(inputs["state"].shape) == 2: # B, 1, D
+                if len(inputs["state"].shape) == 2:  # B, 1, D
                     inputs["state"] = inputs["state"].unsqueeze(1)
             # The following codes have been removed to replay buffer
-             # We remove velocity from the state
+            # We remove velocity from the state
             #     if isinstance(inputs["state"], torch.Tensor):
             #         inputs["state"] = torch.cat([inputs["state"][...,:9], inputs["state"][...,18:]], axis=-1)
             #     elif isinstance(inputs["state"], np.ndarray):
@@ -280,18 +280,15 @@ class MultiImageObsEncoder(CNNBase):
                 # pass all rgb obs to rgb model
                 imgs = list()
                 for key in self.rgb_keys:
-
                     # Process ep_first_obs
                     if self.use_ep_first_obs and ep_first_obs_dict is not None:
                         img = ep_first_obs_dict[key]
                         if batch_size is None:
                             batch_size = img.shape[0]
-                        img = img.reshape(
-                            batch_size, *img.shape[2:]
-                        )  # (B,C,H,W)
+                        img = img.reshape(batch_size, *img.shape[2:])  # (B,C,H,W)
                         assert (
                             len(img.shape) == 4
-                        ), f"Ep first image shape mismatch! {img.shape}, {len(img.shape)}" # (B,C,H,W)
+                        ), f"Ep first image shape mismatch! {img.shape}, {len(img.shape)}"  # (B,C,H,W)
                         assert (
                             img.shape[1:] == self.key_shape_map[key]
                         ), f"{img.shape[1:]} != {self.key_shape_map[key]}"  # (C,H,W)
@@ -327,14 +324,18 @@ class MultiImageObsEncoder(CNNBase):
                     self.feature_shape_map["rgb"] = feature.shape[-1]
                 # (N,B*L,D)
                 if self.use_ep_first_obs and ep_first_obs_dict is not None:
-                    feature = feature.reshape(-1, batch_size * (horizon+1), *feature.shape[1:])
+                    feature = feature.reshape(
+                        -1, batch_size * (horizon + 1), *feature.shape[1:]
+                    )
                 else:
-                    feature = feature.reshape(-1, batch_size * horizon, *feature.shape[1:])
+                    feature = feature.reshape(
+                        -1, batch_size * horizon, *feature.shape[1:]
+                    )
                 if horizon > 1:
                     if self.use_ep_first_obs and ep_first_obs_dict is not None:
                         # (N,B,L+1,D)
                         feature = feature.reshape(
-                            -1, batch_size, horizon+1, *feature.shape[2:]
+                            -1, batch_size, horizon + 1, *feature.shape[2:]
                         )
                     else:
                         # (N,B,L,D)
@@ -344,7 +345,7 @@ class MultiImageObsEncoder(CNNBase):
                 # (B,N,D) or (B,N,L,D)
                 feature = torch.moveaxis(feature, 0, 1)
                 if img_fea_only:
-                    if horizon > 1: # (B,L,N,D)
+                    if horizon > 1:  # (B,L,N,D)
                         feature = torch.moveaxis(feature, 1, 2)
                         feature = feature.reshape(batch_size, horizon, -1)
                     else:
@@ -442,11 +443,13 @@ class MultiImageObsEncoder(CNNBase):
             for key, attr in obs_shape_meta.items():
                 shape = self.key_shape_map[key]
                 this_obs = torch.zeros(
-                    (batch_size, ) + shape, dtype=self.dtype, device=self.device
+                    (batch_size,) + shape, dtype=self.dtype, device=self.device
                 )
                 example_ep_first_obs_dict[key] = this_obs
 
-        example_output = self.forward(example_obs_dict, example_ep_first_obs_dict, img_fea_only=img_fea_only)
+        example_output = self.forward(
+            example_obs_dict, example_ep_first_obs_dict, img_fea_only=img_fea_only
+        )
         output_shape = list(example_output.shape[1:])
         if len(output_shape) == 1:
             output_shape = output_shape[0]

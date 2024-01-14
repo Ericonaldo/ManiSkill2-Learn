@@ -84,11 +84,16 @@ def delta_pose_to_pd_ee_delta(
     return inv_scale_action(delta_pose, low, high)
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--traj-path", type=str, required=True)
-    parser.add_argument("-o", "--obs-mode", type=str, help="target observation mode", default="state_dict")
+    parser.add_argument(
+        "-o",
+        "--obs-mode",
+        type=str,
+        help="target observation mode",
+        default="state_dict",
+    )
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--save-traj", action="store_true", help="whether to save trajectories"
@@ -144,7 +149,7 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
     env_kwargs.update(obs_mode=args.obs_mode)
 
     env = gym.make(env_id, **env_kwargs)
-    
+
     # Create a main env for replay
     if pbar is not None:
         pbar.set_postfix(
@@ -160,7 +165,7 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
         n_ep = args.num_trajs
     inds = np.arange(n_ep)
     inds = np.array_split(inds, num_procs)[proc_id]
-    
+
     # Replay
     for ind in inds:
         ep = episodes[ind]
@@ -181,7 +186,7 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
 
         ori_control_mode = ep["control_mode"]
         ori_actions = ori_h5_file[traj_id]["actions"][:]
-        ori_states = ori_h5_file[traj_id]["obs"]# ['extra']['tcp_pose'][:]
+        ori_states = ori_h5_file[traj_id]["obs"]  # ['extra']['tcp_pose'][:]
         # ori_states = ori_h5_file[traj_id]["obs"]['agent']['ee_pose'][:]
 
         env.reset(**reset_kwargs)
@@ -194,16 +199,23 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
             if args.vis:
                 env.render()
 
-            curr_ee_pose_at_base = sapien.Pose(p=obs['extra']['tcp_pose'][:3], q=obs['extra']['tcp_pose'][3:])
+            curr_ee_pose_at_base = sapien.Pose(
+                p=obs["extra"]["tcp_pose"][:3], q=obs["extra"]["tcp_pose"][3:]
+            )
             # curr_ee_pose_at_base_2 = sapien.Pose(p=obs['agent']['ee_pose'][:3], q=obs['agent']['ee_pose'][3:])
-            next_ee_pose_at_base = sapien.Pose(p=ori_states['extra']['tcp_pose'][t+1][:3], q=ori_states['extra']['tcp_pose'][t+1][3:])
+            next_ee_pose_at_base = sapien.Pose(
+                p=ori_states["extra"]["tcp_pose"][t + 1][:3],
+                q=ori_states["extra"]["tcp_pose"][t + 1][3:],
+            )
             # next_ee_pose_at_base_2 = sapien.Pose(p=ori_states['agent']['ee_pose'][t+1][:3], q=ori_states['agent']['ee_pose'][t+1][3:])
 
-            ee_pose_at_ee = curr_ee_pose_at_base.inv() * next_ee_pose_at_base # Pose (pos, quat)
+            ee_pose_at_ee = (
+                curr_ee_pose_at_base.inv() * next_ee_pose_at_base
+            )  # Pose (pos, quat)
             # ee_pose_at_ee_2 = curr_ee_pose_at_base_2.inv() * next_ee_pose_at_base_2 # Pose (pos, quat)
             arm_action = delta_pose_to_pd_ee_delta(
                 env.agent.controller.controllers["arm"], ee_pose_at_ee, pos_only=False
-            ) # Pose (pos, axis-angle)
+            )  # Pose (pos, axis-angle)
             # arm_action_2 = delta_pose_to_pd_ee_delta(
             #     env.agent.controller.controllers["arm"], ee_pose_at_ee_2, pos_only=False
             # ) # Pose (pos, axis-angle)
@@ -214,7 +226,7 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
                 arm_action[:3] = np.clip(arm_action[:3], -1, 1)
                 flag = False
             arm_action = np.concatenate([arm_action, ori_actions[t][-1:]])
-            print('\n', 1, arm_action, '\n', 2, ori_actions[t])
+            print("\n", 1, arm_action, "\n", 2, ori_actions[t])
 
             obs, reward, done, info = env.step(arm_action)
 

@@ -7,7 +7,15 @@ from tqdm import tqdm
 
 from maniskill2_learn.utils.meta import get_filename_suffix, Worker, get_logger
 from maniskill2_learn.utils.math import split_num
-from maniskill2_learn.utils.data import GDict, DictArray, SharedDictArray, is_h5, is_not_null, is_null, is_str
+from maniskill2_learn.utils.data import (
+    GDict,
+    DictArray,
+    SharedDictArray,
+    is_h5,
+    is_not_null,
+    is_null,
+    is_str,
+)
 from .serialization import load, dump
 from .record_utils import load_record_indices, load_items_from_record
 
@@ -47,7 +55,9 @@ def compatible_with_horizon(filetypes, horizon):
         for filetype in filetypes:
             if filetype != "episode":
                 logger = get_logger()
-                logger.error(f"Random shuffled buffer do not support {horizon}-step sampling")
+                logger.error(
+                    f"Random shuffled buffer do not support {horizon}-step sampling"
+                )
                 exit(0)
 
 
@@ -60,7 +70,14 @@ def decode_items(items, outputs, start_index=0, data_coder=None):
         outputs.assign(start_index + i, item)
 
 
-def decode_worker(input_buf_name, len_input, out_buf_infos, start_index=None, data_coder=None, woker_id=None):
+def decode_worker(
+    input_buf_name,
+    len_input,
+    out_buf_infos,
+    start_index=None,
+    data_coder=None,
+    woker_id=None,
+):
     start_time = time.time()
     input_buf = SharedMemory(name=input_buf_name)
     input_bytes = input_buf.buf[:len_input].tobytes()
@@ -74,7 +91,8 @@ def decode_worker(input_buf_name, len_input, out_buf_infos, start_index=None, da
     return time.time() - start_time
 
 
-META_KEYS = ['meta']
+META_KEYS = ["meta"]
+
 
 def len_items(items):
     if isinstance(items, GDict):
@@ -106,7 +124,6 @@ def purify_items(items, keys=None, full=True, one_episode=False, keys_map=None):
         if keys is not None:
             items = items.select_by_keys(keys)
         if keys_map is not None:
-
             for key, mapped_key in keys_map.items():
                 if key in items:
                     item = items[key]
@@ -127,7 +144,9 @@ def purify_items(items, keys=None, full=True, one_episode=False, keys_map=None):
     return items
 
 
-def create_shared_dict_array_from_files(filenames, capacity, data_coder, keys, keys_map=None):
+def create_shared_dict_array_from_files(
+    filenames, capacity, data_coder, keys, keys_map=None
+):
     # print(filenames, capacity, data_coder, keys)
     # exit(0)
     filename = filenames[0]
@@ -196,7 +215,9 @@ def get_total_size(filenames, record_indices=None, num_samples=-1):
                 file_obj = open(filename, "rb")
                 size = 0
                 for i in range(num):
-                    item = load_items_from_record(file_obj, record_indices_i, i, None, True)
+                    item = load_items_from_record(
+                        file_obj, record_indices_i, i, None, True
+                    )
                     size += len(item["actions"])
                 file_obj.close()
             else:
@@ -231,7 +252,10 @@ class FileCacheWorker:
         self.num_procs = num_procs
         base_seed = np.random.randint(0, int(1e9))
         if data_coder is not None and self.num_procs > 1:
-            self.workers = [Worker(decode_worker, i, base_seed=base_seed + i) for i in range(num_procs)]
+            self.workers = [
+                Worker(decode_worker, i, base_seed=base_seed + i)
+                for i in range(num_procs)
+            ]
         else:
             self.num_procs = 1
 
@@ -254,14 +278,19 @@ class FileCacheWorker:
         self.item_index = 0  # For h5 and record
         self.current_keys = None  # For h5
         self.deterministic_loading = deterministic_loading
-        self.num_samples = int(1e20) if num_samples == -1 else num_samples  # h5, record-episode: num of trajs, record: num of samples:
+        self.num_samples = (
+            int(1e20) if num_samples == -1 else num_samples
+        )  # h5, record-episode: num of trajs, record: num of samples:
 
         self.cache_buffer = SharedDictArray(None, *buffer_infos)
         logger = get_logger()
 
         if self.num_procs > 1:
             self.input_buffers = [None for i in range(num_procs)]
-            self.output_buffers = [SharedDictArray(self.cache_buffer.to_dict_array().slice(slice(0, 1))) for i in range(num_procs)]
+            self.output_buffers = [
+                SharedDictArray(self.cache_buffer.to_dict_array().slice(slice(0, 1)))
+                for i in range(num_procs)
+            ]
 
         logger.info(
             f"Length of cache: {capacity}, cache size {self.cache_buffer.nbytes_all / 1024 / 1024} MB, cache shape {self.cache_buffer.shape}!"
@@ -313,7 +342,9 @@ class FileCacheWorker:
         filetype = self.filetypes[self.file_index]
         max_index = min(self.len_files[self.file_index], self.num_samples)
         # print(self.file_index, filetype, self.item_index, self.traj_index, max_index)
-        if (filetype == "episode" and self.traj_index < max_index) or (filetype == "one-step" and self.item_index < max_index):
+        if (filetype == "episode" and self.traj_index < max_index) or (
+            filetype == "one-step" and self.item_index < max_index
+        ):
             pass
         elif self.file_index < len(self.filenames) - 1:
             if self.current_file is not None:
@@ -335,7 +366,13 @@ class FileCacheWorker:
             if file_suffix == "h5":
                 self.current_file = File(filename, "r")
                 if is_h5_traj(self.current_file):
-                    self.current_keys = sorted([key for key in self.current_file.keys() if key not in META_KEYS])
+                    self.current_keys = sorted(
+                        [
+                            key
+                            for key in self.current_file.keys()
+                            if key not in META_KEYS
+                        ]
+                    )
                 else:
                     self.cached_items = DictArray.from_hdf5(self.current_file)
                     self.len_cached_items = len_items(self.cached_items)
@@ -351,7 +388,6 @@ class FileCacheWorker:
         record_indices = self.record_indices[self.file_index]
         filesuffix = self.filesuffix[file_index]
 
-
         def recursive_repeat_dict(dict_to_do, repeat_num):
             for key in dict_to_do.keys():
                 if isinstance(dict_to_do[key], dict):
@@ -359,33 +395,60 @@ class FileCacheWorker:
                 else:
                     supp = np.repeat([dict_to_do[key][-1]], self.horizon, 0)
                     if key == "actions":
-                        supp[...,:-1] = 0
+                        supp[..., :-1] = 0
                     if key == "timesteps":
-                        supp = np.array(range(dict_to_do[key][-1][0]+1, dict_to_do[key][-1][0]+self.horizon+1))[:, np.newaxis]
+                        supp = np.array(
+                            range(
+                                dict_to_do[key][-1][0] + 1,
+                                dict_to_do[key][-1][0] + self.horizon + 1,
+                            )
+                        )[:, np.newaxis]
                     dict_to_do[key] = np.vstack([dict_to_do[key], supp])
 
         if filesuffix == "record":
-            num = min(min(len(record_indices), self.num_samples) - self.item_index, max_num)
-            items = load_items_from_record(self.current_file, record_indices, self.item_index, self.item_index + num, True)
+            num = min(
+                min(len(record_indices), self.num_samples) - self.item_index, max_num
+            )
+            items = load_items_from_record(
+                self.current_file,
+                record_indices,
+                self.item_index,
+                self.item_index + num,
+                True,
+            )
             items = DictArray.stack(items, wrapper=True)
-            items = purify_items(items, keys=self.keys, one_episode=False, keys_map=self.keys_map)
+            items = purify_items(
+                items, keys=self.keys, one_episode=False, keys_map=self.keys_map
+            )
             self.item_index += num
         elif filesuffix == "h5" and not is_h5_traj(self.current_file):
             # Normal dataset
-            num = min(min(self.len_cached_items, self.num_samples) - self.item_index, max_num)
-            items = self.cached_items.slice(slice(self.item_index, self.item_index + num))
-            items = purify_items(items, keys=self.keys, one_episode=False, keys_map=self.keys_map)
+            num = min(
+                min(self.len_cached_items, self.num_samples) - self.item_index, max_num
+            )
+            items = self.cached_items.slice(
+                slice(self.item_index, self.item_index + num)
+            )
+            items = purify_items(
+                items, keys=self.keys, one_episode=False, keys_map=self.keys_map
+            )
             self.item_index += num
         else:
             if filesuffix == "h5":
                 # Trajectory dataset
                 key = self.current_keys[self.traj_index]
                 items = DictArray.from_hdf5(self.current_file[key])
-                recursive_repeat_dict(items, self.horizon) # We append a set of last states to the traj end with the number of horizon
+                recursive_repeat_dict(
+                    items, self.horizon
+                )  # We append a set of last states to the traj end with the number of horizon
             elif filesuffix == "record_episode":
-                items = load_items_from_record(self.current_file, record_indices, self.traj_index, None, True)
+                items = load_items_from_record(
+                    self.current_file, record_indices, self.traj_index, None, True
+                )
                 items = DictArray(items)
-                recursive_repeat_dict(items, self.horizon) # We append a set of last states to the traj end with the number of horizon
+                recursive_repeat_dict(
+                    items, self.horizon
+                )  # We append a set of last states to the traj end with the number of horizon
             else:
                 raise NotImplementedError
             num_samples = len(items)
@@ -396,7 +459,9 @@ class FileCacheWorker:
                 self.traj_index += 1
             else:
                 self.item_index += num
-            items = purify_items(items, keys=self.keys, one_episode=True, keys_map=self.keys_map)
+            items = purify_items(
+                items, keys=self.keys, one_episode=True, keys_map=self.keys_map
+            )
         return items
 
     def fetch_next_buffer(self, auto_restart=False):
@@ -420,14 +485,20 @@ class FileCacheWorker:
                 start_index = 0
 
                 for i in range(num_procs):
-                    item_i = ret.slice(slice(start_index, start_index + splt_items[i]), wrapper=False)
+                    item_i = ret.slice(
+                        slice(start_index, start_index + splt_items[i]), wrapper=False
+                    )
                     buffer_content = dump(item_i, file_format="pkl")
 
-                    if self.input_buffers[i] is None or self.input_buffers[i].size < len(buffer_content):
+                    if self.input_buffers[i] is None or self.input_buffers[
+                        i
+                    ].size < len(buffer_content):
                         if self.input_buffers[i] is None:
                             new_size = len(buffer_content)
                         else:
-                            new_size = max(self.input_buffers[i].size * 2, len(buffer_content))
+                            new_size = max(
+                                self.input_buffers[i].size * 2, len(buffer_content)
+                            )
                             self.input_buffers[i].close()
                             self.input_buffers[i].unlink()
                         self.input_buffers[i] = SharedMemory(size=new_size, create=True)
@@ -461,16 +532,37 @@ class FileCacheWorker:
 
 
 class FileCache:
-    def __init__(self, filenames, capacity, keys, data_coder, num_procs=4, synchronized=False, keys_map=None, **kwargs):
+    def __init__(
+        self,
+        filenames,
+        capacity,
+        keys,
+        data_coder,
+        num_procs=4,
+        synchronized=False,
+        keys_map=None,
+        **kwargs,
+    ):
         self.capacity = capacity
-        self.shared_buffer = create_shared_dict_array_from_files(filenames, capacity, data_coder, keys, keys_map=keys_map)
+        self.shared_buffer = create_shared_dict_array_from_files(
+            filenames, capacity, data_coder, keys, keys_map=keys_map
+        )
         buffer_infos = self.shared_buffer.get_infos()
         self.synchronized = synchronized
         self.num_valid_items = 0
         if synchronized:
-            self.worker = FileCacheWorker(filenames, capacity, keys, keys_map, buffer_infos, data_coder, num_procs, **kwargs)
+            self.worker = FileCacheWorker(
+                filenames,
+                capacity,
+                keys,
+                keys_map,
+                buffer_infos,
+                data_coder,
+                num_procs,
+                **kwargs,
+            )
         else:
-            seed = np.random.randint(int(1E9))
+            seed = np.random.randint(int(1e9))
             self.worker = Worker(
                 FileCacheWorker,
                 None,
@@ -488,7 +580,9 @@ class FileCache:
 
     def run(self, auto_restart=False):
         if self.synchronized:
-            self.num_valid_items = self.worker.fetch_next_buffer(auto_restart=auto_restart)
+            self.num_valid_items = self.worker.fetch_next_buffer(
+                auto_restart=auto_restart
+            )
         else:
             self.worker.call("fetch_next_buffer", auto_restart=auto_restart)
 
@@ -507,7 +601,7 @@ class FileCache:
     def close(self):
         if hasattr(self, "synchronized") and not self.synchronized:
             if isinstance(self.worker, Worker):
-                self.worker.call('close')
+                self.worker.call("close")
                 self.worker.close()
             else:
                 self.worker.close()

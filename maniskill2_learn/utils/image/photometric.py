@@ -193,7 +193,9 @@ def adjust_brightness(img, factor=1.0):
     # Note manually convert the dtype to np.float32, to
     # achieve as close results as PIL.ImageEnhance.Brightness.
     # Set beta=1-factor, and gamma=0
-    brightened_img = cv2.addWeighted(img.astype(np.float32), factor, degenerated.astype(np.float32), 1 - factor, 0)
+    brightened_img = cv2.addWeighted(
+        img.astype(np.float32), factor, degenerated.astype(np.float32), 1 - factor, 0
+    )
     return brightened_img.astype(img.dtype)
 
 
@@ -219,7 +221,9 @@ def adjust_contrast(img, factor=1.0):
     mean = round(np.sum(gray_img) / np.sum(hist))
     degenerated = (np.ones_like(img[..., 0]) * mean).astype(img.dtype)
     degenerated = gray2bgr(degenerated)
-    contrasted_img = cv2.addWeighted(img.astype(np.float32), factor, degenerated.astype(np.float32), 1 - factor, 0)
+    contrasted_img = cv2.addWeighted(
+        img.astype(np.float32), factor, degenerated.astype(np.float32), 1 - factor, 0
+    )
     return contrasted_img.astype(img.dtype)
 
 

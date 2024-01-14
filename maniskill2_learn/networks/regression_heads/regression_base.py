@@ -8,7 +8,9 @@ from ..builder import build_backbone, REGHEADS
 
 
 class ContinuousBaseHead(ExtendedModule):
-    def __init__(self, bound=None, dim_output=None, nn_cfg=None, clip_return=False, num_heads=1):
+    def __init__(
+        self, bound=None, dim_output=None, nn_cfg=None, clip_return=False, num_heads=1
+    ):
         super(ContinuousBaseHead, self).__init__()
         self.bound = bound
         self.net = build_backbone(nn_cfg)
@@ -23,11 +25,23 @@ class ContinuousBaseHead(ExtendedModule):
             assert dim_output is None or bound[0].shape[-1] == dim_output
             dim_output = bound[0].shape[-1]
             if bound[0].ndim > 1:
-                assert bound[0].ndim == 2 and bound[0].shape[0] == num_heads and num_heads > 1
-            self.lb, self.ub = [Parameter(torch.tensor(bound[i]), requires_grad=False) for i in [0, 1]]
-            self.log_uniform_prob = torch.log(1.0 / ((self.ub - self.lb).data)).sum().item()
-            self.scale = Parameter(torch.tensor(bound[1] - bound[0]) / 2, requires_grad=False)
-            self.bias = Parameter(torch.tensor(bound[0] + bound[1]) / 2, requires_grad=False)
+                assert (
+                    bound[0].ndim == 2
+                    and bound[0].shape[0] == num_heads
+                    and num_heads > 1
+                )
+            self.lb, self.ub = [
+                Parameter(torch.tensor(bound[i]), requires_grad=False) for i in [0, 1]
+            ]
+            self.log_uniform_prob = (
+                torch.log(1.0 / ((self.ub - self.lb).data)).sum().item()
+            )
+            self.scale = Parameter(
+                torch.tensor(bound[1] - bound[0]) / 2, requires_grad=False
+            )
+            self.bias = Parameter(
+                torch.tensor(bound[0] + bound[1]) / 2, requires_grad=False
+            )
         else:
             self.scale, self.bias = 1, 0
 
@@ -37,7 +51,9 @@ class ContinuousBaseHead(ExtendedModule):
 
     def uniform(self, sample_shape):
         r = torch.rand(sample_shape, self.dim_output, device=self.device)
-        return (r * self.ub + (1 - r) * self.lb), torch.ones(sample_shape, device=self.device) * self.log_uniform_prob
+        return (r * self.ub + (1 - r) * self.lb), torch.ones(
+            sample_shape, device=self.device
+        ) * self.log_uniform_prob
 
     def clamp(self, x):
         if self.clip_return:

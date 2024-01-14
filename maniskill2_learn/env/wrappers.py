@@ -26,6 +26,7 @@ WRAPPERS = Registry("wrappers of gym environments")
 from transforms3d.quaternions import quat2axangle
 from transforms3d.euler import quat2euler
 
+
 def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
     theta, omega = quat2axangle(quat)
     # - 2 * np.pi to make the angle symmetrical around 0
@@ -216,7 +217,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         using_target=False,
     ):
         super().__init__(env)
-        
+
         self.ms2_env_name = self.env.spec.id
         self.obs_frame = obs_frame
         if self.obs_mode == "state":
@@ -252,8 +253,10 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         self.ep_first_obs_dict = None
 
         if self.history_len > 1:
-            self.action_queue = deque(maxlen=self.history_len-1)
-            self.action_queue.extend([np.zeros(self.action_dim) for _ in range(self.history_len-1)])
+            self.action_queue = deque(maxlen=self.history_len - 1)
+            self.action_queue.extend(
+                [np.zeros(self.action_dim) for _ in range(self.history_len - 1)]
+            )
 
     def reset(self, **kwargs):
         self.init_queue()
@@ -269,29 +272,37 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
         observation = self.observation(obs)
         self.ep_first_obs_dict = observation.copy()
-        
+
         if get_shape:
-            return observation  
-        
-        observation["timesteps"] = np.array([self.timestep,])
-        
+            return observation
+
+        observation["timesteps"] = np.array(
+            [
+                self.timestep,
+            ]
+        )
+
         if self.history_len > 1 and self.obs_mode != "state":
             for obs_key in observation.keys():
-                if isinstance(observation[obs_key], (list,tuple)):
+                if isinstance(observation[obs_key], (list, tuple)):
                     observation[obs_key] = observation[obs_key][0]
             if self.obs_queue is None:
                 self.obs_queue = {}
                 for obs_key in observation.keys():
                     self.obs_queue[obs_key] = deque(maxlen=self.history_len)
-                    self.obs_queue[obs_key].extend([observation[obs_key] for _ in range(self.history_len)])
+                    self.obs_queue[obs_key].extend(
+                        [observation[obs_key] for _ in range(self.history_len)]
+                    )
             for obs_key in observation.keys():
                 self.obs_queue[obs_key].append(observation[obs_key])
-                observation[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
+                observation[obs_key] = np.stack(
+                    self.obs_queue[obs_key], axis=0
+                )  # (n_obs_steps, C, H, W)
 
             observation["actions"] = np.stack(self.action_queue, axis=0)
 
         observation["ep_first_obs"] = self.ep_first_obs_dict
- 
+
         return observation
 
     def step(self, action):
@@ -300,7 +311,11 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         if self.ignore_dones:
             done = False
 
-        next_obs["timesteps"] = np.array([self.timestep,])
+        next_obs["timesteps"] = np.array(
+            [
+                self.timestep,
+            ]
+        )
 
         if self.history_len > 1 and self.obs_mode != "state":
             # if self.action_queue is None:
@@ -312,41 +327,47 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
             if self.obs_queue is not None:
                 for obs_key in next_obs.keys():
-                    if isinstance(next_obs[obs_key], (list,tuple)):
+                    if isinstance(next_obs[obs_key], (list, tuple)):
                         next_obs[obs_key] = next_obs[obs_key][0]
                     self.obs_queue[obs_key].append(next_obs[obs_key])
-                    next_obs[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
+                    next_obs[obs_key] = np.stack(
+                        self.obs_queue[obs_key], axis=0
+                    )  # (n_obs_steps, C, H, W)
 
             next_obs["actions"] = np.stack(self.action_queue, axis=0)
 
         next_obs["ep_first_obs"] = self.ep_first_obs_dict
-        
+
         return next_obs, reward, done, info
-    
+
     def update_action_queue(self, action):
         if self.history_len > 1 and self.obs_mode != "state":
             if self.action_queue is not None:
                 self.action_queue.append(action)
-    
+
     def update_observation_queue(self, observation):
         if self.history_len > 1 and self.obs_mode != "state":
             for obs_key in observation.keys():
-                if isinstance(observation[obs_key], (list,tuple)):
+                if isinstance(observation[obs_key], (list, tuple)):
                     observation[obs_key] = observation[obs_key][0]
 
             if self.obs_queue is None:
                 self.obs_queue = {}
                 for obs_key in observation.keys():
                     self.obs_queue[obs_key] = deque(maxlen=self.history_len)
-                    self.obs_queue[obs_key].extend([observation[obs_key] for _ in range(self.history_len)])
+                    self.obs_queue[obs_key].extend(
+                        [observation[obs_key] for _ in range(self.history_len)]
+                    )
             else:
                 for obs_key in observation.keys():
-                    if isinstance(observation[obs_key], (list,tuple)):
+                    if isinstance(observation[obs_key], (list, tuple)):
                         observation[obs_key] = observation[obs_key][0]
 
             for obs_key in observation.keys():
                 self.obs_queue[obs_key].append(observation[obs_key])
-                observation[obs_key] = np.stack(self.obs_queue[obs_key], axis=0) # (n_obs_steps, C, H, W)
+                observation[obs_key] = np.stack(
+                    self.obs_queue[obs_key], axis=0
+                )  # (n_obs_steps, C, H, W)
 
             observation["actions"] = np.stack(self.action_queue, axis=0)
 
@@ -364,8 +385,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         )
         from mani_skill2.utils.sapien_utils import vectorize_pose
         from sapien.core import Pose
-        
-        
+
         if self.obs_mode == "state":
             return observation
 
@@ -389,17 +409,22 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         #     else:
         #         assert len(hand_tcp_links) > 1
         #         observation["extra"]["tcp_pose"] = np.stack([vectorize_pose(l.get_pose()) for l in hand_tcp_links], axis=0) # [nhands, 7], multi-arm envs
-        
+
         # Comment this portion of code out if you are using earlier version of ManiSkill2 before May 25, 2023
-        if 'PushChair' in self.ms2_env_name or 'MoveBucket' in self.ms2_env_name:
+        if "PushChair" in self.ms2_env_name or "MoveBucket" in self.ms2_env_name:
             try:
                 right_tcp_pose = observation["extra"].pop("right_tcp_pose")
                 left_tcp_pose = observation["extra"].pop("left_tcp_pose")
-                observation["extra"]["tcp_pose"] = np.stack([right_tcp_pose, left_tcp_pose], axis=0) # [nhands, 7], multi-arm envs
+                observation["extra"]["tcp_pose"] = np.stack(
+                    [right_tcp_pose, left_tcp_pose], axis=0
+                )  # [nhands, 7], multi-arm envs
             except KeyError as e:
-                print("base_pose and/or tcp_pose not found in MS1 environment observations. Please see ManiSkill2_ObsWrapper in env/wrappers.py for more details.", flush=True)
+                print(
+                    "base_pose and/or tcp_pose not found in MS1 environment observations. Please see ManiSkill2_ObsWrapper in env/wrappers.py for more details.",
+                    flush=True,
+                )
                 raise e
-        
+
         if self.obs_mode == "rgbd":
             """
             Example *input* observation keys and their respective shapes ('extra' keys don't necessarily match):
@@ -412,7 +437,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
              'agent':
                 {'qpos': 9, 'qvel': 9, 'controller': {'arm': {}, 'gripper': {}}, 'base_pose': 7},
              'camera_param':
-                {'base_camera': {'extrinsic_cv': (4, 4), 'cam2world_gl': (4, 4), 'intrinsic_cv': (3, 3)}, 
+                {'base_camera': {'extrinsic_cv': (4, 4), 'cam2world_gl': (4, 4), 'intrinsic_cv': (3, 3)},
                 'hand_camera': {'extrinsic_cv': (4, 4), 'cam2world_gl': (4, 4), 'intrinsic_cv': (3, 3)}}
              'extra':
                 {'tcp_pose': 7, 'goal_pos': 3}}
@@ -421,29 +446,33 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             obs = observation
             rgb, depth, segs = [], [], []
             imgs = obs["image"]
-            
-            # IMPORTANT: the order of cameras can be different across different maniskill2 versions; 
+
+            # IMPORTANT: the order of cameras can be different across different maniskill2 versions;
             # thus we have to explicitly list out camera names to ensure that camera orders are consistent
-            if 'hand_camera' in imgs.keys():
-                cam_names = ['hand_camera', 'base_camera']
-            elif 'overhead_camera_0' in imgs.keys(): # ManiSkill1 environments
-                cam_names = ['overhead_camera_0', 'overhead_camera_1', 'overhead_camera_2']
+            if "hand_camera" in imgs.keys():
+                cam_names = ["hand_camera", "base_camera"]
+            elif "overhead_camera_0" in imgs.keys():  # ManiSkill1 environments
+                cam_names = [
+                    "overhead_camera_0",
+                    "overhead_camera_1",
+                    "overhead_camera_2",
+                ]
             else:
                 raise NotImplementedError()
-            
+
             # Process RGB and Depth images
             if self.concat_rgbd:
-                rgbd = {_:[] for _ in cam_names}
+                rgbd = {_: [] for _ in cam_names}
                 for cam_name in cam_names:
                     if self.using_depth:
-                        rgbd[cam_name].append(imgs[cam_name]["rgb"]) # each [H, W, 3]
-                        rgbd[cam_name].append(imgs[cam_name]["depth"]) # each [H, W, 1]
+                        rgbd[cam_name].append(imgs[cam_name]["rgb"])  # each [H, W, 3]
+                        rgbd[cam_name].append(imgs[cam_name]["depth"])  # each [H, W, 1]
                         rgbd[cam_name] = np.concatenate(rgbd[cam_name], axis=2)
                     else:
-                        rgbd[cam_name] = imgs[cam_name]["rgb"] # each [H, W, 3]
+                        rgbd[cam_name] = imgs[cam_name]["rgb"]  # each [H, W, 3]
                     assert imgs[cam_name]["rgb"].dtype == np.uint8
             else:
-                for cam_name in cam_names: 
+                for cam_name in cam_names:
                     rgb.append(imgs[cam_name]["rgb"])  # each [H, W, 3]
                     depth.append(imgs[cam_name]["depth"])  # each [H, W, 1]
                 rgb = np.concatenate(rgb, axis=2)
@@ -451,7 +480,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 depth = np.concatenate(depth, axis=2)
                 depth = depth.astype(np.float32, copy=False)
             if "Segmentation" in imgs[cam_name].keys():
-                segs.append(imgs[cam_name]["Segmentation"]) # each [H, W, 4], last dim = [mesh_seg, actor_seg, 0, 0]
+                segs.append(
+                    imgs[cam_name]["Segmentation"]
+                )  # each [H, W, 4], last dim = [mesh_seg, actor_seg, 0, 0]
             if len(segs) > 0:
                 segs = np.concatenate(segs, axis=2)
             obs.pop("image")
@@ -464,6 +495,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                     H, W = goal_img.shape[:2]
                     goal_img = goal_img.reshape([H, W, -1])
                 return goal_img
+
             goal_rgb = obs["extra"].pop("goal", None)
             if goal_rgb is None:
                 goal_rgb = obs["extra"].pop("target_rgb", None)
@@ -503,7 +535,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             if "tcp_pose" in obs["extra"].keys() and "goal_pos" in obs["extra"].keys():
                 assert obs["extra"]["tcp_pose"].ndim <= 2
                 if obs["extra"]["tcp_pose"].ndim == 2:
-                    tcp_pose = obs["extra"]["tcp_pose"][0] # take the first hand's tcp pose
+                    tcp_pose = obs["extra"]["tcp_pose"][
+                        0
+                    ]  # take the first hand's tcp pose
                 else:
                     tcp_pose = obs["extra"]["tcp_pose"]
                 obs["extra"]["tcp_to_goal_pos"] = (
@@ -515,20 +549,27 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 obs["extra"]["tcp_pose"] = obs["extra"]["tcp_pose"].reshape(-1)
                 if self.using_angle:
                     cur_tcq_pose_np = obs["extra"]["tcp_pose"]
-                    obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose_np[:3], compact_axis_angle_from_quaternion(cur_tcq_pose_np[3:])]
+                    obs["extra"]["tcp_pose"] = np.r_[
+                        cur_tcq_pose_np[:3],
+                        compact_axis_angle_from_quaternion(cur_tcq_pose_np[3:]),
+                    ]
                 elif self.using_euler:
                     cur_tcq_pose_np = obs["extra"]["tcp_pose"]
-                    obs["extra"]["tcp_pose"] = np.r_[cur_tcq_pose_np[:3], quat2euler(cur_tcq_pose_np[3:])]
-            
-            obs['extra'].pop('target_points', None)
+                    obs["extra"]["tcp_pose"] = np.r_[
+                        cur_tcq_pose_np[:3], quat2euler(cur_tcq_pose_np[3:])
+                    ]
+
+            obs["extra"].pop("target_points", None)
             # # NOTE: We want to remove extra info about goals
             if not self.using_target:
-                obs['extra'].pop('goal_pos', None)
-                obs['extra'].pop('tcp_to_goal_pos', None)
-            obs.pop('camera_param', None)
-            
-            s = flatten_state_dict(obs) # Other observation keys should be already ordered and such orders shouldn't change across different maniskill2 versions, so we just flatten them
-            
+                obs["extra"].pop("goal_pos", None)
+                obs["extra"].pop("tcp_to_goal_pos", None)
+            obs.pop("camera_param", None)
+
+            s = flatten_state_dict(
+                obs
+            )  # Other observation keys should be already ordered and such orders shouldn't change across different maniskill2 versions, so we just flatten them
+
             # Resize RGB and Depth images
             if self.img_size is not None and self.img_size != (
                 rgb.shape[0],
@@ -547,13 +588,17 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                     "state": s,
                 }
                 for key in rgbd:
-                    rgbd[key] = rgbd[key].astype(np.uint8, copy=False).transpose(2, 0, 1) # [C, H, W]
+                    rgbd[key] = (
+                        rgbd[key].astype(np.uint8, copy=False).transpose(2, 0, 1)
+                    )  # [C, H, W]
                     out_dict["{}_rgbd".format(key)] = rgbd[key]
                 if goal_rgbd is not None:
                     out_dict["goal_rgbd"] = goal_rgbd
             else:
                 out_dict = {
-                    "rgb": rgb.astype(np.uint8, copy=False).transpose(2, 0, 1), # [C, H, W]
+                    "rgb": rgb.astype(np.uint8, copy=False).transpose(
+                        2, 0, 1
+                    ),  # [C, H, W]
                     "depth": depth.astype(np.float16, copy=False).transpose(2, 0, 1),
                     "state": s,
                 }
@@ -585,9 +630,11 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 tcp_poses = observation["extra"]["tcp_pose"]
                 assert tcp_poses.ndim <= 2
                 if tcp_poses.ndim == 2:
-                    tcp_pose = tcp_poses[0] # use the first robot hand's tcp pose as the end-effector frame
+                    tcp_pose = tcp_poses[
+                        0
+                    ]  # use the first robot hand's tcp pose as the end-effector frame
                 else:
-                    tcp_pose = tcp_poses # only one robot hand
+                    tcp_pose = tcp_poses  # only one robot hand
                 p, q = tcp_pose[:3], tcp_pose[3:]
                 to_origin = Pose(p=p, q=q).inv()
             else:
@@ -604,33 +651,33 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 for k in pointcloud.keys():
                     pointcloud[k] = pointcloud[k][mask]
                 pointcloud["xyz"] = xyz[mask]
-                
+
             # Initialize return dict
             ret = {
-                mode: pointcloud[mode]
-                for mode in ["xyz", "rgb"]
-                if mode in pointcloud
+                mode: pointcloud[mode] for mode in ["xyz", "rgb"] if mode in pointcloud
             }
-            
+
             # Process observation point cloud segmentations, if given
             if "visual_seg" in pointcloud and "actor_seg" in pointcloud:
                 visual_seg = pointcloud["visual_seg"].squeeze()
                 actor_seg = pointcloud["actor_seg"].squeeze()
                 assert visual_seg.ndim == 1 and actor_seg.ndim == 1
                 N = visual_seg.shape[0]
-                ret_visual_seg = np.zeros([N, 50]) # hardcoded
+                ret_visual_seg = np.zeros([N, 50])  # hardcoded
                 ret_visual_seg[np.arange(N), visual_seg] = 1.0
-                ret_actor_seg = np.zeros([N, 50]) # hardcoded
+                ret_actor_seg = np.zeros([N, 50])  # hardcoded
                 ret_actor_seg[np.arange(N), actor_seg] = 1.0
                 ret["seg"] = np.concatenate([ret_visual_seg, ret_actor_seg], axis=-1)
 
             # Process observation point cloud rgb, downsample observation point cloud, and transform observation point cloud coordinates to self.obs_frame
             ret["rgb"] = ret["rgb"] / 255.0
-            uniform_downsample_kwargs = {"env": self.env, "ground_eps": 1e-4, "num": self.n_points}
+            uniform_downsample_kwargs = {
+                "env": self.env,
+                "ground_eps": 1e-4,
+                "num": self.n_points,
+            }
             if "PointCloudPreprocessObsWrapper" not in self.env.__str__():
-                pcd_uniform_downsample(
-                    ret, **uniform_downsample_kwargs
-                )
+                pcd_uniform_downsample(ret, **uniform_downsample_kwargs)
             ret["xyz"] = apply_pose_to_points(ret["xyz"], to_origin)
 
             # Sample from and append the goal point cloud to the observation point cloud, if the goal point cloud is given
@@ -640,7 +687,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 ret_goal["xyz"] = goal_pcd_xyz
                 for k in ret.keys():
                     if k != "xyz":
-                        ret_goal[k] = np.ones_like(ret[k]) * (-1) # special value to distinguish goal point cloud and observation point cloud
+                        ret_goal[k] = np.ones_like(ret[k]) * (
+                            -1
+                        )  # special value to distinguish goal point cloud and observation point cloud
                 pcd_uniform_downsample(ret_goal, **uniform_downsample_kwargs)
                 ret_goal["xyz"] = apply_pose_to_points(ret_goal["xyz"], to_origin)
                 for k in ret.keys():
@@ -653,9 +702,11 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             if "tcp_pose" in obs_extra_keys:
                 tcp_poses = observation["extra"]["tcp_pose"]
                 assert tcp_poses.ndim <= 2
-                if tcp_poses.ndim == 1: # single robot hand
+                if tcp_poses.ndim == 1:  # single robot hand
                     tcp_poses = tcp_poses[None, :]
-                tcp_poses = [Pose(p=pose[:3], q=pose[3:]) for pose in tcp_poses] # [nhand] tcp poses, where nhand is the number of robot hands
+                tcp_poses = [
+                    Pose(p=pose[:3], q=pose[3:]) for pose in tcp_poses
+                ]  # [nhand] tcp poses, where nhand is the number of robot hands
             goal_pos = None
             goal_pose = None
             if "goal_pos" in obs_extra_keys:
@@ -666,7 +717,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 goal_pose = Pose(p=goal_pose[:3], q=goal_pose[3:])
             tcp_to_goal_pos = None
             if tcp_poses is not None and goal_pos is not None:
-                tcp_to_goal_pos = goal_pos - tcp_poses[0].p # use the first robot hand's tcp pose to calculate the relative position from tcp to goal
+                tcp_to_goal_pos = (
+                    goal_pos - tcp_poses[0].p
+                )  # use the first robot hand's tcp pose to calculate the relative position from tcp to goal
 
             # Sample green points near the goal and append them to the observation point cloud, which serve as visual goal indicator,
             # if self.n_goal_points is specified and the goal information if given in an environment

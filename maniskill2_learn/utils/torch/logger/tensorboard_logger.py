@@ -43,7 +43,15 @@ class TensorboardLogger:
             else:
                 return False
 
-    def get_loggable_tags(self, output, allow_scalar=True, allow_text=False, tags_to_skip=("time", "data_time"), add_mode=True, tag_name="train"):
+    def get_loggable_tags(
+        self,
+        output,
+        allow_scalar=True,
+        allow_text=False,
+        tags_to_skip=("time", "data_time"),
+        add_mode=True,
+        tag_name="train",
+    ):
         tags = {}
         for tag, val in output.items():
             if tag in tags_to_skip:
@@ -66,10 +74,12 @@ class TensorboardLogger:
                 self.writer.add_scalar(tag, val, n_iter)
             else:
                 if val.ndim == 2:
-                    cmap = plt.get_cmap('jet')
+                    cmap = plt.get_cmap("jet")
                     val = cmap(val)[..., :3]
-                assert val.ndim == 3, f"Image should have two dimension! You provide: {tag, val.shape}!"
-                self.writer.add_image(tag, val, n_iter, dataformats='HWC')
+                assert (
+                    val.ndim == 3
+                ), f"Image should have two dimension! You provide: {tag, val.shape}!"
+                self.writer.add_image(tag, val, n_iter, dataformats="HWC")
 
     def close(self):
         self.writer.close()

@@ -104,9 +104,21 @@ def run_with_mini_batch(
     # print(capacity, batch_size)
     for i in range(0, capacity, batch_size):
         num_i = min(capacity - i, batch_size)
-        args_i = args.slice(slice(i, i + num_i)).to_torch(device=device, wrapper=False) if args is not None else []
-        kwargs_i = kwargs.slice(slice(i, i + num_i)).to_torch(device=device, wrapper=False) if kwargs is not None else {}
-        ret.append(GDict(function(*args_i, **kwargs_i)).to_torch(device=ret_device, wrapper=False))
+        args_i = (
+            args.slice(slice(i, i + num_i)).to_torch(device=device, wrapper=False)
+            if args is not None
+            else []
+        )
+        kwargs_i = (
+            kwargs.slice(slice(i, i + num_i)).to_torch(device=device, wrapper=False)
+            if kwargs is not None
+            else {}
+        )
+        ret.append(
+            GDict(function(*args_i, **kwargs_i)).to_torch(
+                device=ret_device, wrapper=False
+            )
+        )
     ret = DictArray.concat(ret, axis=0, wrapper=wrapper)
 
     return ret
@@ -116,12 +128,22 @@ def mini_batch(wrapper_=True):
     def actual_mini_batch(f):
         wraps(f)
 
-        def wrapper(*args, batch_size=None, wrapper=None, device=None, ret_device=None, **kwargs):
+        def wrapper(
+            *args, batch_size=None, wrapper=None, device=None, ret_device=None, **kwargs
+        ):
             if wrapper is None:
                 wrapper = wrapper_
             # print(batch_size, dict(kwargs))
 
-            return run_with_mini_batch(f, *args, **kwargs, batch_size=batch_size, wrapper=wrapper, device=device, ret_device=ret_device)
+            return run_with_mini_batch(
+                f,
+                *args,
+                **kwargs,
+                batch_size=batch_size,
+                wrapper=wrapper,
+                device=device,
+                ret_device=ret_device,
+            )
 
         return wrapper
 

@@ -31,9 +31,20 @@ class BasicBlock(nn.Module):
         self.norm1_name, norm1 = build_norm_layer(norm_cfg, planes, postfix=1)
         self.norm2_name, norm2 = build_norm_layer(norm_cfg, planes, postfix=2)
 
-        self.conv1 = build_conv_layer(conv_cfg, inplanes, planes, 3, stride=stride, padding=dilation, dilation=dilation, bias=False)
+        self.conv1 = build_conv_layer(
+            conv_cfg,
+            inplanes,
+            planes,
+            3,
+            stride=stride,
+            padding=dilation,
+            dilation=dilation,
+            bias=False,
+        )
         self.add_module(self.norm1_name, norm1)
-        self.conv2 = build_conv_layer(conv_cfg, planes, planes, 3, padding=1, bias=False)
+        self.conv2 = build_conv_layer(
+            conv_cfg, planes, planes, 3, padding=1, bias=False
+        )
         self.add_module(self.norm2_name, norm2)
 
         self.relu = nn.ReLU(inplace=True)
@@ -128,9 +139,21 @@ class Bottleneck(nn.Module):
 
         if self.with_plugins:
             # collect plugins for conv1/conv2/conv3
-            self.after_conv1_plugins = [plugin["cfg"] for plugin in plugins if plugin["position"] == "after_conv1"]
-            self.after_conv2_plugins = [plugin["cfg"] for plugin in plugins if plugin["position"] == "after_conv2"]
-            self.after_conv3_plugins = [plugin["cfg"] for plugin in plugins if plugin["position"] == "after_conv3"]
+            self.after_conv1_plugins = [
+                plugin["cfg"]
+                for plugin in plugins
+                if plugin["position"] == "after_conv1"
+            ]
+            self.after_conv2_plugins = [
+                plugin["cfg"]
+                for plugin in plugins
+                if plugin["position"] == "after_conv2"
+            ]
+            self.after_conv3_plugins = [
+                plugin["cfg"]
+                for plugin in plugins
+                if plugin["position"] == "after_conv3"
+            ]
 
         if self.style == "pytorch":
             self.conv1_stride = 1
@@ -141,34 +164,65 @@ class Bottleneck(nn.Module):
 
         self.norm1_name, norm1 = build_norm_layer(norm_cfg, planes, postfix=1)
         self.norm2_name, norm2 = build_norm_layer(norm_cfg, planes, postfix=2)
-        self.norm3_name, norm3 = build_norm_layer(norm_cfg, planes * self.expansion, postfix=3)
+        self.norm3_name, norm3 = build_norm_layer(
+            norm_cfg, planes * self.expansion, postfix=3
+        )
 
-        self.conv1 = build_conv_layer(conv_cfg, inplanes, planes, kernel_size=1, stride=self.conv1_stride, bias=False)
+        self.conv1 = build_conv_layer(
+            conv_cfg,
+            inplanes,
+            planes,
+            kernel_size=1,
+            stride=self.conv1_stride,
+            bias=False,
+        )
         self.add_module(self.norm1_name, norm1)
         fallback_on_stride = False
         if self.with_dcn:
             fallback_on_stride = dcn.pop("fallback_on_stride", False)
         if not self.with_dcn or fallback_on_stride:
             self.conv2 = build_conv_layer(
-                conv_cfg, planes, planes, kernel_size=3, stride=self.conv2_stride, padding=dilation, dilation=dilation, bias=False
+                conv_cfg,
+                planes,
+                planes,
+                kernel_size=3,
+                stride=self.conv2_stride,
+                padding=dilation,
+                dilation=dilation,
+                bias=False,
             )
         else:
             assert self.conv_cfg is None, "conv_cfg must be None for DCN"
             self.conv2 = build_conv_layer(
-                dcn, planes, planes, kernel_size=3, stride=self.conv2_stride, padding=dilation, dilation=dilation, bias=False
+                dcn,
+                planes,
+                planes,
+                kernel_size=3,
+                stride=self.conv2_stride,
+                padding=dilation,
+                dilation=dilation,
+                bias=False,
             )
 
         self.add_module(self.norm2_name, norm2)
-        self.conv3 = build_conv_layer(conv_cfg, planes, planes * self.expansion, kernel_size=1, bias=False)
+        self.conv3 = build_conv_layer(
+            conv_cfg, planes, planes * self.expansion, kernel_size=1, bias=False
+        )
         self.add_module(self.norm3_name, norm3)
 
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
 
         if self.with_plugins:
-            self.after_conv1_plugin_names = self.make_block_plugins(planes, self.after_conv1_plugins)
-            self.after_conv2_plugin_names = self.make_block_plugins(planes, self.after_conv2_plugins)
-            self.after_conv3_plugin_names = self.make_block_plugins(planes * self.expansion, self.after_conv3_plugins)
+            self.after_conv1_plugin_names = self.make_block_plugins(
+                planes, self.after_conv1_plugins
+            )
+            self.after_conv2_plugin_names = self.make_block_plugins(
+                planes, self.after_conv2_plugins
+            )
+            self.after_conv3_plugin_names = self.make_block_plugins(
+                planes * self.expansion, self.after_conv3_plugins
+            )
 
     def make_block_plugins(self, in_channels, plugins):
         """make plugins for block.
@@ -184,7 +238,9 @@ class Bottleneck(nn.Module):
         plugin_names = []
         for plugin in plugins:
             plugin = plugin.copy()
-            name, layer = build_plugin_layer(plugin, in_channels=in_channels, postfix=plugin.pop("postfix", ""))
+            name, layer = build_plugin_layer(
+                plugin, in_channels=in_channels, postfix=plugin.pop("postfix", "")
+            )
             assert not hasattr(self, name), f"duplicate plugin {name}"
             self.add_module(name, layer)
             plugin_names.append(name)
@@ -294,10 +350,24 @@ class ResLayer(nn.Sequential):
             conv_stride = stride
             if avg_down:
                 conv_stride = 1
-                downsample.append(nn.AvgPool2d(kernel_size=stride, stride=stride, ceil_mode=True, count_include_pad=False))
+                downsample.append(
+                    nn.AvgPool2d(
+                        kernel_size=stride,
+                        stride=stride,
+                        ceil_mode=True,
+                        count_include_pad=False,
+                    )
+                )
             downsample.extend(
                 [
-                    build_conv_layer(conv_cfg, inplanes, planes * block.expansion, kernel_size=1, stride=conv_stride, bias=False),
+                    build_conv_layer(
+                        conv_cfg,
+                        inplanes,
+                        planes * block.expansion,
+                        kernel_size=1,
+                        stride=conv_stride,
+                        bias=False,
+                    ),
                     build_norm_layer(norm_cfg, planes * block.expansion)[1],
                 ]
             )

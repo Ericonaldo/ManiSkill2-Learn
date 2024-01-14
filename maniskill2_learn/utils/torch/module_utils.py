@@ -21,9 +21,9 @@ class ExtendedModuleBase(Module):
             if isinstance(module, ExtendedModuleBase):
                 module.set_mode(mode)
             else:
-                if mode=="train":
+                if mode == "train":
                     module.train()
-                elif mode=="train":
+                elif mode == "train":
                     module.eval()
         return self
 
@@ -46,7 +46,11 @@ class ExtendedModuleBase(Module):
     @property
     @no_grad
     def grad_norm(self, ord=2):
-        grads = [torch.norm(_.grad.detach(), ord) for _ in self.parameters() if _.requires_grad and _.grad is not None]
+        grads = [
+            torch.norm(_.grad.detach(), ord)
+            for _ in self.parameters()
+            if _.requires_grad and _.grad is not None
+        ]
         ret = torch.norm(torch.stack(grads), ord).item() if len(grads) > 0 else 0.0
         return ret
 
@@ -72,6 +76,7 @@ class ExtendedModule(ExtendedModuleBase):
     @contextmanager
     def no_sync(self):
         yield
+
 
 class ExtendedModuleList(ModuleList, ExtendedModule):
     @property
@@ -157,16 +162,28 @@ class BaseAgent(ExtendedModule):
         for key in ["obs", "next_obs"]:
             if key in data:
                 if self.obs_rms is not None:
-                    data[key] = run_with_mini_batch(self.obs_rms.normalize, data[key], **kwargs, device=self.device, wrapper=False)
+                    data[key] = run_with_mini_batch(
+                        self.obs_rms.normalize,
+                        data[key],
+                        **kwargs,
+                        device=self.device,
+                        wrapper=False,
+                    )
                 if self.obs_processor is not None:
-                    data[key] = run_with_mini_batch(self.obs_processor, {"obs": data[key]}, **kwargs)["obs"]
+                    data[key] = run_with_mini_batch(
+                        self.obs_processor, {"obs": data[key]}, **kwargs
+                    )["obs"]
         return data
 
     @no_grad
     def forward(self, obs, **kwargs):
-        obs = GDict(obs).to_torch(dtype="float32", device=self.device, non_blocking=True, wrapper=False)
+        obs = GDict(obs).to_torch(
+            dtype="float32", device=self.device, non_blocking=True, wrapper=False
+        )
         if self.obs_rms is not None:
-            obs = self.obs_rms.normalize(obs) if self._in_test else self.obs_rms.add(obs)
+            obs = (
+                self.obs_rms.normalize(obs) if self._in_test else self.obs_rms.add(obs)
+            )
         if self.obs_processor is not None:
             obs = self.obs_processor({"obs": obs})["obs"]
         return self.actor(obs, **kwargs)
@@ -185,10 +202,22 @@ class BaseAgent(ExtendedModule):
         return run(obs=obs, actions=actions, **kwargs, device=self.device)
 
     def get_values(self, obs, actions=None, **kwargs):
-        return run_with_mini_batch(self.critic, obs=obs, actions=actions, **kwargs, device=self.device)
+        return run_with_mini_batch(
+            self.critic, obs=obs, actions=actions, **kwargs, device=self.device
+        )
 
     @no_grad
-    def compute_gae(self, obs, next_obs, rewards, dones, episode_dones, ignore_dones=True, update_rms=True, batch_size=None):
+    def compute_gae(
+        self,
+        obs,
+        next_obs,
+        rewards,
+        dones,
+        episode_dones,
+        ignore_dones=True,
+        update_rms=True,
+        batch_size=None,
+    ):
         """
         High-Dimensional Continuous Control Using Generalized Advantage Estimation
             https://arxiv.org/abs/1506.02438
@@ -208,7 +237,10 @@ class BaseAgent(ExtendedModule):
             )
 
             next_values = self.get_values(
-                obs=next_obs, batch_size=batch_size, ret_device=self.device, wrapper=False,
+                obs=next_obs,
+                batch_size=batch_size,
+                ret_device=self.device,
+                wrapper=False,
             )
 
         if self.rew_rms is not None:
@@ -221,7 +253,9 @@ class BaseAgent(ExtendedModule):
         delta = rewards + next_values * self.gamma - values
 
         coeff = episode_masks * self.gamma * self.lmbda
-        advantages = torch.zeros(len(rewards), 1, device=self.device, dtype=torch.float32)
+        advantages = torch.zeros(
+            len(rewards), 1, device=self.device, dtype=torch.float32
+        )
         # print(advantages.shape, coeff.shape, delta.shape)
         # exit(0)
 
@@ -304,7 +338,9 @@ class BaseAgent(ExtendedModule):
             item = getattr(self, module_name)
             if isinstance(item, ExtendedModule) and len(item.trainable_parameters) > 0:
                 if module_name not in self._tmp_attrs:
-                    self._tmp_attrs[module_name] = ExtendedDDP(item, device_ids=self._device_ids)
+                    self._tmp_attrs[module_name] = ExtendedDDP(
+                        item, device_ids=self._device_ids
+                    )
                 setattr(self, module_name, self._tmp_attrs[module_name])
 
     def is_data_parallel(self):

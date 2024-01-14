@@ -20,7 +20,9 @@ def video_to_frames(filename, output_dir=None):
 
 def grid_images(images, max_col_num=4):
     total_num = ((len(images) + max_col_num - 1) // max_col_num) * max_col_num
-    images = list(images) + [np.zeros_like(images[0]) for i in range(total_num - len(images))]
+    images = list(images) + [
+        np.zeros_like(images[0]) for i in range(total_num - len(images))
+    ]
     # print(len(images), max_col_num, total_num)
     ret = []
     for i in range(total_num // max_col_num):
@@ -38,7 +40,16 @@ def put_names_on_image(images, names):
     for image, name in zip(images, names):
         for i in range(len(image)):
             # print(image.shape, name, font)
-            cv2.putText(image[i], name, (10, image.shape[1] - 10), font, 1, (0, 255, 0), 1, cv2.LINE_AA)
+            cv2.putText(
+                image[i],
+                name,
+                (10, image.shape[1] - 10),
+                font,
+                1,
+                (0, 255, 0),
+                1,
+                cv2.LINE_AA,
+            )
             # import matplotlib.pyplot as plt
             # plt.imshow(image[i])
             # plt.show()

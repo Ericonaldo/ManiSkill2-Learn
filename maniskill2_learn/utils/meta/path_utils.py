@@ -167,7 +167,9 @@ def parse_files(filenames):
             continue
         if osp.isdir(name):
             for file_type in supported_types:
-                files = list(glob.glob(osp.join(name, "**", f"*.{file_type}"))) + list(glob.glob(osp.join(name, f"*.{file_type}")))
+                files = list(glob.glob(osp.join(name, "**", f"*.{file_type}"))) + list(
+                    glob.glob(osp.join(name, f"*.{file_type}"))
+                )
                 if len(files) == 0:
                     continue
                 if file_type == "txt":

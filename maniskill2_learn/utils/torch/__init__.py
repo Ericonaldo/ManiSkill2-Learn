@@ -1,4 +1,9 @@
-from .checkpoint_utils import load_checkpoint, save_checkpoint, load_state_dict, get_state_dict
+from .checkpoint_utils import (
+    load_checkpoint,
+    save_checkpoint,
+    load_state_dict,
+    get_state_dict,
+)
 
 try:
     from .cuda_utils import (
@@ -28,9 +33,40 @@ from .ops import (
     avg_grad,
 )
 from .logger import *
-from .running_stats import RunningMeanStdTorch, MovingMeanStdTorch, RunningSecondMomentumTorch
-from .module_utils import BaseAgent, ExtendedModule, ExtendedModuleList, ExtendedDDP, async_no_grad_pi, ExtendedSequential
-from .distributions import ScaledTanhNormal, CustomIndependent, ScaledNormal, CustomCategorical
+from .running_stats import (
+    RunningMeanStdTorch,
+    MovingMeanStdTorch,
+    RunningSecondMomentumTorch,
+)
+from .module_utils import (
+    BaseAgent,
+    ExtendedModule,
+    ExtendedModuleList,
+    ExtendedDDP,
+    async_no_grad_pi,
+    ExtendedSequential,
+)
+from .distributions import (
+    ScaledTanhNormal,
+    CustomIndependent,
+    ScaledNormal,
+    CustomCategorical,
+)
 from .optimizer_utils import get_mean_lr, build_optimizer
-from .distributed_utils import init_dist, cleanup_dist, master_only, allreduce_params, allreduce_grads, barrier, build_dist_var, get_dist_info
-from .freezer import freeze_modules, freeze_params, freeze_bn, unfreeze_modules, unfreeze_params
+from .distributed_utils import (
+    init_dist,
+    cleanup_dist,
+    master_only,
+    allreduce_params,
+    allreduce_grads,
+    barrier,
+    build_dist_var,
+    get_dist_info,
+)
+from .freezer import (
+    freeze_modules,
+    freeze_params,
+    freeze_bn,
+    unfreeze_modules,
+    unfreeze_params,
+)

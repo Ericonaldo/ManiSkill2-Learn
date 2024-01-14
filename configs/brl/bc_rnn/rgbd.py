@@ -17,19 +17,12 @@ agent_cfg = dict(
                 shape_meta=dict(
                     obs=dict(
                         base_camera_rgbd=dict(
-                            type="rgbd",
-                            shape="image_size",
-                            channel=4
+                            type="rgbd", shape="image_size", channel=4
                         ),
                         hand_camera_rgbd=dict(
-                            type="rgbd",
-                            shape="image_size",
-                            channel=4
+                            type="rgbd", shape="image_size", channel=4
                         ),
-                        state=dict(
-                            type="low_dim",
-                            shape="agent_shape"
-                        )
+                        state=dict(type="low_dim", shape="agent_shape"),
                     )
                 ),
                 output_mlp=True,

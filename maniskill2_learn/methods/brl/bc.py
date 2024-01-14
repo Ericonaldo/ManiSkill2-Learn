@@ -11,12 +11,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import defaultdict
 
-from maniskill2_learn.networks import build_model, ContinuousActor, build_reg_head, RNNVisuomotor
+from maniskill2_learn.networks import (
+    build_model,
+    ContinuousActor,
+    build_reg_head,
+    RNNVisuomotor,
+)
 from maniskill2_learn.schedulers import build_lr_scheduler
 
 from maniskill2_learn.utils.data import to_torch, DictArray, GDict, dict_to_str
 from maniskill2_learn.utils.meta import get_total_memory, get_logger
-from maniskill2_learn.utils.torch import BaseAgent, get_mean_lr, get_cuda_info, build_optimizer
+from maniskill2_learn.utils.torch import (
+    BaseAgent,
+    get_mean_lr,
+    get_cuda_info,
+    build_optimizer,
+)
 
 from ..builder import BRL
 
@@ -38,7 +48,7 @@ class BC(BaseAgent):
         actor_optim_cfg = actor_cfg.pop("optim_cfg")
         lr_scheduler_cfg = actor_cfg.pop("lr_scheduler_cfg", None)
         actor_cfg.update(env_params)
-        action_shape = env_params['action_shape']
+        action_shape = env_params["action_shape"]
 
         self.action_size = np.prod(action_shape)
         self.actor = build_model(actor_cfg)
@@ -58,7 +68,9 @@ class BC(BaseAgent):
         self.extra_parameters = dict(kwargs)
 
     def forward(self, obs, **kwargs):
-        obs = GDict(obs).to_torch(dtype="float32", device=self.device, non_blocking=True, wrapper=False)
+        obs = GDict(obs).to_torch(
+            dtype="float32", device=self.device, non_blocking=True, wrapper=False
+        )
         if self.loss_type != "vae":
             act = self.actor(obs, **kwargs)
         else:
@@ -75,28 +87,43 @@ class BC(BaseAgent):
         assert mask.ndim == target_action.ndim - 1
         print_dict = defaultdict(list)
         # print(pred_action.shape, target_action.shape)
-        print_dict["abs_err"] = ((torch.abs(pred_action - target_action).mean(-1) * mask).sum() / mask.sum()).item()
+        print_dict["abs_err"] = (
+            (torch.abs(pred_action - target_action).mean(-1) * mask).sum() / mask.sum()
+        ).item()
         if hasattr(F, self.loss_type):
             assert self.loss_type in ["mse_loss", "l1_loss", "smooth_l1_loss"]
             if self.actor.head.num_heads == 1:
-                actor_loss = (getattr(F, self.loss_type)(pred_action, target_action, reduction="none").mean(-1) * mask).sum() / mask.sum()
+                actor_loss = (
+                    getattr(F, self.loss_type)(
+                        pred_action, target_action, reduction="none"
+                    ).mean(-1)
+                    * mask
+                ).sum() / mask.sum()
             else:
                 # Mixture of expert
-                log_mix_prob = torch.log_softmax(pred_dist.mixture_distribution.logits, dim=-1)
-                all_mean = pred_dist.component_distribution.mean
-                error = (getattr(F, self.loss_type)(all_mean, target_action[..., None, :], reduction="none").mean(-1)) * self.extra_parameters.get(
-                    "moe_error_coeff", 1
+                log_mix_prob = torch.log_softmax(
+                    pred_dist.mixture_distribution.logits, dim=-1
                 )
-                actor_loss = -(torch.logsumexp(log_mix_prob - error, dim=-1) * mask).sum() / mask.sum()
+                all_mean = pred_dist.component_distribution.mean
+                error = (
+                    getattr(F, self.loss_type)(
+                        all_mean, target_action[..., None, :], reduction="none"
+                    ).mean(-1)
+                ) * self.extra_parameters.get("moe_error_coeff", 1)
+                actor_loss = (
+                    -(torch.logsumexp(log_mix_prob - error, dim=-1) * mask).sum()
+                    / mask.sum()
+                )
             print_dict[f"{self.loss_type}"] = actor_loss.item()
         elif self.loss_type == "nll":
-            actor_loss = -(pred_dist.log_prob(target_action) / self.action_size * mask).sum() / mask.sum()
+            actor_loss = (
+                -(pred_dist.log_prob(target_action) / self.action_size * mask).sum()
+                / mask.sum()
+            )
             print_dict["nll_loss"] = actor_loss.item()
         elif self.loss_type == "cluster":
             cluster_target = self.actor.head.project_target(target_action)
-            actor_loss = F.cross_entropy(
-                pred_dist, cluster_target
-            )
+            actor_loss = F.cross_entropy(pred_dist, cluster_target)
             print_dict["cluster_loss"] = actor_loss.item()
 
         return actor_loss, print_dict
@@ -108,25 +135,36 @@ class BC(BaseAgent):
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
 
-        sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True)
+        sampled_batch = sampled_batch.to_torch(
+            device=self.device, dtype="float32", non_blocking=True
+        )
         self.actor_optim.zero_grad()
 
         if self.loss_type != "vae":
-            [pred_dist, pred_action] = self.actor(sampled_batch["obs"], mode="dist_mean")
+            [pred_dist, pred_action] = self.actor(
+                sampled_batch["obs"], mode="dist_mean"
+            )
             # loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"][:, -1])
-            loss, ret_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
+            loss, ret_dict = self.compute_regression_loss(
+                pred_dist, pred_action, sampled_batch["actions"]
+            )
         else:
             if isinstance(self.actor, RNNVisuomotor):
-                raise NotImplementedError("RNNVisuomotor is not supported for vae training")
+                raise NotImplementedError(
+                    "RNNVisuomotor is not supported for vae training"
+                )
             ret_dict = defaultdict(list)
             q_z = self.actor.backbone(sampled_batch["obs"])
             z = q_z.rsample()
             p_x = self.actor.final_mlp(z)
             log_likelihood = p_x.log_prob(sampled_batch["actions"]).sum(-1).mean()
-            kl = torch.distributions.kl_divergence(
-                q_z,
-                torch.distributions.Normal(0, 1.)
-            ).sum(-1).mean()
+            kl = (
+                torch.distributions.kl_divergence(
+                    q_z, torch.distributions.Normal(0, 1.0)
+                )
+                .sum(-1)
+                .mean()
+            )
             rec_loss = ((p_x.mean - sampled_batch["actions"]) ** 2).mean()
             loss = -(log_likelihood - kl) + rec_loss
             # loss = rec_loss
@@ -137,20 +175,27 @@ class BC(BaseAgent):
 
         loss.backward()
         if self.max_grad_norm is not None:
-            nn.utils.clip_grad_norm_(chain(self.actor.parameters(), self.critic.parameters()), self.max_grad_norm)
+            nn.utils.clip_grad_norm_(
+                chain(self.actor.parameters(), self.critic.parameters()),
+                self.max_grad_norm,
+            )
         self.actor_optim.step()
 
         ret_dict["grad_norm"] = np.mean(
-            [torch.linalg.norm(parameter.grad.data).item() for parameter in self.actor.parameters() if parameter.grad is not None]
+            [
+                torch.linalg.norm(parameter.grad.data).item()
+                for parameter in self.actor.parameters()
+                if parameter.grad is not None
+            ]
         )
 
         if self.lr_scheduler is not None:
             ret_dict["lr"] = get_mean_lr(self.actor_optim)
         ret_dict = dict(ret_dict)
-        ret_dict = {'bc/' + key: val for key, val in ret_dict.items()}
+        ret_dict = {"bc/" + key: val for key, val in ret_dict.items()}
         return ret_dict
 
-    def compute_test_loss(self, memory): # Currently not used
+    def compute_test_loss(self, memory):  # Currently not used
         logger = get_logger()
         logger.info(f"Begin to compute test loss with batch size {self.batch_size}!")
         ret_dict = {}
@@ -161,15 +206,23 @@ class BC(BaseAgent):
 
         tqdm_obj = tqdm(total=memory.data_size, file=TqdmToLogger(), mininterval=20)
 
-        batch_size = self.batch_size         
-        for sampled_batch in memory.mini_batch_sampler(self.batch_size, drop_last=False):
-            sampled_batch = sampled_batch.to_torch(device="cuda", dtype="float32", non_blocking=True)
+        batch_size = self.batch_size
+        for sampled_batch in memory.mini_batch_sampler(
+            self.batch_size, drop_last=False
+        ):
+            sampled_batch = sampled_batch.to_torch(
+                device="cuda", dtype="float32", non_blocking=True
+            )
 
             is_valid = sampled_batch["is_valid"].squeeze(-1)
             pred_dist, pred_action = self.actor(sampled_batch["obs"], mode="dist_mean")
-            loss, print_dict = self.compute_regression_loss(pred_dist, pred_action, sampled_batch["actions"])
+            loss, print_dict = self.compute_regression_loss(
+                pred_dist, pred_action, sampled_batch["actions"]
+            )
             for key in print_dict:
-                ret_dict[key] = ret_dict.get(key, 0) + print_dict[key] * len(sampled_batch)
+                ret_dict[key] = ret_dict.get(key, 0) + print_dict[key] * len(
+                    sampled_batch
+                )
             num_samples += len(sampled_batch)
             tqdm_obj.update(len(sampled_batch))
 
@@ -177,7 +230,9 @@ class BC(BaseAgent):
 
         print_dict = {}
         print_dict["memory"] = get_total_memory("G", False)
-        print_dict.update(get_cuda_info(device=torch.cuda.current_device(), number_only=False))
+        print_dict.update(
+            get_cuda_info(device=torch.cuda.current_device(), number_only=False)
+        )
         print_info = dict_to_str(print_dict)
         logger.info(print_info)
 

@@ -29,7 +29,9 @@ def merge_h5(output_path: str, traj_paths, recompute_id=True):
             _env_info = env_info
             merged_json_data["env_info"] = _env_info
         else:
-            assert str(env_info) == str(_env_info), f"Env info is not consistent in {json_path}"
+            assert str(env_info) == str(
+                _env_info
+            ), f"Env info is not consistent in {json_path}"
 
         # Merge
         for ep in json_data["episodes"]:
@@ -42,7 +44,9 @@ def merge_h5(output_path: str, traj_paths, recompute_id=True):
             else:
                 new_traj_id = traj_id
 
-            assert new_traj_id not in merged_h5_file, f"{new_traj_id} is already in the merged_h5_file!"
+            assert (
+                new_traj_id not in merged_h5_file
+            ), f"{new_traj_id} is already in the merged_h5_file!"
             h5_file.copy(traj_id, merged_h5_file, new_traj_id)
 
             # Copy json data

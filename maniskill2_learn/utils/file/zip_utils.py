@@ -18,7 +18,9 @@ def extract_files(filenames, target_folders):
         elif filename.endswith(".tar.bz2") or filename.endswith(".tbz"):
             opener, mode = tarfile.open, "r:bz2"
         else:
-            raise ValueError(f"Could not extract `{target_folder}` as no appropriate extractor is found")
+            raise ValueError(
+                f"Could not extract `{target_folder}` as no appropriate extractor is found"
+            )
         opener(filenames)
         try:
             file = opener(filename, mode)

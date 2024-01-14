@@ -11,24 +11,13 @@ agent_cfg = dict(
         type="MultiImageObsEncoder",
         shape_meta=dict(
             obs=dict(
-                base_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
-                hand_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
-                state=dict(
-                    type="low_dim",
-                    shape="agent_shape"
-                )
+                base_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
+                hand_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
+                state=dict(type="low_dim", shape="agent_shape"),
             )
         ),
         output_mlp=True,
-        output_hidden_dims=[1024,512,256],
+        output_hidden_dims=[1024, 512, 256],
         output_dim=128,
     ),
     action_hidden_dims=[1024, 1024],

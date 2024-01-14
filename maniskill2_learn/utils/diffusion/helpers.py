@@ -270,7 +270,6 @@ class ValueLoss(nn.Module):
         return loss, info
 
 
-
 class WeightedL1(WeightedLoss):
     def _loss(self, pred, targ):
         return torch.abs(pred - targ)

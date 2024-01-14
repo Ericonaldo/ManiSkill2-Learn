@@ -17,20 +17,9 @@ agent_cfg = dict(
         random_rotation=False,
         shape_meta=dict(
             obs=dict(
-                base_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
-                hand_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
-                state=dict(
-                    type="low_dim",
-                    shape="agent_shape"
-                )
+                base_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
+                hand_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
+                state=dict(type="low_dim", shape="agent_shape"),
             )
         ),
         # output_mlp=True,
@@ -100,5 +89,5 @@ eval_cfg = dict(
     save_traj=False,
     save_video=True,
     use_log=False,
-    eval_action_len=1
+    eval_action_len=1,
 )

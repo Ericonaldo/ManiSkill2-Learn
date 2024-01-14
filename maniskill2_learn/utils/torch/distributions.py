@@ -1,4 +1,9 @@
-from torch.distributions import Normal, Independent, TanhTransform, TransformedDistribution  # , ComposeTransform, AffineTransform
+from torch.distributions import (
+    Normal,
+    Independent,
+    TanhTransform,
+    TransformedDistribution,
+)  # , ComposeTransform, AffineTransform
 from torch.distributions import Categorical
 from torch import distributions as pyd
 import torch
@@ -36,7 +41,9 @@ class CustomCategorical(Categorical):
 
 class ScaledNormal(Normal):
     def __init__(self, mean, std, scale_prior, bias_prior):
-        super(ScaledNormal, self).__init__(mean * scale_prior + bias_prior, std * scale_prior)
+        super(ScaledNormal, self).__init__(
+            mean * scale_prior + bias_prior, std * scale_prior
+        )
         self.scale_prior, self.bias_prior = scale_prior, bias_prior
 
     def rsample_with_log_prob(self, sample_shape=torch.Size()):
@@ -71,7 +78,9 @@ class ScaledTanhNormal(Normal):
             exit(0)
         """
         # Probability of scale * tah(x) is scale * (1 - tanh(x) ** 2) * d(x), where tanh'(x) = (1 - tanh(x) ** 2)
-        log_prob -= torch.log(self.scale_prior * (1 - torch.tanh(x).pow(2)) + self.epsilon)
+        log_prob -= torch.log(
+            self.scale_prior * (1 - torch.tanh(x).pow(2)) + self.epsilon
+        )
         return log_prob
 
     def log_prob(self, x):

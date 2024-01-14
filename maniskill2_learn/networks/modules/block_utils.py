@@ -16,7 +16,16 @@ NN_BLOCKS = Registry("nn blocks")
 
 @NN_BLOCKS.register_module()
 class BasicBlock(nn.Sequential):
-    def __init__(self, dense_cfg, norm_cfg=None, act_cfg=None, bias="auto", inplace=True, with_spectral_norm=False, order=("dense", "norm", "act")):
+    def __init__(
+        self,
+        dense_cfg,
+        norm_cfg=None,
+        act_cfg=None,
+        bias="auto",
+        inplace=True,
+        with_spectral_norm=False,
+        order=("dense", "norm", "act"),
+    ):
         super(BasicBlock, self).__init__()
         # dense here is conv or linear
         assert dense_cfg is None or isinstance(dense_cfg, dict)
@@ -54,10 +63,17 @@ class BasicBlock(nn.Sequential):
                 if dense_type in CONV_LAYERS:
                     # Padding happen before convolution
 
-                    official_conv_padding_mode = ["zeros", "reflect", "replicate", "circular"]  # Pytorch >= 1.7.1
+                    official_conv_padding_mode = [
+                        "zeros",
+                        "reflect",
+                        "replicate",
+                        "circular",
+                    ]  # Pytorch >= 1.7.1
                     padding_cfg = dense_cfg.pop("padding_cfg", None)
                     padding_mode = dense_cfg.get("padding_mode", None)
-                    assert not (padding_cfg is None) or (padding_mode is None), "We only need one of padding_cfg and padding_mode"
+                    assert not (padding_cfg is None) or (
+                        padding_mode is None
+                    ), "We only need one of padding_cfg and padding_mode"
                     if padding_cfg is not None:
                         padding_mode = padding_cfg.get("type", None)
                         if padding_mode is not None:
@@ -159,7 +175,9 @@ class ConvModule(BasicBlock):
         conv_cfg["padding"] = padding
         conv_cfg["dilation"] = dilation
         conv_cfg["groups"] = groups
-        super(ConvModule, self).__init__(conv_cfg, norm_cfg, act_cfg, bias, inplace, with_spectral_norm, order)
+        super(ConvModule, self).__init__(
+            conv_cfg, norm_cfg, act_cfg, bias, inplace, with_spectral_norm, order
+        )
 
 
 @NN_BLOCKS.register_module()
@@ -182,20 +200,23 @@ class LinearModule(BasicBlock):
             linear_cfg = ConfigDict(type="Linear")
         linear_cfg["in_features"] = in_features
         linear_cfg["out_features"] = out_features
-        super(LinearModule, self).__init__(linear_cfg, norm_cfg, act_cfg, bias, inplace, with_spectral_norm, order)
+        super(LinearModule, self).__init__(
+            linear_cfg, norm_cfg, act_cfg, bias, inplace, with_spectral_norm, order
+        )
+
 
 @NN_BLOCKS.register_module()
 class SimpleMLP(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dims=[], act_fn='relu'):
+    def __init__(self, input_dim, output_dim, hidden_dims=[], act_fn="relu"):
         super().__init__()
-        assert act_fn in ['relu', 'tanh', None, '']
+        assert act_fn in ["relu", "tanh", None, ""]
         dims = [input_dim] + hidden_dims + [output_dim]
         layers = []
         for i, j in zip(dims[:-1], dims[1:]):
             layers.append(nn.Linear(i, j))
-            if act_fn == 'relu':
+            if act_fn == "relu":
                 layers.append(nn.ReLU())
-            if act_fn == 'tanh':
+            if act_fn == "tanh":
                 layers.append(nn.Tanh())
         self.net = nn.Sequential(*layers[:-1])
 
@@ -210,7 +231,12 @@ class MLP(nn.Sequential):
         mlp_spec,
         in_features=None,
         out_features=None,
-        block_cfg=dict(type="LinearModule", linear_cfg=dict(type="Linear"), norm_cfg=dict(type="BN1d"), act_cfg=dict(type="ReLU")),
+        block_cfg=dict(
+            type="LinearModule",
+            linear_cfg=dict(type="Linear"),
+            norm_cfg=dict(type="BN1d"),
+            act_cfg=dict(type="ReLU"),
+        ),
         inactivated_output=True,
     ):
         super(MLP, self).__init__()
@@ -227,7 +253,10 @@ class MLP(nn.Sequential):
             self.ensenbled_model = True
             self.num_modules = block_cfg["linear_cfg"].get("num_modules", 1)
             if block_cfg.get("norm_cfg", None) is not None:
-                print("Warning: if you want to use ensembled MLP with BN, " "please use multiple normal MLP instead!")
+                print(
+                    "Warning: if you want to use ensembled MLP with BN, "
+                    "please use multiple normal MLP instead!"
+                )
                 block_cfg["norm_cfg"] = None
         else:
             self.ensenbled_model = False
@@ -238,7 +267,12 @@ class MLP(nn.Sequential):
                 block_cfg["norm_cfg"] = None
                 if inactivated_output:
                     block_cfg["act_cfg"] = None
-            self.add_module(f"mlp_{i - 1}", build_nn_block(block_cfg, dict(in_features=in_features, out_features=mlp_spec[i])))
+            self.add_module(
+                f"mlp_{i - 1}",
+                build_nn_block(
+                    block_cfg, dict(in_features=in_features, out_features=mlp_spec[i])
+                ),
+            )
             in_features = mlp_spec[i]
 
     def forward(self, input):
@@ -248,7 +282,9 @@ class MLP(nn.Sequential):
             # exit(0)
             assert input.ndim in [2, 3]
             if input.ndim == 2 or input.shape[1] != self.num_modules:
-                input = torch.repeat_interleave(input[..., None, :], self.num_modules, dim=-2)
+                input = torch.repeat_interleave(
+                    input[..., None, :], self.num_modules, dim=-2
+                )
         return super(MLP, self).forward(input)
 
 
@@ -263,7 +299,12 @@ class SharedMLP(nn.Sequential):
         mlp_spec,
         in_features=None,
         out_features=None,
-        block_cfg=dict(type="ConvModule", linear_cfg=dict(type="Conv1d"), norm_cfg=dict(type="BN1d"), act_cfg=dict(type="ReLU")),
+        block_cfg=dict(
+            type="ConvModule",
+            linear_cfg=dict(type="Conv1d"),
+            norm_cfg=dict(type="BN1d"),
+            act_cfg=dict(type="ReLU"),
+        ),
         inactivated_output=True,
     ):
         super(SharedMLP, self).__init__()
@@ -282,7 +323,11 @@ class SharedMLP(nn.Sequential):
                 block_cfg["norm_cfg"] = None
                 if inactivated_output:
                     block_cfg["act_cfg"] = None
-            self.add_module(f"mlp_{i - 1}", build_nn_block(block_cfg), dict(in_channels=in_features, kernel_size=1, out_channels=mlp_spec[i]))
+            self.add_module(
+                f"mlp_{i - 1}",
+                build_nn_block(block_cfg),
+                dict(in_channels=in_features, kernel_size=1, out_channels=mlp_spec[i]),
+            )
             in_features = mlp_spec[i]
 
 

@@ -2,7 +2,14 @@ from pathlib import Path
 import os.path as osp
 from io import BytesIO
 from ...data import is_list_of, is_str
-from .handlers import BaseFileHandler, JsonHandler, PickleHandler, YamlHandler, CSVHandler, TxtHandler
+from .handlers import (
+    BaseFileHandler,
+    JsonHandler,
+    PickleHandler,
+    YamlHandler,
+    CSVHandler,
+    TxtHandler,
+)
 
 file_handlers = {
     "json": JsonHandler(),
@@ -64,7 +71,9 @@ def dump(obj, file=None, file_format=None, **kwargs):
 
 def _register_handler(handler, file_formats):
     if not isinstance(handler, BaseFileHandler):
-        raise TypeError(f"handler must be a child of BaseFileHandler, not {type(handler)}")
+        raise TypeError(
+            f"handler must be a child of BaseFileHandler, not {type(handler)}"
+        )
     if isinstance(file_formats, str):
         file_formats = [file_formats]
     if not is_list_of(file_formats, str):

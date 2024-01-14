@@ -111,7 +111,11 @@ def get_package_meta(package_name):
 
 
 def get_meta_info():
-    ret = {"meta_collect_time": time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime(time.time() - 7 * 3600))}  # CA time
+    ret = {
+        "meta_collect_time": time.strftime(
+            "%Y-%m-%d-%H:%M:%S", time.gmtime(time.time() - 7 * 3600)
+        )
+    }  # CA time
     for print_name, package_name in [
         ["PYRL", "maniskill2_learn"],
         ["ManiSkill", "mani_skill"],

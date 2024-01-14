@@ -7,30 +7,19 @@ agent_cfg = dict(
     batch_size=256,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
-        type="MultiImageObsEncoder", 
+        type="MultiImageObsEncoder",
         shape_meta=dict(
             obs=dict(
-                base_camera_rgbd=dict(
-                    type="rgb",
-                    shape="image_size",
-                    channel=3
-                ),
-                hand_camera_rgbd=dict(
-                    type="rgb",
-                    shape="image_size",
-                    channel=3
-                ),
-                state=dict(
-                    type="low_dim",
-                    shape="agent_shape"
-                )
+                base_camera_rgbd=dict(type="rgb", shape="image_size", channel=3),
+                hand_camera_rgbd=dict(type="rgb", shape="image_size", channel=3),
+                state=dict(type="low_dim", shape="agent_shape"),
             )
         ),
     ),
     actor_cfg=dict(
         type="ContDiffActor",
     ),
-    n_obs_steps=n_obs_steps, # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
+    n_obs_steps=n_obs_steps,  # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
     obs_as_global_cond=True,
     fix_obs_stepd=True,
     action_visible=True,
@@ -41,7 +30,7 @@ agent_cfg = dict(
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
-        down_dims=[256,512,1024],
+        down_dims=[256, 512, 1024],
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,

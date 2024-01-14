@@ -23,7 +23,9 @@ class SamplingStrategy:
         self.need_update = False
 
     def get_index(self, batch_size, capacity=None, drop_last=True, auto_restart=True):
-        if capacity is None:  # For 1-Step Transition, capacity is the number of data samples
+        if (
+            capacity is None
+        ):  # For 1-Step Transition, capacity is the number of data samples
             capacity = len(self)
         # For T step transition, capacity is the number of valid trajectories, and should be specified in the capacity arg
         if self.with_replacement:
@@ -91,7 +93,9 @@ class OneStepTransition(SamplingStrategy):
 
     def sample(self, batch_size, drop_last=True, auto_restart=True, *args, **kwargs):
         # Return: index and valid masks
-        index = self.get_index(batch_size, len(self), drop_last=drop_last, auto_restart=auto_restart)
+        index = self.get_index(
+            batch_size, len(self), drop_last=drop_last, auto_restart=auto_restart
+        )
         if index is None:
             return None, None
         else:
@@ -100,7 +104,6 @@ class OneStepTransition(SamplingStrategy):
 
 @SAMPLING.register_module()
 class TStepTransition(SamplingStrategy):
-
     def __init__(self, horizon=1, future_action_len=0, **kwargs):
         super(TStepTransition, self).__init__(**kwargs)
         """
@@ -118,7 +121,9 @@ class TStepTransition(SamplingStrategy):
 
         self.num_procs = 0
         self.current_episode = []  # The index of current episode from each worker
-        self.valid_seq = []  # All valid T-step transition index. If T = -1, we will store the whole episode.
+        self.valid_seq = (
+            []
+        )  # All valid T-step transition index. If T = -1, we will store the whole episode.
         self.dones = []  # The done of current episode from each worker
 
     def reset(self):
@@ -137,7 +142,15 @@ class TStepTransition(SamplingStrategy):
         is_truncated = items["is_truncated"]
         worker_indices = items["worker_indices"]
         for i in range(episode_dones.shape[0]):
-            self.push(GDict(dict(episode_dones=episode_dones[i], worker_indices=worker_indices[i], is_truncated=is_truncated[i])))
+            self.push(
+                GDict(
+                    dict(
+                        episode_dones=episode_dones[i],
+                        worker_indices=worker_indices[i],
+                        is_truncated=is_truncated[i],
+                    )
+                )
+            )
 
     def __len__(self):
         return np.sum([len(_) for _ in self.valid_seq])
@@ -177,7 +190,10 @@ class TStepTransition(SamplingStrategy):
             # Pop original item in the buffer
             last_index = self.worker_indices[self.position]
 
-            if len(self.current_episode[last_index]) > 0 and self.position == self.current_episode[last_index][0]:
+            if (
+                len(self.current_episode[last_index]) > 0
+                and self.position == self.current_episode[last_index][0]
+            ):
                 self.current_episode[last_index].pop(0)
 
             if self.position == self.valid_seq[last_index][0][0]:
@@ -196,18 +212,32 @@ class TStepTransition(SamplingStrategy):
 
         if self.horizon > 0:
             # if len(self.current_episode[worker_indices]) >= self.horizon:
-            if len(self.current_episode[worker_indices]) >= self.future_action_len + 1: # at least current action + future action
-                self.valid_seq[worker_indices].append(self.current_episode[worker_indices][-self.horizon :]) # may have some short traj
+            if (
+                len(self.current_episode[worker_indices]) >= self.future_action_len + 1
+            ):  # at least current action + future action
+                self.valid_seq[worker_indices].append(
+                    self.current_episode[worker_indices][-self.horizon :]
+                )  # may have some short traj
         else:
             if dones:
-                self.valid_seq[worker_indices].append(self.current_episode[worker_indices])
+                self.valid_seq[worker_indices].append(
+                    self.current_episode[worker_indices]
+                )
         if dones:
             self.current_episode[worker_indices] = []
 
         self.running_count += 1
         self.position = (self.position + 1) % self.capacity
 
-    def sample(self, batch_size, drop_last=True, auto_restart=True, padded_size=None, *args, **kwargs):
+    def sample(
+        self,
+        batch_size,
+        drop_last=True,
+        auto_restart=True,
+        padded_size=None,
+        *args,
+        **kwargs,
+    ):
         # Ret: [B, H], indices for each trajectory in the (batch_size) number of trajectories sampled;
         # Mask: [B, H, 1], whether a timestep in a trajectory is valid (for padding purposes)
         query_size = np.cumsum([len(_) for _ in self.valid_seq])
@@ -231,8 +261,22 @@ class TStepTransition(SamplingStrategy):
         ret_len = [len(_) for _ in ret]
         padded_size = max(ret_len) if padded_size is None else padded_size
         # mask = np.zeros([len(ret), padded_size, 1], dtype=np.bool_)
-        mask = np.ones([len(ret), padded_size, 1], dtype=np.bool_) # We set all true since we want to generate all except conditioned ones
-        ret = np.array(list(map(lambda x:[x[0],] * (padded_size - len(x)) + x, ret)), dtype=int)
+        mask = np.ones(
+            [len(ret), padded_size, 1], dtype=np.bool_
+        )  # We set all true since we want to generate all except conditioned ones
+        ret = np.array(
+            list(
+                map(
+                    lambda x: [
+                        x[0],
+                    ]
+                    * (padded_size - len(x))
+                    + x,
+                    ret,
+                )
+            ),
+            dtype=int,
+        )
         # for i in range(len(ret)):
         #     # print(i, np.array(ret[i]).shape)
         #     # mask[i, : len(ret[i])] = True

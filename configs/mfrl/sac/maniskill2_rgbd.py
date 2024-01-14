@@ -1,7 +1,6 @@
-
 agent_cfg = dict(
     type="SAC",
-    batch_size=256, # Using multiple gpus leads to larger effective batch size, which can be crucial for SAC training
+    batch_size=256,  # Using multiple gpus leads to larger effective batch size, which can be crucial for SAC training
     gamma=0.95,
     update_coeff=0.005,
     alpha=0.2,
@@ -18,9 +17,18 @@ agent_cfg = dict(
         ),
         nn_cfg=dict(
             type="Visuomotor",
-            visual_nn_cfg=dict(type="IMPALA", in_channel="image_channels", image_size="image_size", out_feature_size=384),
+            visual_nn_cfg=dict(
+                type="IMPALA",
+                in_channel="image_channels",
+                image_size="image_size",
+                out_feature_size=384,
+            ),
             mlp_cfg=dict(
-                type="LinearMLP", norm_cfg=None, mlp_spec=["384 + agent_shape", 256, 128, "action_shape * 2"], bias=True, inactivated_output=True
+                type="LinearMLP",
+                norm_cfg=None,
+                mlp_spec=["384 + agent_shape", 256, 128, "action_shape * 2"],
+                bias=True,
+                inactivated_output=True,
             ),
         ),
         optim_cfg=dict(type="Adam", lr=3e-4, param_cfg={"(.*?)visual_nn(.*?)": None}),
@@ -34,7 +42,13 @@ agent_cfg = dict(
         nn_cfg=dict(
             type="Visuomotor",
             visual_nn_cfg=None,
-            mlp_cfg=dict(type="LinearMLP", norm_cfg=None, mlp_spec=["384 + agent_shape + action_shape", 256, 128, 1], bias=True, inactivated_output=True),
+            mlp_cfg=dict(
+                type="LinearMLP",
+                norm_cfg=None,
+                mlp_spec=["384 + agent_shape + action_shape", 256, 128, 1],
+                bias=True,
+                inactivated_output=True,
+            ),
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
     ),
@@ -59,7 +73,7 @@ train_cfg = dict(
 env_cfg = dict(
     type="gym",
     env_name="PickCube-v0",
-    obs_mode='rgbd',
+    obs_mode="rgbd",
     ignore_dones=True,
 )
 

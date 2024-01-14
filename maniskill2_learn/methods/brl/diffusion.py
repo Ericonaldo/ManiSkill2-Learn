@@ -14,12 +14,23 @@ from maniskill2_learn.networks import build_model, build_reg_head
 from maniskill2_learn.schedulers import build_lr_scheduler
 from maniskill2_learn.utils.data import DictArray, GDict, dict_to_str
 from maniskill2_learn.utils.meta import get_total_memory, get_logger
-from maniskill2_learn.utils.torch import BaseAgent, get_mean_lr, get_cuda_info, build_optimizer
-from maniskill2_learn.utils.diffusion.helpers import Losses, apply_conditioning, cosine_beta_schedule, extract
+from maniskill2_learn.utils.torch import (
+    BaseAgent,
+    get_mean_lr,
+    get_cuda_info,
+    build_optimizer,
+)
+from maniskill2_learn.utils.diffusion.helpers import (
+    Losses,
+    apply_conditioning,
+    cosine_beta_schedule,
+    extract,
+)
 from maniskill2_learn.utils.diffusion.arrays import to_torch
 from maniskill2_learn.utils.diffusion.progress import Progress, Silent
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
+
 # from maniskill2_learn.networks.modules.multi_image_obs_encoder import MultiImageObsEncoder
 
 from ..builder import BRL
@@ -49,9 +60,9 @@ class DiffAgent(BaseAgent):
         returns_condition=False,
         condition_guidance_w=0.1,
         agent_share_noise=False,
-        obs_as_global_cond=True, # diffuse action or take obs as condition inputs
-        action_visible=True, # If we cond on some hist actions
-        fix_obs_steps=True, # Randomly cond on certain obs steps or deterministicly
+        obs_as_global_cond=True,  # diffuse action or take obs as condition inputs
+        action_visible=True,  # If we cond on some hist actions
+        fix_obs_steps=True,  # Randomly cond on certain obs steps or deterministicly
         n_obs_steps=3,
         normalizer=LinearNormalizer(),
         diffuse_state=False,
@@ -64,15 +75,15 @@ class DiffAgent(BaseAgent):
         self.batch_size = batch_size
 
         if pcd_cfg is not None:
-            visual_nn_cfg['pcd_model'] = build_model(pcd_cfg)
-        visual_nn_cfg['n_obs_steps'] = n_obs_steps
+            visual_nn_cfg["pcd_model"] = build_model(pcd_cfg)
+        visual_nn_cfg["n_obs_steps"] = n_obs_steps
         self.obs_encoder = build_model(visual_nn_cfg)
         self.obs_feature_dim = self.obs_encoder.out_feature_dim
         self.img_feature_dim = self.obs_encoder.img_feature_dim
 
         lr_scheduler_cfg = lr_scheduler_cfg
-        self.action_dim = env_params['action_shape']
-        self.state_dim = env_params['obs_shape']['state']
+        self.action_dim = env_params["action_shape"]
+        self.state_dim = env_params["obs_shape"]["state"]
         self.diffuse_state = diffuse_state
         self.normalizer = normalizer
 
@@ -83,7 +94,7 @@ class DiffAgent(BaseAgent):
         self.model = build_model(nn_cfg)
 
         self.horizon = self.action_seq_len = action_seq_len
-        self.observation_shape = env_params['obs_shape']
+        self.observation_shape = env_params["obs_shape"]
 
         self.returns_condition = returns_condition
         self.condition_guidance_w = condition_guidance_w
@@ -144,7 +155,7 @@ class DiffAgent(BaseAgent):
         loss_weights = self.get_loss_weights(action_weight, loss_discount, loss_weights)
         self.loss_fn = Losses[loss_type](loss_weights, self.action_dim)
 
-        self.actor_optim = build_optimizer([self.model,self.obs_encoder], optim_cfg)
+        self.actor_optim = build_optimizer([self.model, self.obs_encoder], optim_cfg)
         if lr_scheduler_cfg is None:
             self.lr_scheduler = None
         else:
@@ -160,7 +171,9 @@ class DiffAgent(BaseAgent):
             obs_dim = self.state_dim
             if pose_only:
                 # obs_dim = pose_dim # We only diffuse tcp pose
-                obs_dim = pose_dim+extra_dim # We only diffuse tcp pose and the target pose
+                obs_dim = (
+                    pose_dim + extra_dim
+                )  # We only diffuse tcp pose and the target pose
         self.mask_generator = LowdimMaskGenerator(
             action_dim=self.action_dim,
             obs_dim=obs_dim,
@@ -183,7 +196,7 @@ class DiffAgent(BaseAgent):
 
         self.pose_dim = pose_dim
         self.extra_dim = extra_dim
-        
+
         # Only used for ms-skill challenge online evaluation
         # self.eval_action_queue = None
         # if self.eval_action_len > 1:
@@ -247,11 +260,14 @@ class DiffAgent(BaseAgent):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def p_mean_variance(self, x, t, local_cond=None, global_cond=None, returns=None):
-
-        if self.returns_condition: 
+        if self.returns_condition:
             # epsilon could be epsilon or x0 itself
-            epsilon_cond = self.model(x, t, local_cond, global_cond, returns, use_dropout=False)
-            epsilon_uncond = self.model(x, t, local_cond, global_cond, returns, force_dropout=True)
+            epsilon_cond = self.model(
+                x, t, local_cond, global_cond, returns, use_dropout=False
+            )
+            epsilon_uncond = self.model(
+                x, t, local_cond, global_cond, returns, force_dropout=True
+            )
             epsilon = epsilon_uncond + self.condition_guidance_w * (
                 epsilon_cond - epsilon_uncond
             )
@@ -284,15 +300,21 @@ class DiffAgent(BaseAgent):
 
     @torch.no_grad()
     def p_sample_loop(
-        self, cond_data, cond_mask, local_cond=None, global_cond=None, returns=None, verbose=True, return_diffusion=False, **kwargs
+        self,
+        cond_data,
+        cond_mask,
+        local_cond=None,
+        global_cond=None,
+        returns=None,
+        verbose=True,
+        return_diffusion=False,
+        **kwargs,
     ):
         device = self.betas.device
 
         batch_size = cond_data.shape[0]
         x = torch.randn(
-            size=cond_data.shape, 
-            dtype=cond_data.dtype,
-            device=cond_data.device
+            size=cond_data.shape, dtype=cond_data.dtype, device=cond_data.device
         )
 
         if return_diffusion:
@@ -301,11 +323,10 @@ class DiffAgent(BaseAgent):
         x[cond_mask] = cond_data[cond_mask]
         progress = Progress(self.n_timesteps) if verbose else Silent()
         for i in reversed(range(0, self.n_timesteps)):
-
             timesteps = torch.full((batch_size,), i, device=device, dtype=torch.long)
             # 1. predict model output and replace sample
             x = self.p_sample(x, timesteps, local_cond, global_cond, returns)
-            
+
             # 2. apply conditioning
             x[cond_mask] = cond_data[cond_mask]
 
@@ -322,7 +343,17 @@ class DiffAgent(BaseAgent):
             return x
 
     @torch.no_grad()
-    def conditional_sample(self, cond_data, cond_mask, local_cond=None, global_cond=None, returns=None, action_seq_len=None, *args, **kwargs):
+    def conditional_sample(
+        self,
+        cond_data,
+        cond_mask,
+        local_cond=None,
+        global_cond=None,
+        returns=None,
+        action_seq_len=None,
+        *args,
+        **kwargs,
+    ):
         """
         conditions : [ (time, state), ... ]
         """
@@ -330,7 +361,9 @@ class DiffAgent(BaseAgent):
         # horizon = action_seq_len or self.action_seq_len
         # batch_size = len(list(cond_data.values())[0])
         # shape = (batch_size, horizon, self.action_dim) # cond_data.shape
-        return self.p_sample_loop(cond_data, cond_mask, local_cond, global_cond, returns, *args, **kwargs)
+        return self.p_sample_loop(
+            cond_data, cond_mask, local_cond, global_cond, returns, *args, **kwargs
+        )
 
     # ------------------------------------------ training ------------------------------------------#
 
@@ -338,14 +371,16 @@ class DiffAgent(BaseAgent):
         if noise is None:
             noise = torch.randn_like(x_start)
 
-        sample = (  
+        sample = (
             extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
             + extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
         )
 
         return sample
 
-    def p_losses(self, actions, t, cond_mask, local_cond=None, global_cond=None, returns=None):
+    def p_losses(
+        self, actions, t, cond_mask, local_cond=None, global_cond=None, returns=None
+    ):
         noise = torch.randn_like(actions)
         action_noisy = self.q_sample(x_start=actions, t=t, noise=noise)
         # apply conditioning
@@ -358,36 +393,39 @@ class DiffAgent(BaseAgent):
         assert noise.shape == pred.shape
 
         if self.predict_epsilon:
-            loss = F.mse_loss(pred, noise, reduction='none')
+            loss = F.mse_loss(pred, noise, reduction="none")
         else:
-            loss = F.mse_loss(pred, actions, reduction='none')
+            loss = F.mse_loss(pred, actions, reduction="none")
 
         return loss, {}
 
-    def loss(self, x, masks, cond_mask, local_cond=None, global_cond=None, returns=None):
+    def loss(
+        self, x, masks, cond_mask, local_cond=None, global_cond=None, returns=None
+    ):
         # x is the action, with shape (bs, horizon, act_dim)
         batch_size = len(x)
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x.device).long()
-        diffuse_loss, info = self.p_losses(x, t, cond_mask, local_cond, global_cond, returns)
+        diffuse_loss, info = self.p_losses(
+            x, t, cond_mask, local_cond, global_cond, returns
+        )
         # diffuse_loss = (diffuse_loss * masks.unsqueeze(-1)).mean()
         diffuse_loss = diffuse_loss.mean()
         info.update({"action_diff_loss": diffuse_loss.item()})
         return diffuse_loss, info
 
     def forward(self, observation, returns_rate=0.9, mode="eval", *args, **kwargs):
-
         # if mode=="eval": # Only used for ms-skill challenge online evaluation
         #     if self.eval_action_queue is not None and len(self.eval_action_queue):
         #         return self.eval_action_queue.popleft()
-        
+
         observation = to_torch(observation, device=self.device, dtype=torch.float32)
-        
+
         action_history = observation["actions"]
         action_history = self.normalizer.normalize(action_history)
         bs = action_history.shape[0]
         hist_len = action_history.shape[1]
         observation.pop("actions")
-        
+
         self.set_mode(mode=mode)
 
         act_mask, obs_mask = None, None
@@ -396,100 +434,145 @@ class DiffAgent(BaseAgent):
 
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator((bs, self.horizon, self.action_dim), self.device)
+                act_mask, obs_mask = self.mask_generator(
+                    (bs, self.horizon, self.action_dim), self.device
+                )
                 self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
-                raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+                raise NotImplementedError(
+                    "Not support diffuse over obs! Please set obs_as_global_cond=True"
+                )
 
         if act_mask.shape[0] < bs:
-            act_mask = act_mask.repeat(max(bs//act_mask.shape[0]+1, 2), 1, 1)
+            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
         if act_mask.shape[0] != bs:
-            act_mask = act_mask[:action_history.shape[0]] # obs mask is int
-        
+            act_mask = act_mask[: action_history.shape[0]]  # obs mask is int
+
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:,obs_mask,...]
-        
-        obs_fea = self.obs_encoder(observation) # No need to mask out since the history is set as the desired length
-        
-        if self.action_seq_len-hist_len:
+                observation[key] = observation[key][:, obs_mask, ...]
+
+        obs_fea = self.obs_encoder(
+            observation
+        )  # No need to mask out since the history is set as the desired length
+
+        if self.action_seq_len - hist_len:
             supp = torch.zeros(
-                bs, self.action_seq_len-hist_len, self.action_dim, 
+                bs,
+                self.action_seq_len - hist_len,
+                self.action_dim,
                 dtype=action_history.dtype,
                 device=self.device,
             )
             action_history = torch.concat([action_history, supp], dim=1)
 
-        pred_action_seq = self.conditional_sample(cond_data=action_history, cond_mask=act_mask, global_cond=obs_fea, *args, **kwargs)
+        pred_action_seq = self.conditional_sample(
+            cond_data=action_history,
+            cond_mask=act_mask,
+            global_cond=obs_fea,
+            *args,
+            **kwargs,
+        )
         pred_action_seq = self.normalizer.unnormalize(pred_action_seq)
         pred_action = pred_action_seq
 
-        if mode=="eval":
-            pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len):,-self.action_dim:]
+        if mode == "eval":
+            pred_action = pred_action_seq[
+                :, -(self.action_seq_len - hist_len) :, -self.action_dim :
+            ]
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),-self.action_dim:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
             #     for i in range(self.eval_action_len-1):
             #         self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,-self.action_dim:])
-        
+
         return pred_action
-    
+
     def update_parameters(self, memory, updates):
         if not self.init_normalizer:
             # Fit normalizer
             data = memory.get_all("actions")
-            self.normalizer.fit(data, last_n_dims=1, mode='limits')
+            self.normalizer.fit(data, last_n_dims=1, mode="limits")
             self.init_normalizer = True
 
         batch_size = self.batch_size
-        sampled_batch = memory.sample(batch_size, device=self.device, obs_mask=self.obs_mask, require_mask=True, action_normalizer=self.normalizer)
+        sampled_batch = memory.sample(
+            batch_size,
+            device=self.device,
+            obs_mask=self.obs_mask,
+            require_mask=True,
+            action_normalizer=self.normalizer,
+        )
         # sampled_batch = sampled_batch.to_torch(device=self.device, dtype="float32", non_blocking=True) # ["obs","actions"] # Did in replay buffer
-        
+
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
-            
+
         self.actor_optim.zero_grad()
-        # {'obs': {'base_camera_rgbd': [(bs, horizon, 4, 128, 128)], 'hand_camera_rgbd': [(bs, horizon, 4, 128, 128)], 
-        # 'state': (bs, horizon, 38)}, 'actions': (bs, horizon, 7), 'dones': (bs, 1), 
+        # {'obs': {'base_camera_rgbd': [(bs, horizon, 4, 128, 128)], 'hand_camera_rgbd': [(bs, horizon, 4, 128, 128)],
+        # 'state': (bs, horizon, 38)}, 'actions': (bs, horizon, 7), 'dones': (bs, 1),
         # 'episode_dones': (bs, horizon, 1), 'worker_indices': (bs, 1), 'is_truncated': (bs, 1), 'is_valid': (bs, 1)}
 
         # generate impainting mask
-        traj_data = sampled_batch["actions"] # Need Normalize! (Already did in replay buffer)
-        masked_obs = sampled_batch['obs']
+        traj_data = sampled_batch[
+            "actions"
+        ]  # Need Normalize! (Already did in replay buffer)
+        masked_obs = sampled_batch["obs"]
         # traj_data = self.normalizer.normalize(traj_data)
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
             act_mask, obs_mask = self.act_mask, self.obs_mask
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(traj_data.shape, self.device)
+                act_mask, obs_mask, _ = self.mask_generator(
+                    traj_data.shape, self.device
+                )
                 self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
-                    masked_obs[key] = masked_obs[key][:,obs_mask,...]
+                    masked_obs[key] = masked_obs[key][:, obs_mask, ...]
             else:
-                raise NotImplementedError("Not support diffuse over obs! Please set obs_as_global_cond=True")
+                raise NotImplementedError(
+                    "Not support diffuse over obs! Please set obs_as_global_cond=True"
+                )
 
         obs_fea = self.obs_encoder(masked_obs)
 
-        loss, ret_dict = self.loss(x=traj_data, masks=sampled_batch["is_valid"], cond_mask=act_mask, global_cond=obs_fea) # TODO: local_cond, returns
+        loss, ret_dict = self.loss(
+            x=traj_data,
+            masks=sampled_batch["is_valid"],
+            cond_mask=act_mask,
+            global_cond=obs_fea,
+        )  # TODO: local_cond, returns
         loss.backward()
         self.actor_optim.step()
 
         ## Not implement yet
         # if self.step % self.update_ema_every == 0:
         #     self.step_ema()
-        ret_dict["grad_norm_diff_model"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.model.parameters() if parameter.grad is not None])
-        ret_dict["grad_norm_diff_obs_encoder"] = np.mean([torch.linalg.norm(parameter.grad.data).item() for parameter in self.obs_encoder.parameters() if parameter.grad is not None])
+        ret_dict["grad_norm_diff_model"] = np.mean(
+            [
+                torch.linalg.norm(parameter.grad.data).item()
+                for parameter in self.model.parameters()
+                if parameter.grad is not None
+            ]
+        )
+        ret_dict["grad_norm_diff_obs_encoder"] = np.mean(
+            [
+                torch.linalg.norm(parameter.grad.data).item()
+                for parameter in self.obs_encoder.parameters()
+                if parameter.grad is not None
+            ]
+        )
 
         if self.lr_scheduler is not None:
             ret_dict["lr"] = get_mean_lr(self.actor_optim)
         ret_dict = dict(ret_dict)
-        ret_dict = {'diffusion/' + key: val for key, val in ret_dict.items()}
-        
+        ret_dict = {"diffusion/" + key: val for key, val in ret_dict.items()}
+
         self.step += 1
 
         return ret_dict
-    
+
     ## Not implement yet
     # def step_ema(self):
     #     if self.step < self.step_start_ema:

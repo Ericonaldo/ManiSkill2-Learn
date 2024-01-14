@@ -64,4 +64,17 @@ def build_activation_layer(cfg, default_args=None):
     return build_from_cfg(cfg, ACTIVATION_LAYERS, default_args)
 
 
-INPLACE_ACTIVATIONS = ["ELU", "Hardsigmoid", "Hardtanh", "Hardswish", "ReLU", "LeakyReLU", "ReLU6", "RReLU", "SELU", "CELU", "SiLU", "Threshold"]
+INPLACE_ACTIVATIONS = [
+    "ELU",
+    "Hardsigmoid",
+    "Hardtanh",
+    "Hardswish",
+    "ReLU",
+    "LeakyReLU",
+    "ReLU6",
+    "RReLU",
+    "SELU",
+    "CELU",
+    "SiLU",
+    "Threshold",
+]

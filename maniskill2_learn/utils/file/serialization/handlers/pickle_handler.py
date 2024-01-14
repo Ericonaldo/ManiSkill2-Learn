@@ -18,42 +18,45 @@ class PickleProtocol:
 
 
 class PickleHandler(BaseFileHandler):
-
     def load_from_fileobj(self, file, **kwargs):
         return pickle.load(file, **kwargs)
 
     def dump_to_fileobj(self, obj, file, **kwargs):
-        kwargs.setdefault('protocol', 5)
+        kwargs.setdefault("protocol", 5)
         pickle.dump(obj, file, **kwargs)
 
     def dump_to_str(self, obj, **kwargs):
-        kwargs.setdefault('protocol', 5)
+        kwargs.setdefault("protocol", 5)
         return pickle.dumps(obj, **kwargs)
 
     def load_from_path(self, filepath, **kwargs):
         file_suffix = get_filename_suffix(filepath)
-        custom_assert(file_suffix in ['pkl', 'pgz', 'pbz2'], f'{file_suffix} is not supported. '
-                                                             f'Please use of pkl, pgz, pbz2')
-        if file_suffix == 'pkl':
-            with open(filepath, 'rb') as f:
+        custom_assert(
+            file_suffix in ["pkl", "pgz", "pbz2"],
+            f"{file_suffix} is not supported. " f"Please use of pkl, pgz, pbz2",
+        )
+        if file_suffix == "pkl":
+            with open(filepath, "rb") as f:
                 return self.load_from_fileobj(f, **kwargs)
-        elif file_suffix == 'pgz':
-            with gzip.GzipFile(filepath, 'r') as f:
+        elif file_suffix == "pgz":
+            with gzip.GzipFile(filepath, "r") as f:
                 return self.load_from_fileobj(f, **kwargs)
-        elif file_suffix == 'pbz2':
-            with bz2.BZ2File(filepath, 'r') as f:
+        elif file_suffix == "pbz2":
+            with bz2.BZ2File(filepath, "r") as f:
                 return self.load_from_fileobj(f, **kwargs)
 
     def dump_to_path(self, obj, filepath, **kwargs):
         file_suffix = get_filename_suffix(filepath)
-        custom_assert(file_suffix in ['pkl', 'pgz', 'pbz2'], f'{file_suffix} is not supported. '
-                                                             f'Please use of pkl, pgz, pbz2')
-        if file_suffix == 'pkl':
-            with open(filepath, 'wb') as f:
+        custom_assert(
+            file_suffix in ["pkl", "pgz", "pbz2"],
+            f"{file_suffix} is not supported. " f"Please use of pkl, pgz, pbz2",
+        )
+        if file_suffix == "pkl":
+            with open(filepath, "wb") as f:
                 return self.dump_to_fileobj(obj, f, **kwargs)
-        elif file_suffix == 'pgz':
-            with gzip.GzipFile(filepath, 'w') as f:
+        elif file_suffix == "pgz":
+            with gzip.GzipFile(filepath, "w") as f:
                 return self.dump_to_fileobj(obj, f, **kwargs)
-        elif file_suffix == 'pbz2':
-            with bz2.BZ2File(filepath, 'w') as f:
+        elif file_suffix == "pbz2":
+            with bz2.BZ2File(filepath, "w") as f:
                 return self.dump_to_fileobj(obj, f, **kwargs)
