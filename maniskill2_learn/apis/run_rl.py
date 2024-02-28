@@ -157,7 +157,7 @@ def parse_args():
             try:
                 value = eval(value)
                 args.cfg_options[key] = value
-            except:
+            except Exception:
                 pass
         cfg.merge_from_dict(args.cfg_options)
 
@@ -310,7 +310,7 @@ def get_python_env_info():
 
     if args.evaluation and len(args.gpu_ids) > 1:
         colored_print(
-            f"Multiple GPU evaluation is not supported; we will use the first GPU to do evaluation!",
+            "Multiple GPU evaluation is not supported; we will use the first GPU to do evaluation!",
             level="warning",
         )
         args.gpu_ids = args.gpu_ids[:1]
@@ -341,14 +341,13 @@ def init_torch(args):
 def main_rl(
     rollout, evaluator, replay, args, cfg, expert_replay=None, recent_traj_replay=None
 ):
-    import torch
     import torch.distributed as dist
     import torch.nn as nn
     from maniskill2_learn.apis.train_rl import train_rl
     from maniskill2_learn.env import save_eval_statistics
     from maniskill2_learn.methods.builder import build_agent
     from maniskill2_learn.utils.data.converter import dict_to_str
-    from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint, save_checkpoint
+    from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint
 
     logger = get_logger()
     logger.info("Initialize torch!")
@@ -398,7 +397,7 @@ def main_rl(
             from torchsparse.nn.modules import SyncBatchNorm as SpSyncBatchNorm
 
             agent = SpSyncBatchNorm.convert_sync_batchnorm(agent)
-        except:
+        except Exception:
             pass
         agent.to_ddp(device_ids=["cuda"])
 
@@ -406,7 +405,7 @@ def main_rl(
     if len(args.gpu_ids) > 0:
         logger.info(f"Train over GPU {args.gpu_ids}!")
     else:
-        logger.info(f"Train over CPU!")
+        logger.info("Train over CPU!")
 
     if not args.evaluation:
         train_rl(
@@ -478,7 +477,7 @@ def run_one_process(rank, world_size, args, cfg):
         (not (args.evaluation and not args.build_replay))
         or (args.reg_loss and cfg.replay_cfg.get("buffer_filenames", None) is not None)
     ):
-        logger.info(f"Build replay buffer!")
+        logger.info("Build replay buffer!")
         from maniskill2_learn.env import build_replay
 
         replay = build_replay(cfg.replay_cfg)
@@ -497,7 +496,7 @@ def run_one_process(rank, world_size, args, cfg):
     if not args.evaluation and is_not_null(cfg.rollout_cfg):
         from maniskill2_learn.env import build_rollout
 
-        logger.info(f"Build rollout!")
+        logger.info("Build rollout!")
         rollout_cfg = cfg.rollout_cfg
         rollout_cfg["env_cfg"] = deepcopy(cfg.env_cfg)
         rollout_cfg["seed"] = np.random.randint(0, int(1e9))
@@ -510,7 +509,7 @@ def run_one_process(rank, world_size, args, cfg):
         # Only the first process will do evaluation
         from maniskill2_learn.env import build_evaluation
 
-        logger.info(f"Build evaluation!")
+        logger.info("Build evaluation!")
         eval_cfg = cfg.eval_cfg
         # Evaluation environment setup can be different from the training set-up. (Like early-stop or object sets)
         if eval_cfg.get("env_cfg", None) is None:
@@ -537,7 +536,7 @@ def run_one_process(rank, world_size, args, cfg):
                 )
             )
         # For RL which needs environments
-        logger.info(f"Get obs shape!")
+        logger.info("Get obs shape!")
         from maniskill2_learn.env import get_env_info
 
         if rollout is not None:
@@ -568,7 +567,7 @@ def run_one_process(rank, world_size, args, cfg):
                         if (
                             "rgbd" in k
                             and "using_depth" in cfg.replay_cfg
-                            and cfg.replay_cfg.using_depth == False
+                            and cfg.replay_cfg.using_depth is False
                         ):
                             obs_shape[k] = list(obs_shape[k])
                             obs_shape[k][0] = min(obs_shape[k][0], 3)

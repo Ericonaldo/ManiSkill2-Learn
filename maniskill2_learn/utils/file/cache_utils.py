@@ -180,10 +180,8 @@ def get_total_size(filenames, record_indices=None, num_samples=-1):
         record_indices = load_record_indices(filenames)
     else:
         assert len(record_indices) == len(filenames)
-    ret = 0
-    from maniskill2_learn.utils.meta import TqdmToLogger
 
-    filenames = tqdm(filenames, file=TqdmToLogger(), mininterval=10)
+    ret = 0
     for i, filename in enumerate(filenames):
         st = time.time()
         file_suffix = get_filename_suffix(filename)

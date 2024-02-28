@@ -1,6 +1,7 @@
 """
 Diffusion Policy
 """
+
 from random import sample
 from itertools import chain
 from tqdm import tqdm
@@ -107,6 +108,7 @@ class KeyDiffAgent(DiffAgent):
         diffuse_state=False,
         train_keyframe_model=True,
         train_diff_model=True,
+        keyframe_condition_training=True,
         diffusion_updates=None,
         keyframe_model_updates=None,
         keyframe_model_path=None,
@@ -163,6 +165,7 @@ class KeyDiffAgent(DiffAgent):
 
         self.keyframe_pose_only = pose_only and keyframe_pose_only
         self.keyframe_relative_pose = keyframe_relative_pose
+        self.keyframe_condition_training = keyframe_condition_training
         self.keyframe_eval = keyframe_eval
         self.using_euler = using_euler
 
@@ -724,9 +727,6 @@ class KeyDiffAgent(DiffAgent):
 
             # Method 1: Clip the difference to be in the range of max_horizon
             # pred_keytime_differences = np.clip(pred_keytime_differences, a_min=0, a_max=self.max_horizon) # [B,]
-            pred_keytime_differences = np.clip(
-                pred_keytime_differences, a_min=0, a_max=None
-            )  # [B,]
 
             pred_keytime = pred_keytime_differences + self.n_obs_steps - 1
 
@@ -844,6 +844,7 @@ class KeyDiffAgent(DiffAgent):
             pred_keyframe = pred_keyframe[..., : self.state_dim]
 
             for i in range(self.pred_keyframe_num):
+                # BUG(zbzhu) < self.max_horizon + self.n_obs_steps ???
                 if (
                     self.n_obs_steps
                     < pred_keytime_differences[0][i]
@@ -1104,6 +1105,43 @@ class KeyDiffAgent(DiffAgent):
             ):
                 obs_fea = self.obs_encoder(masked_obs, ep_first_obs_dict=ep_first_obs)
 
+                if self.keyframe_condition_training:
+                    keytime_differences = sampled_batch["keytime_differences"][
+                        :, obs_mask, ...
+                    ][:, -1]
+                    keytime_differences[..., self.pred_keyframe_num :] = 0
+                    keytime_differences[
+                        torch.where(keytime_differences > self.max_horizon)
+                    ] = 0
+                    keytime_differences = keytime_differences + self.n_obs_steps - 1
+                    data_mask = data_mask.clone()
+                    if self.keyframe_pose_only:
+                        data_mask[
+                            torch.where(keytime_differences > self.n_obs_steps)[0],
+                            keytime_differences[
+                                torch.where(keytime_differences > self.n_obs_steps)
+                            ].to(int),
+                            -self.extra_dim
+                            - self.pose_dim
+                            - self.action_dim : -self.action_dim,
+                        ] = True
+                    else:
+                        if self.diffuse_state:
+                            data_mask[
+                                torch.where(keytime_differences > self.n_obs_steps)[0],
+                                keytime_differences[
+                                    torch.where(keytime_differences > self.n_obs_steps)
+                                ].to(int),
+                                : -self.action_dim,
+                            ] = True
+                        else:
+                            data_mask[
+                                torch.where(keytime_differences > self.n_obs_steps)[0],
+                                keytime_differences[
+                                    torch.where(keytime_differences > self.n_obs_steps)
+                                ].to(int),
+                            ] = True
+
                 diff_loss, info = self.diff_loss(
                     x=traj_data,
                     masks=sampled_batch["is_valid"],
@@ -1196,7 +1234,7 @@ class KeyDiffAgent(DiffAgent):
         if self.train_keyframe_model and (self.keyframe_optim is not None):
             self.keyframe_optim.step()
 
-        ## Not implement yet
+        # Not implement yet
         # if self.step % self.update_ema_every == 0:
         #     self.step_ema()
         if self.train_diff_model:

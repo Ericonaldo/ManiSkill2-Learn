@@ -1,6 +1,7 @@
 """
 Diffusion polices.
 """
+
 import torch, torch.nn as nn, torch.nn.functional as F
 from torch.distributions import Bernoulli
 from typing import Tuple, Union

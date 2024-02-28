@@ -844,9 +844,11 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                     agent_state = np.concatenate(
                         [
                             agent_state,
-                            val.flatten()
-                            if isinstance(val, np.ndarray)
-                            else np.array([val]),
+                            (
+                                val.flatten()
+                                if isinstance(val, np.ndarray)
+                                else np.array([val])
+                            ),
                         ]
                     )
 

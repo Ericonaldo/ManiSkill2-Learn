@@ -7,7 +7,6 @@ Nauture CNN:
     Code: https://github.com/hill-a/stable-baselines/blob/master/stable_baselines/common/policies.py
 """
 
-
 import numpy as np
 import torch.nn as nn, torch, torch.nn.functional as F
 from torch.nn import Conv2d

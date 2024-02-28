@@ -899,12 +899,6 @@ class BatchEvaluation:
                 none_idx = [i for i, x in enumerate(actions) if x is None]
                 if len(none_idx):
                     with pi.no_sync(mode="actor"):
-                        res = to_np(
-                            pi(
-                                dict(self.recent_obs.get(none_idx)),
-                                mode=self.sample_mode,
-                            )[:, : self.eval_action_len, :]
-                        )
                         tmp[none_idx] = to_np(
                             pi(
                                 dict(self.recent_obs.get(none_idx)),

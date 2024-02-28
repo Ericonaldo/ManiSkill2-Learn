@@ -187,7 +187,7 @@ class ReplayMemory:
                         self.push_batch(items)
                         tqdm_obj.update(len(items))
                 else:
-                    logger.info(f"Loading full dataset without cache system!")
+                    logger.info("Loading full dataset without cache system!")
                     for filename in tqdm(file=TqdmToLogger(), mininterval=60)(
                         buffer_filenames
                     ):

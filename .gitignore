@@ -2,7 +2,7 @@
 **/__pycache__/
 *.py[cod]
 *$py.class
-demos/
+demos
 data/
 logs/
 *videos/
