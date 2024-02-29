@@ -844,18 +844,13 @@ class KeyDiffAgent(DiffAgent):
             pred_keyframe = pred_keyframe[..., : self.state_dim]
 
             for i in range(self.pred_keyframe_num):
-                # BUG(zbzhu) < self.max_horizon + self.n_obs_steps ???
-                if (
-                    self.n_obs_steps
-                    < pred_keytime_differences[0][i]
-                    <= self.max_horizon
-                ):  # Method3: only set key frame when less than horizon
-                    # if self.n_obs_steps < pred_keytime_differences[0]:
-                    # if 0 < pred_keytime_differences[0,i] <= self.max_horizon: # Method3: only set key frame when less than horizon
-                    # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
-                    # pred_keytime[:,i:i+1] = min(self.action_seq_len-1, pred_keytime[:,i:i+1])
-                    # print(data_history[:,:6,:-self.action_dim], "\n 2:", pred_keyframe)
-
+                # Method3: only set key frame when less than horizon
+                # if self.n_obs_steps < pred_keytime_differences[0]:
+                # if 0 < pred_keytime_differences[0,i] <= self.max_horizon: # Method3: only set key frame when less than horizon
+                # data_history[range(bs),pred_keytime[:,i:i+1]] = pred_keyframe[:,i:i+1]
+                # pred_keytime[:,i:i+1] = min(self.action_seq_len-1, pred_keytime[:,i:i+1])
+                # print(data_history[:,:6,:-self.action_dim], "\n 2:", pred_keyframe)
+                if 0 < pred_keytime_differences[0][i] <= self.max_horizon:
                     if self.keyframe_pose_only:
                         if self.extra_dim > 0:
                             data_history[
@@ -882,6 +877,7 @@ class KeyDiffAgent(DiffAgent):
                             - self.pose_dim
                             - self.action_dim : -self.action_dim,
                         ] = True  # We set pose and extra dim as True
+
                     else:
                         if self.pose_only:
                             data_history[
@@ -1113,13 +1109,13 @@ class KeyDiffAgent(DiffAgent):
                     keytime_differences[
                         torch.where(keytime_differences > self.max_horizon)
                     ] = 0
-                    keytime_differences = keytime_differences + self.n_obs_steps - 1
+                    keytime = keytime_differences + self.n_obs_steps - 1
                     data_mask = data_mask.clone()
                     if self.keyframe_pose_only:
                         data_mask[
-                            torch.where(keytime_differences > self.n_obs_steps)[0],
-                            keytime_differences[
-                                torch.where(keytime_differences > self.n_obs_steps)
+                            torch.where(keytime_differences > 0)[0],
+                            keytime[
+                                torch.where(keytime_differences > 0)
                             ].to(int),
                             -self.extra_dim
                             - self.pose_dim
@@ -1128,17 +1124,17 @@ class KeyDiffAgent(DiffAgent):
                     else:
                         if self.diffuse_state:
                             data_mask[
-                                torch.where(keytime_differences > self.n_obs_steps)[0],
-                                keytime_differences[
-                                    torch.where(keytime_differences > self.n_obs_steps)
+                                torch.where(keytime_differences > 0)[0],
+                                keytime[
+                                    torch.where(keytime_differences > 0)
                                 ].to(int),
                                 : -self.action_dim,
                             ] = True
                         else:
                             data_mask[
-                                torch.where(keytime_differences > self.n_obs_steps)[0],
-                                keytime_differences[
-                                    torch.where(keytime_differences > self.n_obs_steps)
+                                torch.where(keytime_differences > 0)[0],
+                                keytime[
+                                    torch.where(keytime_differences > 0)
                                 ].to(int),
                             ] = True
 
