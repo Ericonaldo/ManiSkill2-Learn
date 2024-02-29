@@ -173,7 +173,9 @@ class ResNet(nn.Module):
 
         self._freeze_stages()
 
-        self.feat_dim = self.block.expansion * base_channels * 2 ** (len(self.stage_blocks) - 1)
+        self.feat_dim = (
+            self.block.expansion * base_channels * 2 ** (len(self.stage_blocks) - 1)
+        )
 
     def make_stage_plugins(self, plugins, stage_idx):
         """make plugins for ResNet 'stage_idx'th stage .
@@ -241,19 +243,53 @@ class ResNet(nn.Module):
         """Make stem layer for ResNet."""
         if self.deep_stem:
             self.stem = nn.Sequential(
-                build_conv_layer(self.conv_cfg, in_channels, stem_channels // 2, kernel_size=3, stride=2, padding=1, bias=False),
+                build_conv_layer(
+                    self.conv_cfg,
+                    in_channels,
+                    stem_channels // 2,
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    bias=False,
+                ),
                 build_norm_layer(self.norm_cfg, stem_channels // 2)[1],
                 nn.ReLU(inplace=True),
-                build_conv_layer(self.conv_cfg, stem_channels // 2, stem_channels // 2, kernel_size=3, stride=1, padding=1, bias=False),
+                build_conv_layer(
+                    self.conv_cfg,
+                    stem_channels // 2,
+                    stem_channels // 2,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                ),
                 build_norm_layer(self.norm_cfg, stem_channels // 2)[1],
                 nn.ReLU(inplace=True),
-                build_conv_layer(self.conv_cfg, stem_channels // 2, stem_channels, kernel_size=3, stride=1, padding=1, bias=False),
+                build_conv_layer(
+                    self.conv_cfg,
+                    stem_channels // 2,
+                    stem_channels,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                ),
                 build_norm_layer(self.norm_cfg, stem_channels)[1],
                 nn.ReLU(inplace=True),
             )
         else:
-            self.conv1 = build_conv_layer(self.conv_cfg, in_channels, stem_channels, kernel_size=7, stride=2, padding=3, bias=False)
-            self.norm1_name, norm1 = build_norm_layer(self.norm_cfg, stem_channels, postfix=1)
+            self.conv1 = build_conv_layer(
+                self.conv_cfg,
+                in_channels,
+                stem_channels,
+                kernel_size=7,
+                stride=2,
+                padding=3,
+                bias=False,
+            )
+            self.norm1_name, norm1 = build_norm_layer(
+                self.norm_cfg, stem_channels, postfix=1
+            )
             self.add_module(self.norm1_name, norm1)
             self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -365,4 +401,3 @@ class ResNetV1d(ResNet):
 
     def __init__(self, **kwargs):
         super(ResNetV1d, self).__init__(deep_stem=True, avg_down=True, **kwargs)
-

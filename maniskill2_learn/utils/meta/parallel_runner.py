@@ -18,7 +18,17 @@ class Worker(Process):
     CONTINUE = 4
     EXIT = 5
 
-    def __init__(self, cls, worker_id, worker_seed=None, daemon=True, mem_infos=None, is_class=True, *args, **kwargs):
+    def __init__(
+        self,
+        cls,
+        worker_id,
+        worker_seed=None,
+        daemon=True,
+        mem_infos=None,
+        is_class=True,
+        *args,
+        **kwargs,
+    ):
         super(Process, self).__init__()
         # Set basic information
         self.worker_id = worker_id
@@ -46,7 +56,9 @@ class Worker(Process):
         if use_shared_memory:
             self.shared_mem_all = None
             self.shared_mem = None
-            self.input_mem = shared_memory.SharedMemory(create=True, size=1024**2)  # 1M input information
+            self.input_mem = shared_memory.SharedMemory(
+                create=True, size=1024**2
+            )  # 1M input information
             self.len_input = Value(c_int32, 0)
         else:
             self.input_mem = None
@@ -105,7 +117,9 @@ class Worker(Process):
             if self.shared_memory.value:
                 if self.len_input.value == 0:
                     continue
-                op, args, kwargs = load(bytes(self.input_mem.buf[: self.len_input.value]), file_format="pkl")
+                op, args, kwargs = load(
+                    bytes(self.input_mem.buf[: self.len_input.value]), file_format="pkl"
+                )
                 with self.len_input.get_lock():
                     self.len_input.value = 0
 
@@ -192,9 +206,15 @@ class Worker(Process):
             # print(self.item_in_pipe.value, self.is_running)
             if self.initialized.value and start_time is None:
                 start_time = time.time()
-            if start_time is not None and time.time() - start_time > timeout and timeout > 0:
+            if (
+                start_time is not None
+                and time.time() - start_time > timeout
+                and timeout > 0
+            ):
                 # print(self.item_in_pipe.value < 1, self.running.value, self.initialized.value)
-                raise RuntimeError(f"Nothing to get from pipe after {time.time() - start_time}s")
+                raise RuntimeError(
+                    f"Nothing to get from pipe after {time.time() - start_time}s"
+                )
         with self.item_in_pipe.get_lock():
             self.item_in_pipe.value -= 1
         return None if self.shared_memory.value else self.pipe.recv()
@@ -214,7 +234,9 @@ class Worker(Process):
         return ret
 
     def debug_print(self):
-        print("Out", self.shared_memory.value, self.item_in_pipe.value, self.running.value)
+        print(
+            "Out", self.shared_memory.value, self.item_in_pipe.value, self.running.value
+        )
 
     def close(self):
         if self.is_alive():

@@ -11,7 +11,10 @@ from maniskill2_learn.methods.builder import build_agent
 from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint
 from maniskill2_learn.utils.data import to_np
 from maniskill2_learn.env import get_env_info, build_env
-from maniskill2_learn.networks.utils import get_kwargs_from_shape, replace_placeholder_with_args
+from maniskill2_learn.networks.utils import (
+    get_kwargs_from_shape,
+    replace_placeholder_with_args,
+)
 from maniskill2_learn.utils.data import GDict, is_not_null
 
 model_dict = {
@@ -29,40 +32,44 @@ model_dict = {
 
 
 class UserPolicy(BasePolicy):
-    def __init__(self, env_id: str, observation_space: spaces.Space, action_space: spaces.Space):
+    def __init__(
+        self, env_id: str, observation_space: spaces.Space, action_space: spaces.Space
+    ):
         super().__init__(env_id, observation_space, action_space)
         # cfg = Config.fromfile("/root/ManiSkill2-Learn/configs/brl/diff/rgbd_eval.py") # Change this
         # model_path = f'/root/ManiSkill2-Learn/logs/{model_dict[env_id]}' # Change this
-        cfg = Config.fromfile("./configs/brl/diff/rgbd_eval.py") # Change this
+        cfg = Config.fromfile("./configs/brl/diff/rgbd_eval.py")  # Change this
         # cfg = Config.fromfile("./configs/brl/diff/pcd_eval.py") # Change this
-        model_path = f'./logs/{model_dict[env_id]}' # Change this
-        self.device = 'cuda:0'
+        model_path = f"./logs/{model_dict[env_id]}"  # Change this
+        self.device = "cuda:0"
 
         self.logger = get_logger()
 
         cfg.env_cfg["env_name"] = env_id
         cfg.env_cfg["obs_mode"] = self.get_obs_mode(env_id)
         cfg.env_cfg["control_mode"] = self.get_control_mode(env_id)
-        cfg.env_cfg["obs_frame"] = "ee" # Change this
+        cfg.env_cfg["obs_frame"] = "ee"  # Change this
         # if 'Pick' in env_id: # for environments that provide goal locations
         #     cfg.env_cfg["n_goal_points"] = 50 # Change this
-            
+
         env_params = get_env_info(cfg.env_cfg)
         cfg.agent_cfg["env_params"] = env_params
         obs_shape = env_params["obs_shape"]
         action_shape = env_params["action_shape"]
-        
+
         if is_not_null(obs_shape) or is_not_null(action_shape):
             replaceable_kwargs = get_kwargs_from_shape(obs_shape, action_shape)
-            cfg = replace_placeholder_with_args(cfg, **replaceable_kwargs)  
-            
+            cfg = replace_placeholder_with_args(cfg, **replaceable_kwargs)
+
         print("Final config", cfg)
 
         self.env = build_env(cfg.env_cfg)
 
         self.agent = build_agent(cfg.agent_cfg)
         self.agent = self.agent.float().to(self.device)
-        load_checkpoint(self.agent, model_path, self.device, keys_map=None, logger=self.logger)
+        load_checkpoint(
+            self.agent, model_path, self.device, keys_map=None, logger=self.logger
+        )
         self.agent.eval()
         self.agent.set_mode("test")
 

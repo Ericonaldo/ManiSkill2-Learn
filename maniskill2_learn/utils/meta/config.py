@@ -26,7 +26,9 @@ class ConfigDict(Dict):
         try:
             value = super(ConfigDict, self).__getattr__(name)
         except KeyError:
-            ex = AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            ex = AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            )
         except Exception as e:
             ex = e
         else:
@@ -95,7 +97,10 @@ class Config:
         file_basename_no_extension = osp.splitext(file_basename)[0]
         file_extname = osp.splitext(filename)[1]
         support_templates = dict(
-            fileDirname=file_dirname, fileBasename=file_basename, fileBasenameNoExtension=file_basename_no_extension, fileExtname=file_extname
+            fileDirname=file_dirname,
+            fileBasename=file_basename,
+            fileBasenameNoExtension=file_basename_no_extension,
+            fileExtname=file_extname,
         )
 
         with open(filename, "r") as f:
@@ -118,7 +123,9 @@ class Config:
             raise IOError("Only py/yml/yaml/json type are supported now!")
 
         with tempfile.TemporaryDirectory() as temp_config_dir:
-            temp_config_file = tempfile.NamedTemporaryFile(dir=temp_config_dir, suffix=fileExtname)
+            temp_config_file = tempfile.NamedTemporaryFile(
+                dir=temp_config_dir, suffix=fileExtname
+            )
             if platform.system() == "Windows":
                 temp_config_file.close()
             temp_config_name = osp.basename(temp_config_file.name)
@@ -134,7 +141,11 @@ class Config:
                 Config._validate_py_syntax(filename)
                 mod = import_module(temp_module_name)
                 sys.path.pop(0)
-                cfg_dict = {name: value for name, value in mod.__dict__.items() if not name.startswith("__")}
+                cfg_dict = {
+                    name: value
+                    for name, value in mod.__dict__.items()
+                    if not name.startswith("__")
+                }
                 # delete imported module
                 del sys.modules[temp_module_name]
             elif filename.endswith((".yml", ".yaml", ".json")):
@@ -151,7 +162,9 @@ class Config:
         if BASE_KEY in cfg_dict:
             cfg_dir = osp.dirname(filename)
             base_filename = cfg_dict.pop(BASE_KEY)
-            base_filename = base_filename if isinstance(base_filename, list) else [base_filename]
+            base_filename = (
+                base_filename if isinstance(base_filename, list) else [base_filename]
+            )
 
             cfg_dict_list = list()
             cfg_text_list = list()
@@ -314,7 +327,9 @@ class Config:
             # check if all items in the list are dict
             if all(isinstance(_, dict) for _ in v):
                 v_str = "[\n"
-                v_str += "\n".join(f"dict({_indent(_format_dict(v_), indent)})," for v_ in v).rstrip(",")
+                v_str += "\n".join(
+                    f"dict({_indent(_format_dict(v_), indent)})," for v_ in v
+                ).rstrip(",")
                 if use_mapping:
                     k_str = f"'{k}'" if isinstance(k, str) else str(k)
                     attr_str = f"{k_str}: {v_str}"
@@ -366,7 +381,11 @@ class Config:
         cfg_dict = self._cfg_dict.to_dict()
         text = _format_dict(cfg_dict, outest_level=True)
         # copied from setup.cfg
-        yapf_style = dict(based_on_style="pep8", blank_line_before_nested_class_or_def=True, split_before_expression_after_opening_paren=True)
+        yapf_style = dict(
+            based_on_style="pep8",
+            blank_line_before_nested_class_or_def=True,
+            split_before_expression_after_opening_paren=True,
+        )
         text, _ = FormatCode(text, style_config=yapf_style, verify=True)
 
         return text
@@ -463,7 +482,12 @@ class Config:
             d[subkey] = v
 
         cfg_dict = super(Config, self).__getattribute__("_cfg_dict")
-        super(Config, self).__setattr__("_cfg_dict", Config._merge_a_into_b(option_cfg_dict, cfg_dict, allow_list_keys=allow_list_keys))
+        super(Config, self).__setattr__(
+            "_cfg_dict",
+            Config._merge_a_into_b(
+                option_cfg_dict, cfg_dict, allow_list_keys=allow_list_keys
+            ),
+        )
 
 
 class DictAction(Action):
@@ -517,12 +541,18 @@ class DictAction(Action):
             chars inside '()' and '[]' are treated as one element and thus ','
             inside these brackets are ignored.
             """
-            assert (string.count("(") == string.count(")")) and (string.count("[") == string.count("]")), f"Imbalanced brackets exist in {string}"
+            assert (string.count("(") == string.count(")")) and (
+                string.count("[") == string.count("]")
+            ), f"Imbalanced brackets exist in {string}"
             end = len(string)
             for idx, char in enumerate(string):
                 pre = string[:idx]
                 # The string before this ',' is balanced
-                if (char == ",") and (pre.count("(") == pre.count(")")) and (pre.count("[") == pre.count("]")):
+                if (
+                    (char == ",")
+                    and (pre.count("(") == pre.count(")"))
+                    and (pre.count("[") == pre.count("]"))
+                ):
                     end = idx
                     break
             return end

@@ -9,7 +9,9 @@ from .timer import Timer
 class ProgressBar:
     """A progress bar which can print the progress."""
 
-    def __init__(self, task_num=0, bar_width=50, init_tasks=0, start=True, file=sys.stdout):
+    def __init__(
+        self, task_num=0, bar_width=50, init_tasks=0, start=True, file=sys.stdout
+    ):
         self.task_num = task_num
         self.bar_width = bar_width
         self.init_tasks = init_tasks
@@ -25,7 +27,9 @@ class ProgressBar:
 
     def start(self):
         if self.task_num > 0:
-            self.file.write(f'[{" " * self.bar_width}] {self.init_tasks}/{self.task_num}, elapsed: 0s, ETA:')
+            self.file.write(
+                f'[{" " * self.bar_width}] {self.init_tasks}/{self.task_num}, elapsed: 0s, ETA:'
+            )
         else:
             self.file.write("completed: 0, elapsed: 0s")
         self.file.flush()
@@ -48,13 +52,22 @@ class ProgressBar:
                 f"ETA: {eta:5}s"
             )
 
-            bar_width = min(self.bar_width, int(self.terminal_width - len(msg)) + 2, int(self.terminal_width * 0.6))
+            bar_width = min(
+                self.bar_width,
+                int(self.terminal_width - len(msg)) + 2,
+                int(self.terminal_width * 0.6),
+            )
             bar_width = max(2, bar_width)
-            mark_width = int(bar_width * (self.completed + self.init_tasks) / float(self.task_num))
+            mark_width = int(
+                bar_width * (self.completed + self.init_tasks) / float(self.task_num)
+            )
             bar_chars = ">" * mark_width + " " * (bar_width - mark_width)
             self.file.write(msg.format(bar_chars))
         else:
-            self.file.write(f"completed: {self.completed + self.init_tasks}, elapsed: {int(elapsed + 0.5)}s," f" {fps:.1f} tasks/s")
+            self.file.write(
+                f"completed: {self.completed + self.init_tasks}, elapsed: {int(elapsed + 0.5)}s,"
+                f" {fps:.1f} tasks/s"
+            )
         self.file.flush()
 
 
@@ -100,7 +113,16 @@ def init_pool(process_num, initializer=None, initargs=None):
 
 
 def track_parallel_progress(
-    func, tasks, nproc, initializer=None, initargs=None, bar_width=50, chunksize=1, skip_first=False, keep_order=True, file=sys.stdout
+    func,
+    tasks,
+    nproc,
+    initializer=None,
+    initargs=None,
+    bar_width=50,
+    chunksize=1,
+    skip_first=False,
+    keep_order=True,
+    file=sys.stdout,
 ):
     """Track the progress of parallel task execution with a progress bar.
 

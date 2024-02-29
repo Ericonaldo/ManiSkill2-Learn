@@ -3,7 +3,6 @@ from .base import BaseFileHandler
 
 
 class CSVHandler(BaseFileHandler):
-
     def load_from_fileobj(self, file, use_eval=False, **kwargs):
         ret = list(csv.reader(file, **kwargs))
         if use_eval:

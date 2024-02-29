@@ -39,6 +39,7 @@ nn.LayerNorm can be much slower than the custom LN version for the ConvNext mode
 permutation before / after the LN operation
 """
 
+
 class LayerNormkD(LayerNorm):
     r"""Original implementation in PyTorch is not friendly for CNN which has channels_first manner.
     LayerNorm for CNN (1D, 2D, 3D)
@@ -80,37 +81,43 @@ class LayerNormkD(LayerNorm):
 @NORM_LAYERS.register_module("LN1d")
 class LayerNorm1D(LayerNormkD):
     def __init__(self, *args, data_format="channels_first", **kwargs):
-        super(LayerNorm1D, self).__init__(*args, **kwargs, data_format=data_format, dim=1)
+        super(LayerNorm1D, self).__init__(
+            *args, **kwargs, data_format=data_format, dim=1
+        )
 
 
 @NORM_LAYERS.register_module("LN2d")
 class LayerNorm2D(LayerNormkD):
     def __init__(self, *args, data_format="channels_first", **kwargs):
-        super(LayerNorm2D, self).__init__(*args, **kwargs, data_format=data_format, dim=2)
+        super(LayerNorm2D, self).__init__(
+            *args, **kwargs, data_format=data_format, dim=2
+        )
 
 
 @NORM_LAYERS.register_module("LN3d")
 class LayerNorm3D(LayerNormkD):
     def __init__(self, *args, data_format="channels_first", **kwargs):
-        super(LayerNorm3D, self).__init__(*args, **kwargs, data_format=data_format, dim=3)
-
+        super(LayerNorm3D, self).__init__(
+            *args, **kwargs, data_format=data_format, dim=3
+        )
 
 
 class ConvNextLayerNorm(nn.Module):
-    r""" 
+    r"""
     https://github.com/facebookresearch/ConvNeXt/blob/d1fa8f6fef0a165b27399986cc2bdacc92777e40/models/convnext.py#L119
 
-    LayerNorm that supports two data formats: channels_last (default) or channels_first. 
-    The ordering of the dimensions in the inputs. 
-    For 4D Tensor input, channels_last corresponds to inputs with 
-    shape (batch_size, height, width, channels) while channels_first corresponds to inputs 
+    LayerNorm that supports two data formats: channels_last (default) or channels_first.
+    The ordering of the dimensions in the inputs.
+    For 4D Tensor input, channels_last corresponds to inputs with
+    shape (batch_size, height, width, channels) while channels_first corresponds to inputs
     with shape (batch_size, channels, height, width).
     """
+
     def __init__(self, *args, dim, eps=1e-6, data_format="channels_last", **kwargs):
         super().__init__()
         self.data_format = data_format
         if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError 
+            raise NotImplementedError
         if self.data_format == "channels_last":
             shape = args
         else:
@@ -120,49 +127,55 @@ class ConvNextLayerNorm(nn.Module):
         self.eps = eps
         self.normalized_shape = shape
         self.dim = dim
-    
+
     def forward(self, x):
         if self.data_format == "channels_last":
-            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+            return F.layer_norm(
+                x, self.normalized_shape, self.weight, self.bias, self.eps
+            )
         elif self.data_format == "channels_first":
-            if x.ndim == 2: # [B, C]
+            if x.ndim == 2:  # [B, C]
                 assert self.dim == 1
                 x = x[:, :, None]
             u = x.mean(1, keepdim=True)
             x = x - u
             s = x.pow(2).mean(1, keepdim=True)
             x = x / torch.sqrt(s + self.eps)
-            #mean, var = torch.var_mean(x, dim=1, keepdims=True) # this consumes more mem than above
-            #x = (x - mean) / torch.sqrt(var + self.eps)
+            # mean, var = torch.var_mean(x, dim=1, keepdims=True) # this consumes more mem than above
+            # x = (x - mean) / torch.sqrt(var + self.eps)
             x = self.weight[None, ...] * x + self.bias[None, ...]
             x = x.squeeze(2)
             return x
 
     def __repr__(self):
-        main_str = self._get_name() + '('
-        main_str += f'Weight Shape: {self.normalized_shape}, dim: {self.dim}, data_format: {self.data_format}, eps: {self.eps}'
-        main_str += ')'
+        main_str = self._get_name() + "("
+        main_str += f"Weight Shape: {self.normalized_shape}, dim: {self.dim}, data_format: {self.data_format}, eps: {self.eps}"
+        main_str += ")"
         return main_str
 
 
 @NORM_LAYERS.register_module("ConvNextLN1d")
 class ConvNextLayerNorm1D(ConvNextLayerNorm):
     def __init__(self, *args, data_format="channels_first", **kwargs):
-        super(ConvNextLayerNorm1D, self).__init__(*args, **kwargs, data_format=data_format, dim=1)
+        super(ConvNextLayerNorm1D, self).__init__(
+            *args, **kwargs, data_format=data_format, dim=1
+        )
 
 
 @NORM_LAYERS.register_module("ConvNextLN2d")
 class ConvNextLayerNorm2D(ConvNextLayerNorm):
     def __init__(self, *args, data_format="channels_first", **kwargs):
-        super(ConvNextLayerNorm2D, self).__init__(*args, **kwargs, data_format=data_format, dim=2)
+        super(ConvNextLayerNorm2D, self).__init__(
+            *args, **kwargs, data_format=data_format, dim=2
+        )
 
 
 @NORM_LAYERS.register_module("ConvNextLN3d")
 class ConvNextLayerNorm3D(ConvNextLayerNorm):
     def __init__(self, *args, data_format="channels_first", **kwargs):
-        super(ConvNextLayerNorm3D, self).__init__(*args, **kwargs, data_format=data_format, dim=3)
-
-
+        super(ConvNextLayerNorm3D, self).__init__(
+            *args, **kwargs, data_format=data_format, dim=3
+        )
 
 
 def need_bias(act_cfg):
@@ -297,10 +310,19 @@ def is_norm_layer(layer, exclude=None):
         if not isinstance(exclude, tuple):
             exclude = (exclude,)
         if not is_tuple_of(exclude, type):
-            raise TypeError(f'"exclude" must be either None or type or a tuple of types, ' f"but got {type(exclude)}: {exclude}")
+            raise TypeError(
+                f'"exclude" must be either None or type or a tuple of types, '
+                f"but got {type(exclude)}: {exclude}"
+            )
 
     if exclude and isinstance(layer, exclude):
         return False
 
-    all_norm_bases = (_BatchNorm, _InstanceNorm, nn.GroupNorm, nn.LayerNorm, nn.LocalResponseNorm)
+    all_norm_bases = (
+        _BatchNorm,
+        _InstanceNorm,
+        nn.GroupNorm,
+        nn.LayerNorm,
+        nn.LocalResponseNorm,
+    )
     return isinstance(layer, all_norm_bases)

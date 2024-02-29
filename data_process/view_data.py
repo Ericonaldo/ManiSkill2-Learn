@@ -429,7 +429,9 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
 
             info = {}
 
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
             # Without conversion between control modes
             if target_control_mode is None:
                 n = len(ori_actions)
@@ -496,6 +498,7 @@ def _main(args, proc_id: int = 0, num_procs=1, pbar=None):
 
     return output_h5_path
 
+
 def view_data(traj_path):
     # Load HDF5 containing trajectories
     ori_h5_file = h5py.File(traj_path, "r")
@@ -504,7 +507,9 @@ def view_data(traj_path):
     json_path = traj_path.replace(".h5", ".json")
     json_data = load_json(json_path)
 
-    import ipdb; ipdb.set_trace()
+    import ipdb
+
+    ipdb.set_trace()
 
 
 def main():
@@ -528,7 +533,7 @@ def main():
     # else:
     #     _main(args)
 
-    traj_path = '/home/wuhongtao123/src_manip/ManiSkill2/demos/rigid_body/AssemblingKits-v0/trajectory.image_pointcloud.pd_ee_delta_pose.0.h5'
+    traj_path = "/home/wuhongtao123/src_manip/ManiSkill2/demos/rigid_body/AssemblingKits-v0/trajectory.image_pointcloud.pd_ee_delta_pose.0.h5"
     view_data(traj_path)
 
 

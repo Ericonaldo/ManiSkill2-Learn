@@ -12,7 +12,15 @@ from pathlib import Path
 from .hash_utils import masked_crc
 from .serialization import dump, load
 from ..data import DictArray, GDict, shuffle, select_by_index
-from ..meta import check_files_exist, mkdir_or_exist, get_filename_suffix, replace_suffix, get_time_stamp, symlink, get_logger
+from ..meta import (
+    check_files_exist,
+    mkdir_or_exist,
+    get_filename_suffix,
+    replace_suffix,
+    get_time_stamp,
+    symlink,
+    get_logger,
+)
 from ..math import split_num
 
 
@@ -74,7 +82,9 @@ def read_record(data_file, start_offset=None, end_offset=None, serialized=False)
     return ret
 
 
-def load_items_from_record(data_file, indices=None, start_idx=None, end_idx=None, serialized=False):
+def load_items_from_record(
+    data_file, indices=None, start_idx=None, end_idx=None, serialized=False
+):
     if indices is None:
         assert isinstance(data_file, str)
         indices = get_index_filenames(data_file)
@@ -122,7 +132,9 @@ def get_index_filenames(data_filenames):
         return [get_index_filenames(data_filename) for data_filename in data_filenames]
     else:
         folder_name = osp.dirname(data_filenames)
-        index_filename = osp.join(folder_name, replace_suffix(osp.basename(data_filenames), "index.txt"))
+        index_filename = osp.join(
+            folder_name, replace_suffix(osp.basename(data_filenames), "index.txt")
+        )
         return index_filename
 
 
@@ -149,7 +161,9 @@ def generate_index_from_record(filename):
     index_file.close()
 
 
-def output_record(data: Union[list, DictArray, np.ndarray], data_filename, use_shuffle=False):
+def output_record(
+    data: Union[list, DictArray, np.ndarray], data_filename, use_shuffle=False
+):
     """
     A dataset in deep learning should contains a series of data.
     """
@@ -169,7 +183,9 @@ def output_record(data: Union[list, DictArray, np.ndarray], data_filename, use_s
     if use_shuffle:
         indices = shuffle(indices)
     for i in indices:
-        item = data.slice(i).to_numpy().memory if isinstance(data, DictArray) else data[i]
+        item = (
+            data.slice(i).to_numpy().memory if isinstance(data, DictArray) else data[i]
+        )
         write_item_to_record(item, data_file, index_file)
     data_file.close()
     index_file.close()
@@ -178,7 +194,9 @@ def output_record(data: Union[list, DictArray, np.ndarray], data_filename, use_s
 def shuffle_reocrd(filename, output_name=None):
     if output_name is None:
         output_name = filename
-    data = load_items_from_record(filename, indices=None, start_idx=None, end_idx=None, serialized=False)
+    data = load_items_from_record(
+        filename, indices=None, start_idx=None, end_idx=None, serialized=False
+    )
     data = shuffle(data)
     data_file = open(output_name, "wb")
     index_file = open(get_index_filenames(output_name), "w")
@@ -186,7 +204,9 @@ def shuffle_reocrd(filename, output_name=None):
         write_item_to_record(item, data_file, index_file, serialized=True)
 
 
-def shuffle_merge_records(data_filenames, num_shards=1, output_folder=None, dataset_name=None):
+def shuffle_merge_records(
+    data_filenames, num_shards=1, output_folder=None, dataset_name=None
+):
     """
     Assert the every seperate dataset can be load in memeory once.
     """
@@ -204,20 +224,29 @@ def shuffle_merge_records(data_filenames, num_shards=1, output_folder=None, data
 
     index_filenames = get_index_filenames(data_filenames)
     if output_folder is None:
-        output_folder = osp.join(osp.dirname(data_filenames[0]), osp.basename(data_filenames[0]) + "_shards")
+        output_folder = osp.join(
+            osp.dirname(data_filenames[0]), osp.basename(data_filenames[0]) + "_shards"
+        )
     mkdir_or_exist(output_folder)
     if dataset_name is None:
         dataset_name = osp.basename(output_folder)
     check_files_exist(data_filenames + index_filenames)
     indices = [
-        [[eval(_) for _ in line.strip("\n").split(" ")] for line in open(index_filename, "r") if line != "\n"] for index_filename in index_filenames
+        [
+            [eval(_) for _ in line.strip("\n").split(" ")]
+            for line in open(index_filename, "r")
+            if line != "\n"
+        ]
+        for index_filename in index_filenames
     ]
     num_items = [len(_) for _ in indices]
     total_num = sum(num_items)
     num_files = len(data_filenames)
     num_shards, num_items_per_shard = split_num(total_num, num_shards)
     shard_index = [i for i in range(num_shards) for _ in range(num_items_per_shard[i])]
-    assert len(shard_index) == total_num, f"Error: In correct split! {len(shard_index)} != {total_num}"
+    assert (
+        len(shard_index) == total_num
+    ), f"Error: In correct split! {len(shard_index)} != {total_num}"
     shard_index = shuffle(shard_index)
 
     print(f"Num of datasets: {num_files}, num of items in all datasets: {total_num}.")
@@ -226,10 +255,19 @@ def shuffle_merge_records(data_filenames, num_shards=1, output_folder=None, data
     if num_shards == 1:
         output_data_filenames = [osp.join(output_folder, f"{dataset_name}.{suffix}")]
     else:
-        output_data_filenames = [osp.join(output_folder, f"{dataset_name}-{i}.{suffix}") for i in range(num_shards)]
+        output_data_filenames = [
+            osp.join(output_folder, f"{dataset_name}-{i}.{suffix}")
+            for i in range(num_shards)
+        ]
     output_index_filenames = get_index_filenames(output_data_filenames)
-    output_data_files = [open(output_data_filename, "wb") for output_data_filename in output_data_filenames]
-    output_index_files = [open(output_index_filename, "w") for output_index_filename in output_index_filenames]
+    output_data_files = [
+        open(output_data_filename, "wb")
+        for output_data_filename in output_data_filenames
+    ]
+    output_index_files = [
+        open(output_index_filename, "w")
+        for output_index_filename in output_index_filenames
+    ]
     cnt = 0
     for i, data_filename, index in zip(range(num_files), data_filenames, indices):
         data_file = open(data_filename, "rb")
@@ -240,9 +278,16 @@ def shuffle_merge_records(data_filenames, num_shards=1, output_folder=None, data
             cnt += 1
             # item = read_data_file(data_file, index[j][1])
             item = data[j]
-            write_item_to_record(item, output_data_files[file_index], output_index_files[file_index], serialized=True)
+            write_item_to_record(
+                item,
+                output_data_files[file_index],
+                output_index_files[file_index],
+                serialized=True,
+            )
         data_file.close()
-        print(f"Process file {i + 1}/{num_files}, file name: {data_filename}, num of items: {len(index)}, finish items: {cnt}/{total_num}!")
+        print(
+            f"Process file {i + 1}/{num_files}, file name: {data_filename}, num of items: {len(index)}, finish items: {cnt}/{total_num}!"
+        )
     for i in range(num_shards):
         output_data_files[i].close()
         output_index_files[i].close()
@@ -264,13 +309,13 @@ def merge_h5_trajectory(h5_files, output_name, num=-1):
         for h5_file in h5_files:
             h5 = h5py.File(h5_file, "r")
             h5_keys = set(h5.keys())
-            if 'meta' in h5_keys:
-                h5_keys.remove('meta')
-                if 'meta' not in f.keys():
-                    h5.copy('meta', f, 'meta')
-            
+            if "meta" in h5_keys:
+                h5_keys.remove("meta")
+                if "meta" not in f.keys():
+                    h5.copy("meta", f, "meta")
+
             for i in range(len(h5_keys)):
-                if f'traj_{i}' in h5_keys:
+                if f"traj_{i}" in h5_keys:
                     h5.copy(f"traj_{i}", f, f"traj_{index}")
                     index += 1
                     if num != -1 and index >= num:
@@ -280,7 +325,9 @@ def merge_h5_trajectory(h5_files, output_name, num=-1):
         get_logger().info(f"Total number of trajectories {index}")
 
 
-def convert_h5_trajectory_to_record(data, output_file, keep_episode=False, use_shuffle=False, keys=None):
+def convert_h5_trajectory_to_record(
+    data, output_file, keep_episode=False, use_shuffle=False, keys=None
+):
     from .cache_utils import purify_items
 
     if isinstance(data, str):
@@ -288,6 +335,7 @@ def convert_h5_trajectory_to_record(data, output_file, keep_episode=False, use_s
         filename = data
         data = GDict.from_hdf5(data, wrapper=False)
         from .cache_utils import META_KEYS
+
         for key in META_KEYS:
             if key in data.memory:
                 data.memory.pop(key)
@@ -307,7 +355,9 @@ def convert_h5_trajectory_to_record(data, output_file, keep_episode=False, use_s
     print(f"Output to {output_file} time: {time.time() - start_time}")
 
 
-def convert_h5_trajectories_to_shard(folder, output_folder, num_shards=20, keep_episode=False, keys=None):
+def convert_h5_trajectories_to_shard(
+    folder, output_folder, num_shards=20, keep_episode=False, keys=None
+):
     folder = Path(folder)
     output_folder = Path(output_folder)
     tmp_folder = output_folder.parent / f"tmp_record_{get_time_stamp()}"
@@ -317,10 +367,18 @@ def convert_h5_trajectories_to_shard(folder, output_folder, num_shards=20, keep_
     for file in folder.glob("*.h5"):
         record_name = replace_suffix(file.name, "record")
         record_name = str(tmp_folder / record_name)
-        convert_h5_trajectory_to_record(str(file), record_name, keep_episode=keep_episode, use_shuffle=True, keys=keys)
+        convert_h5_trajectory_to_record(
+            str(file),
+            record_name,
+            keep_episode=keep_episode,
+            use_shuffle=True,
+            keys=keys,
+        )
         record_names.append(record_name)
     mkdir_or_exist(str(output_folder))
-    shuffle_merge_records(record_names, num_shards=num_shards, output_folder=output_folder)
+    shuffle_merge_records(
+        record_names, num_shards=num_shards, output_folder=output_folder
+    )
     rmtree(str(tmp_folder))
 
 

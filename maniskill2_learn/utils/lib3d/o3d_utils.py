@@ -5,7 +5,15 @@ from maniskill2_learn.utils.data import is_pcd
 
 
 def is_o3d(x):
-    return isinstance(x, (o3d.geometry.TriangleMesh, o3d.geometry.PointCloud, o3d.geometry.OrientedBoundingBox, o3d.geometry.AxisAlignedBoundingBox))
+    return isinstance(
+        x,
+        (
+            o3d.geometry.TriangleMesh,
+            o3d.geometry.PointCloud,
+            o3d.geometry.OrientedBoundingBox,
+            o3d.geometry.AxisAlignedBoundingBox,
+        ),
+    )
 
 
 def to_o3d(x):
@@ -18,7 +26,9 @@ def to_o3d(x):
         assert is_pcd(x)
         return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(x))
     elif isinstance(x, trimesh.Trimesh):
-        return o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(x.vertices), o3d.utility.Vector3iVector(x.faces))
+        return o3d.geometry.TriangleMesh(
+            o3d.utility.Vector3dVector(x.vertices), o3d.utility.Vector3iVector(x.faces)
+        )
     elif isinstance(x, trimesh.points.PointCloud):
         return o3d.geometry.PointCloud(x.vertices)
     else:
@@ -88,7 +98,9 @@ def mesh2pcd(mesh, sample_density, num_points=None):
 # ---------------------------------------------------------------------------- #
 
 
-def np2mesh(vertices, triangles, colors=None, vertex_normals=None, triangle_normals=None):
+def np2mesh(
+    vertices, triangles, colors=None, vertex_normals=None, triangle_normals=None
+):
     """Convert numpy array to open3d PointCloud."""
     # print(vertices, triangles)(
     # print(vertices.dtype, vertices.shape)
@@ -142,16 +154,22 @@ def np2pcd(points, colors=None, normals=None):
 
 def create_aabb(bbox, color=(0, 1, 0)):
     """Draw an axis-aligned bounding box."""
-    assert len(bbox) == 6, f"The format of bbox should be xyzwlh, but received {len(bbox)}."
+    assert (
+        len(bbox) == 6
+    ), f"The format of bbox should be xyzwlh, but received {len(bbox)}."
     bbox = np.asarray(bbox)
-    abb = o3d.geometry.AxisAlignedBoundingBox(bbox[0:3] - bbox[3:6] * 0.5, bbox[0:3] + bbox[3:6] * 0.5)
+    abb = o3d.geometry.AxisAlignedBoundingBox(
+        bbox[0:3] - bbox[3:6] * 0.5, bbox[0:3] + bbox[3:6] * 0.5
+    )
     abb.color = color
     return abb
 
 
 def create_obb(bbox, R=np.eye(3), color=(0, 1, 0)):
     """Draw an oriented bounding box."""
-    assert len(bbox) == 6, f"The format of bbox should be xyzwlh, but received {len(bbox)}."
+    assert (
+        len(bbox) == 6
+    ), f"The format of bbox should be xyzwlh, but received {len(bbox)}."
     obb = o3d.geometry.OrientedBoundingBox(bbox[0:3], R, bbox[3:6])
     obb.color = color
     return obb
@@ -172,11 +190,15 @@ def compute_pcd_normals(points, search_param=None, camera_location=(0.0, 0.0, 0.
     return normals
 
 
-def pcd_voxel_down_sample(points, voxel_size, min_bound=(-5.0, -5.0, -5.0), max_bound=(5.0, 5.0, 5.0)):
+def pcd_voxel_down_sample(
+    points, voxel_size, min_bound=(-5.0, -5.0, -5.0), max_bound=(5.0, 5.0, 5.0)
+):
     """Downsample the point cloud and return sample indices."""
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
-    downsample_pcd, mapping, index_buckets = pcd.voxel_down_sample_and_trace(voxel_size, np.array(min_bound)[:, None], np.array(max_bound)[:, None])
+    downsample_pcd, mapping, index_buckets = pcd.voxel_down_sample_and_trace(
+        voxel_size, np.array(min_bound)[:, None], np.array(max_bound)[:, None]
+    )
     sample_indices = [int(x[0]) for x in index_buckets]
     return sample_indices
 

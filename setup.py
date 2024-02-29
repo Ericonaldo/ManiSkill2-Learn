@@ -137,7 +137,9 @@ def make_cuda_ext(name, module, extra_args=[], extra_include_path=[], extra_modu
     sources = []
     for module_i in modules:
         module_folder = Path(py_path_to_dir_path(module_i))
-        sources_i = list(module_folder.glob("**/*.cpp")) + list(module_folder.glob("**/*.cu"))
+        sources_i = list(module_folder.glob("**/*.cpp")) + list(
+            module_folder.glob("**/*.cu")
+        )
         sources_i = [str(_) for _ in sources_i]
         sources = sources + sources_i
 
@@ -158,7 +160,7 @@ def get_cuda_extensions():
 
     os.environ.setdefault("MAX_JOBS", "16")
     extensions = []
-    
+
     modules = {
         "ball_query_ext": "maniskill2_learn.networks.ops.ops_3d.ball_query",
         "pcd_process_ext": "maniskill2_learn.networks.ops.ops_3d.pcd_process",

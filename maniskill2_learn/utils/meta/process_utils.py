@@ -45,7 +45,11 @@ def get_memory_dict(unit="G", number_only=False, init_pid=None):
     if init_pid is None:
         init_pid = os.getpid()
     process = psutil.Process(init_pid)
-    ret = {init_pid: num_to_str(process.memory_full_info().uss, unit, number_only=number_only)}
+    ret = {
+        init_pid: num_to_str(
+            process.memory_full_info().uss, unit, number_only=number_only
+        )
+    }
     for i, proc in enumerate(process.children()):
         process_info = proc.memory_full_info()
         ret[proc.pid] = num_to_str(process_info.uss, unit, number_only=number_only)

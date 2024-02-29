@@ -4,14 +4,16 @@ agent_cfg = dict(
     actor_cfg=dict(
         type="ContinuousActor",
         head_cfg=dict(
-            type="GaussianHead",
-            init_log_std=-0.5,
-            clip_return=True,
-            predict_std=False
+            type="GaussianHead", init_log_std=-0.5, clip_return=True, predict_std=False
         ),
         nn_cfg=dict(
             type="Visuomotor",
-            visual_nn_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
+            visual_nn_cfg=dict(
+                type="PointNet",
+                feat_dim="pcd_all_channel",
+                mlp_spec=[64, 128, 512],
+                feature_transform=[],
+            ),
             mlp_cfg=dict(
                 type="LinearMLP",
                 norm_cfg=None,

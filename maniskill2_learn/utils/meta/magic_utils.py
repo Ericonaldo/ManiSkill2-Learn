@@ -1,5 +1,15 @@
 # https://github.com/alexmojaki/sorcery
-from sorcery import assigned_names, unpack_keys, unpack_attrs, dict_of, print_args, call_with_name, delegate_to_attr, maybe, select_from
+from sorcery import (
+    assigned_names,
+    unpack_keys,
+    unpack_attrs,
+    dict_of,
+    print_args,
+    call_with_name,
+    delegate_to_attr,
+    maybe,
+    select_from,
+)
 
 # https://github.com/gruns/icecream
 # from icecream import ic
@@ -30,6 +40,7 @@ def custom_assert(pause, output_string, logger=None):
 
     if not pause:
         from termcolor import colored
+
         file_name = colored(sys._getframe().f_code.co_filename, "red")
         line_number = colored(sys._getframe().f_back.f_lineno, "cyan")
         output_string = colored(output_string, "red")
@@ -40,5 +51,6 @@ def custom_assert(pause, output_string, logger=None):
 class SlicePrinter:
     def __getitem__(self, index):
         print(index)
+
 
 slice_printer = SlicePrinter()

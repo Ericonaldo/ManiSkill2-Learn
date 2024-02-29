@@ -20,7 +20,11 @@ class StackedDiscrete(Space):
         return f"StackedDiscrete(n={self.n}, size={self.num_envs})"
 
     def __eq__(self, other):
-        return isinstance(other, StackedDiscrete) and self.n == other.n and self.num_envs == other.num_envs
+        return (
+            isinstance(other, StackedDiscrete)
+            and self.n == other.n
+            and self.num_envs == other.num_envs
+        )
 
 
 def stack_action_space(action_space, num):

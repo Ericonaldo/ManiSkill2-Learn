@@ -1,6 +1,13 @@
 import numpy as np
 from numbers import Number
-from maniskill2_learn.utils.data import is_seq_of, is_dict, is_str, is_num, auto_pad_seq, deepcopy
+from maniskill2_learn.utils.data import (
+    is_seq_of,
+    is_dict,
+    is_str,
+    is_num,
+    auto_pad_seq,
+    deepcopy,
+)
 
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
@@ -163,7 +170,9 @@ class KeyStepScheduler(BaseScheduler):
         ret_values = dict() if init_values is None else init_values
         if self.init_values is None:
             assert isinstance(init_values, dict)
-            self.init_values = {key: init_values[key] for key in self.infos if key in init_values}
+            self.init_values = {
+                key: init_values[key] for key in self.infos if key in init_values
+            }
         init_values = self.init_values
         for key in self.infos:
             steps, gamma = self.infos[key]

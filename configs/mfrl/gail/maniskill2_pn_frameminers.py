@@ -1,4 +1,3 @@
-
 # Modified from Hao Shen, Weikang Wan, and He Wang's ManiSkill2021 challenge submission:
 # Paper: https://arxiv.org/pdf/2203.02107.pdf
 # Code: https://github.com/wkwan7/EPICLab-ManiSkill
@@ -8,12 +7,12 @@
 
 agent_cfg = dict(
     type="GAIL",
-    batch_size=330, # Using multiple gpus leads to larger effective batch size, which can be crucial for GAIL training
+    batch_size=330,  # Using multiple gpus leads to larger effective batch size, which can be crucial for GAIL training
     discriminator_batch_size=512,
     discriminator_update_freq=0.125,
     discriminator_update_n=5,
     episode_based_discriminator_update=True,
-    env_reward_proportion=0.3,    
+    env_reward_proportion=0.3,
     gamma=0.95,
     update_coeff=0.005,
     alpha=0.2,
@@ -30,17 +29,21 @@ agent_cfg = dict(
         ),
         nn_cfg=dict(
             type="FrameMiners",
-            visual_nn_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 300], feature_transform=[]),
-            num_frames=2, 
+            visual_nn_cfg=dict(
+                type="PointNet",
+                feat_dim="pcd_all_channel",
+                mlp_spec=[64, 128, 300],
+                feature_transform=[],
+            ),
+            num_frames=2,
             vis_feat_dim=300,
-            action_dim='action_shape * 2', 
-            robot_state_dim='agent_shape',
+            action_dim="action_shape * 2",
+            robot_state_dim="agent_shape",
         ),
         optim_cfg=dict(type="Adam", lr=3e-4, param_cfg={"(.*?)visual_nn(.*?)": None}),
         # *Above removes visual_nn from actor optimizer; should only do so if shared_backbone=True and detach_actor_feature=True
         # *If either of the config options is False, then param_cfg={} should be removed, i.e. actor should also update visual backbone.
         #   mlp_specs should be updated as well
-
         # *It is unknown if sharing backbone and detaching feature works well under the 3D setting. It is up to the users to figure this out.
     ),
     critic_cfg=dict(
@@ -49,12 +52,12 @@ agent_cfg = dict(
         nn_cfg=dict(
             type="FrameMiners",
             visual_nn_cfg=None,
-            num_frames=2, 
+            num_frames=2,
             vis_feat_dim=300,
-            action_dim='action_shape * 2', 
-            robot_state_dim='agent_shape',
+            action_dim="action_shape * 2",
+            robot_state_dim="agent_shape",
             is_critic=True,
-            critic_mode='Q',
+            critic_mode="Q",
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
     ),
@@ -63,7 +66,12 @@ agent_cfg = dict(
         num_heads=1,
         nn_cfg=dict(
             type="Visuomotor",
-            visual_nn_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
+            visual_nn_cfg=dict(
+                type="PointNet",
+                feat_dim="pcd_all_channel",
+                mlp_spec=[64, 128, 512],
+                feature_transform=[],
+            ),
             mlp_cfg=dict(
                 type="LinearMLP",
                 norm_cfg=None,
@@ -73,7 +81,7 @@ agent_cfg = dict(
             ),
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
-    ),    
+    ),
 )
 
 
@@ -83,7 +91,7 @@ train_cfg = dict(
     warm_steps=8000,
     n_eval=20000000,
     n_checkpoint=2000000,
-    n_steps=64, # in multi-gpu training, n_steps will be the same number (here 64) for every gpu
+    n_steps=64,  # in multi-gpu training, n_steps will be the same number (here 64) for every gpu
     n_updates=4,
     ep_stats_cfg=dict(
         info_keys_mode=dict(
@@ -95,7 +103,7 @@ train_cfg = dict(
 env_cfg = dict(
     type="gym",
     env_name="PickCube-v0",
-    obs_mode='pointcloud',
+    obs_mode="pointcloud",
     ignore_dones=True,
 )
 
@@ -104,13 +112,13 @@ replay_cfg = dict(
     type="ReplayMemory",
     capacity=400000,
     buffer_filenames=[
-        "PATH_TO_DEMO.h5", # initializing replay buffer with demonstrations
+        "PATH_TO_DEMO.h5",  # initializing replay buffer with demonstrations
     ],
 )
 
 expert_replay_cfg = dict(
     type="ReplayMemory",
-    capacity=-1, # auto-adjust capacity based on loaded demonstrations
+    capacity=-1,  # auto-adjust capacity based on loaded demonstrations
     buffer_filenames=[
         "PATH_TO_DEMO.h5",
     ],

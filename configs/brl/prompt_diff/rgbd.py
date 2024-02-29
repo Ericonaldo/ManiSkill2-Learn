@@ -8,54 +8,29 @@ agent_cfg = dict(
     batch_size=512,
     action_seq_len=horizon,
     visual_nn_cfg=dict(
-        type="MultiImageObsEncoderWithDemo", 
+        type="MultiImageObsEncoderWithDemo",
         shape_meta=dict(
             obs=dict(
-                base_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
-                hand_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
-                state=dict(
-                    type="low_dim",
-                    shape="agent_shape"
-                ),
-                demo_base_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
-                demo_hand_camera_rgbd=dict(
-                    type="rgbd",
-                    shape="image_size",
-                    channel=4
-                ),
+                base_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
+                hand_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
+                state=dict(type="low_dim", shape="agent_shape"),
+                demo_base_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
+                demo_hand_camera_rgbd=dict(type="rgbd", shape="image_size", channel=4),
                 demo_state=dict(
                     type="low_dim",
                     shape="agent_shape",
-                )
+                ),
             ),
             actions=dict(
-                actions=dict(
-                    type="action",
-                    shape="action_shape"
-                ),
-                demo_actions=dict(
-                    type="action",
-                    shape="action_shape"
-                )
-            )
+                actions=dict(type="action", shape="action_shape"),
+                demo_actions=dict(type="action", shape="action_shape"),
+            ),
         ),
     ),
     actor_cfg=dict(
         type="ContDiffActor",
     ),
-    n_obs_steps=n_obs_steps, # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
+    n_obs_steps=n_obs_steps,  # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
     obs_as_global_cond=True,
     fix_obs_stepd=True,
     action_visible=True,
@@ -66,7 +41,7 @@ agent_cfg = dict(
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
-        down_dims=[256,512,1024],
+        down_dims=[256, 512, 1024],
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,

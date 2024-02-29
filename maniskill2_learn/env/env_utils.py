@@ -6,7 +6,13 @@ from gym.wrappers import TimeLimit
 from maniskill2_learn.utils.data import GDict, get_dtype
 from maniskill2_learn.utils.meta import Registry, build_from_cfg, dict_of, get_logger
 from .action_space_utils import StackedDiscrete, unstack_action_space
-from .wrappers import ManiSkill2_ObsWrapper, RenderInfoWrapper, ExtendedEnv, BufferAugmentedEnv, build_wrapper
+from .wrappers import (
+    ManiSkill2_ObsWrapper,
+    RenderInfoWrapper,
+    ExtendedEnv,
+    BufferAugmentedEnv,
+    build_wrapper,
+)
 
 ENVS = Registry("env")
 
@@ -24,7 +30,14 @@ def convert_observation_to_space(observation):
     if isinstance(observation, (dict)):
         # if not isinstance(observation, OrderedDict):
         #     warn("observation is not an OrderedDict. Keys are {}".format(observation.keys()))
-        space = Dict(OrderedDict([(key, convert_observation_to_space(value)) for key, value in observation.items()]))
+        space = Dict(
+            OrderedDict(
+                [
+                    (key, convert_observation_to_space(value))
+                    for key, value in observation.items()
+                ]
+            )
+        )
     elif isinstance(observation, np.ndarray):
         low = np.full(observation.shape, -float("inf"), dtype=observation.dtype)
         high = np.full(observation.shape, float("inf"), dtype=observation.dtype)
@@ -37,7 +50,7 @@ def convert_observation_to_space(observation):
             return convert_observation_to_space(observation)
         else:
             raise NotImplementedError(type(observation), observation)
-        
+
     return space
 
 
@@ -54,8 +67,8 @@ def get_gym_env_type(env_name):
     except AttributeError as e:
         # ManiSkill2
         entry_point = registry.env_specs[env_name].entry_point.func.__code__.co_filename
-        if 'mani_skill2' in entry_point:
-            type_name = 'mani_skill2'
+        if "mani_skill2" in entry_point:
+            type_name = "mani_skill2"
         else:
             print("Can't process the entry point: ", entry_point)
             raise e
@@ -84,14 +97,20 @@ def get_env_info(env_cfg=None, vec_env=None):
     obs_shape = GDict(vec_env.reset(get_shape=True)).slice(0).list_shape
     action_space = unstack_action_space(vec_env.action_space)
     action = action_space.sample()
-    assert isinstance(action_space, (Box, StackedDiscrete)), f"Error type {type(action_space)}!"
+    assert isinstance(
+        action_space, (Box, StackedDiscrete)
+    ), f"Error type {type(action_space)}!"
     is_discrete = isinstance(action_space, StackedDiscrete)
     if is_discrete:
         action_shape = vec_env.action_space.n
-        get_logger().info(f"Environment has tbuild_from_cfghe discrete action space with {action_shape} choices.")
+        get_logger().info(
+            f"Environment has tbuild_from_cfghe discrete action space with {action_shape} choices."
+        )
     else:
         action_shape = action.shape[0]
-        get_logger().info(f"Environment has the continuous action space with dimension {action_shape}.")
+        get_logger().info(
+            f"Environment has the continuous action space with dimension {action_shape}."
+        )
     del vec_env
     return dict_of(obs_shape, action_shape, action_space, is_discrete)
 
@@ -103,7 +122,9 @@ def get_max_episode_steps(env):
         # For env that does not use TimeLimit, e.g. ManiSkill
         return env.unwrapped._max_episode_steps
     else:
-        raise NotImplementedError("Your environment needs to contain the attribute _max_episode_steps!")
+        raise NotImplementedError(
+            "Your environment needs to contain the attribute _max_episode_steps!"
+        )
 
 
 def make_gym_env(
@@ -133,15 +154,17 @@ def make_gym_env(
     kwargs = dict(kwargs)
     kwargs.pop("multi_thread", None)
     env_type = get_gym_env_type(env_name)
-    if env_type not in ["mani_skill2",]:
+    if env_type not in [
+        "mani_skill2",
+    ]:
         # For environments that cannot specify GPU, we pop device
         kwargs.pop("device", None)
-    
-    if env_type == 'mani_skill2' and 'device' in kwargs.keys():
-        device = kwargs.pop('device')
-        if 'renderer_kwargs' not in kwargs.keys():
-            kwargs['renderer_kwargs'] = {}
-        kwargs['renderer_kwargs']['device'] = device
+
+    if env_type == "mani_skill2" and "device" in kwargs.keys():
+        device = kwargs.pop("device")
+        if "renderer_kwargs" not in kwargs.keys():
+            kwargs["renderer_kwargs"] = {}
+        kwargs["renderer_kwargs"]["device"] = device
 
     # Sapien callback system use buffer by default
     if env_type in "maniskill":
@@ -154,8 +177,8 @@ def make_gym_env(
         img_size = kwargs.pop("img_size", None)
         n_points = kwargs.pop("n_points", 1200)
         n_goal_points = kwargs.pop("n_goal_points", -1)
-        obs_frame = kwargs.pop('obs_frame', 'world')
-        ignore_dones = kwargs.pop('ignore_dones', False)
+        obs_frame = kwargs.pop("obs_frame", "world")
+        ignore_dones = kwargs.pop("ignore_dones", False)
         fix_seed = kwargs.pop("fix_seed", None)
 
     env = gym.make(env_name, **kwargs)
@@ -172,16 +195,30 @@ def make_gym_env(
         if horizon is not None:
             env.unwrapped._max_episode_steps = int(horizon)
         else:
-            env.unwrapped._max_episode_steps = int(max_episode_steps * time_horizon_factor)
+            env.unwrapped._max_episode_steps = int(
+                max_episode_steps * time_horizon_factor
+            )
 
     if unwrapped:
         env = env.unwrapped if hasattr(env, "unwrapped") else env
 
     if env_type == "mani_skill2":
         env = RenderInfoWrapper(env)
-        env = ManiSkill2_ObsWrapper(env, img_size=img_size, 
-            n_points=n_points, n_goal_points=n_goal_points, obs_frame=obs_frame, using_depth=using_depth,
-            ignore_dones=ignore_dones, fix_seed=fix_seed, concat_rgbd=concat_rgbd, history_len=history_len, using_angle=using_angle, using_euler=using_euler, using_target=using_target)
+        env = ManiSkill2_ObsWrapper(
+            env,
+            img_size=img_size,
+            n_points=n_points,
+            n_goal_points=n_goal_points,
+            obs_frame=obs_frame,
+            using_depth=using_depth,
+            ignore_dones=ignore_dones,
+            fix_seed=fix_seed,
+            concat_rgbd=concat_rgbd,
+            history_len=history_len,
+            using_angle=using_angle,
+            using_euler=using_euler,
+            using_target=using_target,
+        )
 
     if extra_wrappers is not None:
         if not isinstance(extra_wrappers, list):
@@ -221,9 +258,16 @@ def build_vec_env(cfgs, num_procs=None, multi_thread=False, **vec_env_kwargs):
     if isinstance(cfgs, dict):
         cfgs = [cfgs] * num_procs
     env_type = get_gym_env_type(cfgs[0].env_name)
-    assert len(cfgs) == num_procs, "You need to provide env configurations for each process or thread!"
+    assert (
+        len(cfgs) == num_procs
+    ), "You need to provide env configurations for each process or thread!"
 
-    from .vec_env import VectorEnv, SapienThreadEnv, SingleEnv2VecEnv, UnifiedVectorEnvAPI
+    from .vec_env import (
+        VectorEnv,
+        SapienThreadEnv,
+        SingleEnv2VecEnv,
+        UnifiedVectorEnvAPI,
+    )
 
     if multi_thread:
         vec_env = SapienThreadEnv(cfgs, **vec_env_kwargs)

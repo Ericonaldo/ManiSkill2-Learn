@@ -20,7 +20,7 @@ class LinearMLP(ExtendedModule):
     def __init__(
         self,
         mlp_spec,
-        norm_cfg=dict(type="LN1d"), # Change BN -> LN
+        norm_cfg=dict(type="LN1d"),  # Change BN -> LN
         bias="auto",
         act_cfg=dict(type="ReLU"),
         inactivated_output=True,
@@ -36,9 +36,13 @@ class LinearMLP(ExtendedModule):
                 act_cfg = None
                 norm_cfg = None
             bias_i = need_bias(norm_cfg) if bias == "auto" else bias
-            self.mlp.add_module(f"linear{i}", nn.Linear(mlp_spec[i], mlp_spec[i + 1], bias=bias_i))
+            self.mlp.add_module(
+                f"linear{i}", nn.Linear(mlp_spec[i], mlp_spec[i + 1], bias=bias_i)
+            )
             if norm_cfg:
-                self.mlp.add_module(f"norm{i}", build_norm_layer(norm_cfg, mlp_spec[i + 1])[1])
+                self.mlp.add_module(
+                    f"norm{i}", build_norm_layer(norm_cfg, mlp_spec[i + 1])[1]
+                )
             if act_cfg:
                 self.mlp.add_module(f"act{i}", build_activation_layer(act_cfg))
         self.init_weights(pretrained, linear_init_cfg, norm_init_cfg)
@@ -75,12 +79,13 @@ class LinearMLP(ExtendedModule):
         else:
             raise TypeError("pretrained must be a str or None")
 
+
 @BACKBONES.register_module()
 class GaussianMLP(LinearMLP):
     def __init__(
         self,
         mlp_spec,
-        norm_cfg=dict(type="LN1d"), # Change BN -> LN
+        norm_cfg=dict(type="LN1d"),  # Change BN -> LN
         bias="auto",
         act_cfg=dict(type="ReLU"),
         inactivated_output=True,
@@ -96,9 +101,13 @@ class GaussianMLP(LinearMLP):
                 act_cfg = None
                 norm_cfg = None
             bias_i = need_bias(norm_cfg) if bias == "auto" else bias
-            self.mlp.add_module(f"linear{i}", nn.Linear(mlp_spec[i], mlp_spec[i + 1], bias=bias_i))
+            self.mlp.add_module(
+                f"linear{i}", nn.Linear(mlp_spec[i], mlp_spec[i + 1], bias=bias_i)
+            )
             if norm_cfg:
-                self.mlp.add_module(f"norm{i}", build_norm_layer(norm_cfg, mlp_spec[i + 1])[1])
+                self.mlp.add_module(
+                    f"norm{i}", build_norm_layer(norm_cfg, mlp_spec[i + 1])[1]
+                )
             if act_cfg:
                 self.mlp.add_module(f"act{i}", build_activation_layer(act_cfg))
         self.init_weights(pretrained, linear_init_cfg, norm_init_cfg)
@@ -161,9 +170,14 @@ class ConvMLP(ExtendedModule):
                 norm_cfg = None
             bias_i = need_bias(norm_cfg) if bias == "auto" else bias
             if norm_cfg is not None and norm_cfg.get("type") == "LN":
-                self.mlp.add_module(f"conv{i}", nn.Conv1d(mlp_spec[i], mlp_spec[i + 1], 1, bias=bias_i))
+                self.mlp.add_module(
+                    f"conv{i}", nn.Conv1d(mlp_spec[i], mlp_spec[i + 1], 1, bias=bias_i)
+                )
                 self.mlp.add_module(f"tranpose{i}-1", Rearrange("b c n -> b n c"))
-                self.mlp.add_module(f"ln{i}", build_norm_layer(norm_cfg, num_features=mlp_spec[i + 1])[1])
+                self.mlp.add_module(
+                    f"ln{i}",
+                    build_norm_layer(norm_cfg, num_features=mlp_spec[i + 1])[1],
+                )
                 self.mlp.add_module(f"tranpose{i}-2", Rearrange("b n c -> b c n"))
                 self.mlp.add_module(f"act{i}", build_activation_layer(act_cfg))
             else:

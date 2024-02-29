@@ -33,7 +33,9 @@ from maniskill2_learn.utils.meta import (
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Unified API for Training and Evaluation")
+    parser = argparse.ArgumentParser(
+        description="Unified API for Training and Evaluation"
+    )
     # Configurations
     parser.add_argument("config", help="Configuration file path")
     parser.add_argument(
@@ -52,10 +54,22 @@ def parse_args():
     parser.add_argument("--debug", action="store_true", default=False)
 
     # Parameters for log dir
-    parser.add_argument("--work-dir", help="The directory to save logs and models", default=None)
-    parser.add_argument("--env-id", help="Env name", default='None')
-    parser.add_argument("--dev", action="store_true", default=True, help="Add timestamp to the name of work-dir")
-    parser.add_argument("--with-agent-type", default=True, action="store_true", help="Add agent type to work-dir")
+    parser.add_argument(
+        "--work-dir", help="The directory to save logs and models", default=None
+    )
+    parser.add_argument("--env-id", help="Env name", default="None")
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        default=True,
+        help="Add timestamp to the name of work-dir",
+    )
+    parser.add_argument(
+        "--with-agent-type",
+        default=True,
+        action="store_true",
+        help="Add agent type to work-dir",
+    )
     parser.add_argument(
         "--agent-type-first",
         default=False,
@@ -65,29 +79,71 @@ def parse_args():
     parser.add_argument("--clean-up", help="Clean up the work-dir", action="store_true")
 
     # Evaluation mode
-    parser.add_argument("--evaluation", "--eval", help="Evaluate a model, instead of training it", action="store_true")
-    parser.add_argument("--build-replay", help="Build replay for evaluation", action="store_true")
-    parser.add_argument("--reg-loss", help="Measure regression loss during evaluation", action="store_true")
-    parser.add_argument("--test-name", 
-        help="Subdirectory name under work-dir to save the test result (if None, use {work-dir}/test)", default=None)
+    parser.add_argument(
+        "--evaluation",
+        "--eval",
+        help="Evaluate a model, instead of training it",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--build-replay", help="Build replay for evaluation", action="store_true"
+    )
+    parser.add_argument(
+        "--reg-loss",
+        help="Measure regression loss during evaluation",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--test-name",
+        help="Subdirectory name under work-dir to save the test result (if None, use {work-dir}/test)",
+        default=None,
+    )
 
     # Resume checkpoint model
-    parser.add_argument("--resume-from", default=None, nargs="+", help="A specific checkpoint file to resume from")
     parser.add_argument(
-        "--auto-resume", 
-        help="Auto-resume the checkpoint under work-dir. If --resume-from is not specified, --auto-resume is set to True", action="store_true"
+        "--resume-from",
+        default=None,
+        nargs="+",
+        help="A specific checkpoint file to resume from",
     )
-    parser.add_argument("--resume-keys-map", default=None, nargs="+", action=DictAction, help="Specify how to change the model keys in checkpoints")
+    parser.add_argument(
+        "--auto-resume",
+        help="Auto-resume the checkpoint under work-dir. If --resume-from is not specified, --auto-resume is set to True",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--resume-keys-map",
+        default=None,
+        nargs="+",
+        action=DictAction,
+        help="Specify how to change the model keys in checkpoints",
+    )
 
     # Specify GPU
     group_gpus = parser.add_mutually_exclusive_group()
-    group_gpus.add_argument("--num-gpus", default=None, type=int, help="Number of gpus to use")
-    group_gpus.add_argument("-g", "--gpu-ids", default=None, type=int, nargs="+", help="ids of gpus to use")
-    parser.add_argument("--sim-gpu-ids", default=None, type=int, nargs="+", help="ids of gpus to do simulation on; if not specified, this equals --gpu-ids")
+    group_gpus.add_argument(
+        "--num-gpus", default=None, type=int, help="Number of gpus to use"
+    )
+    group_gpus.add_argument(
+        "-g", "--gpu-ids", default=None, type=int, nargs="+", help="ids of gpus to use"
+    )
+    parser.add_argument(
+        "--sim-gpu-ids",
+        default=None,
+        type=int,
+        nargs="+",
+        help="ids of gpus to do simulation on; if not specified, this equals --gpu-ids",
+    )
 
     # Torch and reproducibility settings
-    parser.add_argument("--seed", type=int, default=None, help="Set torch and numpy random seed")
-    parser.add_argument("--cudnn_benchmark", action="store_true", help="Whether to use benchmark mode in cudnn.")
+    parser.add_argument(
+        "--seed", type=int, default=None, help="Set torch and numpy random seed"
+    )
+    parser.add_argument(
+        "--cudnn_benchmark",
+        action="store_true",
+        help="Whether to use benchmark mode in cudnn.",
+    )
 
     # Distributed parameters
     # parser.add_argument('--launcher', choices=['none', 'pytorch', 'slurm', 'mpi'], default='none', help='job launcher')
@@ -101,19 +157,28 @@ def parse_args():
             try:
                 value = eval(value)
                 args.cfg_options[key] = value
-            except:
+            except Exception:
                 pass
         cfg.merge_from_dict(args.cfg_options)
 
     args.with_agent_type = args.with_agent_type or args.agent_type_first
-    for key in ["work_dir", "env_cfg", "resume_from", "eval_cfg", "replay_cfg", "expert_replay_cfg", "recent_traj_replay_cfg", "rollout_cfg"]:
+    for key in [
+        "work_dir",
+        "env_cfg",
+        "resume_from",
+        "eval_cfg",
+        "replay_cfg",
+        "expert_replay_cfg",
+        "recent_traj_replay_cfg",
+        "rollout_cfg",
+    ]:
         cfg[key] = cfg.get(key, None)
     if args.debug:
         os.environ["PYRL_DEBUG"] = "True"
     elif "PYRL_DEBUG" not in os.environ:
         os.environ["PYRL_DEBUG"] = "False"
     if args.seed is None:
-        args.seed = np.random.randint(2**32 - int(1E8))
+        args.seed = np.random.randint(2**32 - int(1e8))
     args.mode = "eval" if args.evaluation else "train"
     return args, cfg
 
@@ -123,7 +188,11 @@ def build_work_dir():
         return
     if is_null(args.work_dir):
         root_dir = "./logs"
-        env_name = cfg.env_cfg.get("env_name", None) if is_not_null(cfg.env_cfg) else args.env_id
+        env_name = (
+            cfg.env_cfg.get("env_name", None)
+            if is_not_null(cfg.env_cfg)
+            else args.env_id
+        )
         config_name = osp.splitext(osp.basename(args.config))[0]
         folder_name = env_name if is_not_null(env_name) else config_name
         if args.with_agent_type:
@@ -135,7 +204,10 @@ def build_work_dir():
             args.work_dir = osp.join(root_dir, folder_name)
     elif args.with_agent_type:
         if args.agent_type_first:
-            colored_print("When you specify the work dir path, the agent type cannot be at the beginning of the path!", level="warning")
+            colored_print(
+                "When you specify the work dir path, the agent type cannot be at the beginning of the path!",
+                level="warning",
+            )
         args.work_dir = osp.join(args.work_dir, agent_type)
 
     args.work_dir = osp.join(args.work_dir, cfg.get("workdir", "default"))
@@ -144,8 +216,18 @@ def build_work_dir():
         args.work_dir = osp.join(args.work_dir, args.timestamp)
 
     if args.clean_up:
-        if args.evaluation or args.auto_resume or (is_not_null(args.resume_from) and os.path.commonprefix(args.resume_from) == args.work_dir):
-            colored_print("We will ignore the clean-up flag, since we are either in the evaluation mode or resuming from the directory!", level="warning")
+        if (
+            args.evaluation
+            or args.auto_resume
+            or (
+                is_not_null(args.resume_from)
+                and os.path.commonprefix(args.resume_from) == args.work_dir
+            )
+        ):
+            colored_print(
+                "We will ignore the clean-up flag, since we are either in the evaluation mode or resuming from the directory!",
+                level="warning",
+            )
         else:
             shutil.rmtree(args.work_dir, ignore_errors=True)
     if args.evaluation:
@@ -157,7 +239,10 @@ def find_checkpoint():
     logger = get_logger()
     if is_not_null(args.resume_from):
         if is_not_null(cfg.resume_from):
-            colored_print(f"The resumed checkpoint from the config file is overwritten by {args.resume_from}!", level="warning")
+            colored_print(
+                f"The resumed checkpoint from the config file is overwritten by {args.resume_from}!",
+                level="warning",
+            )
         cfg.resume_from = args.resume_from
 
     if args.auto_resume or (args.evaluation and is_null(cfg.resume_from)):
@@ -167,7 +252,7 @@ def find_checkpoint():
         latest_name = None
         for model_i in model_names:
             index_str = osp.basename(model_i).split(".")[0].split("_")[1]
-            if index_str == 'final':
+            if index_str == "final":
                 continue
             index = eval(index_str)
             if index > latest_index:
@@ -175,14 +260,16 @@ def find_checkpoint():
                 latest_name = model_i
 
         if is_null(latest_name):
-            colored_print(f"Find no checkpoints under {args.work_dir}!", level="warning")
+            colored_print(
+                f"Find no checkpoints under {args.work_dir}!", level="warning"
+            )
         else:
             cfg.resume_from = latest_name
             cfg.train_cfg["resume_steps"] = latest_index
     if is_not_null(cfg.resume_from):
         if isinstance(cfg.resume_from, str):
             index_str = osp.basename(model_i).split(".")[0].split("_")[1]
-            if index_str == 'final':
+            if index_str == "final":
                 index = eval(index_str)
                 cfg.train_cfg["resume_steps"] = latest_index
             cfg.resume_from = [
@@ -190,13 +277,13 @@ def find_checkpoint():
             ]
         logger.info(f"Get {len(cfg.resume_from)} checkpoint {cfg.resume_from}.")
         logger.info(f"Check checkpoint {cfg.resume_from}!")
-        
+
         latest_index = -1
         latest_name = None
         for file in cfg.resume_from:
             if not (osp.exists(file) and osp.isfile(file)):
                 logger.error(f"Checkpoint file {file} does not exist!")
-                exit(-1)   
+                exit(-1)
 
 
 def get_python_env_info():
@@ -207,17 +294,25 @@ def get_python_env_info():
         exit(0)
 
     if is_not_null(args.num_gpus):
-        assert args.num_gpus <= num_gpus, f"We do not have {args.num_gpus} GPUs on this machine!"
+        assert (
+            args.num_gpus <= num_gpus
+        ), f"We do not have {args.num_gpus} GPUs on this machine!"
         args.gpu_ids = list(range(args.num_gpus))
         args.num_gpus = None
     if args.gpu_ids is None:
         args.gpu_ids = []
 
     if len(args.gpu_ids) == 0 and num_gpus > 0:
-        colored_print(f"We will use cpu to do training, although we have {num_gpus} gpus available!", level="warning")
+        colored_print(
+            f"We will use cpu to do training, although we have {num_gpus} gpus available!",
+            level="warning",
+        )
 
     if args.evaluation and len(args.gpu_ids) > 1:
-        colored_print(f"Multiple GPU evaluation is not supported; we will use the first GPU to do evaluation!", level="warning")
+        colored_print(
+            "Multiple GPU evaluation is not supported; we will use the first GPU to do evaluation!",
+            level="warning",
+        )
         args.gpu_ids = args.gpu_ids[:1]
     args.env_info = "\n".join([f"{k}: {v}" for k, v in env_info_dict.items()])
 
@@ -243,15 +338,16 @@ def init_torch(args):
     torch.backends.cudnn.benchmark = False
 
 
-def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_traj_replay=None):
-    import torch
+def main_rl(
+    rollout, evaluator, replay, args, cfg, expert_replay=None, recent_traj_replay=None
+):
     import torch.distributed as dist
     import torch.nn as nn
     from maniskill2_learn.apis.train_rl import train_rl
     from maniskill2_learn.env import save_eval_statistics
     from maniskill2_learn.methods.builder import build_agent
     from maniskill2_learn.utils.data.converter import dict_to_str
-    from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint, save_checkpoint
+    from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint
 
     logger = get_logger()
     logger.info("Initialize torch!")
@@ -259,7 +355,9 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
     logger.info("Finish Initialize torch!")
     world_rank, world_size = get_dist_info()
 
-    if is_not_null(cfg.agent_cfg.get("batch_size", None)) and isinstance(cfg.agent_cfg.batch_size, (list, tuple)):
+    if is_not_null(cfg.agent_cfg.get("batch_size", None)) and isinstance(
+        cfg.agent_cfg.batch_size, (list, tuple)
+    ):
         assert len(cfg.agent_cfg.batch_size) == len(args.gpu_ids)
         cfg.agent_cfg.batch_size = cfg.agent_cfg.batch_size[world_rank]
         logger.info(f"Set batch size to {cfg.agent_cfg.batch_size}!")
@@ -274,12 +372,16 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
     )
     device = "cpu" if len(args.gpu_ids) == 0 else "cuda"
     agent = agent.float().to(device)
-    assert isinstance(agent, BaseAgent), "The agent object should be an instance of BaseAgent!"
+    assert isinstance(
+        agent, BaseAgent
+    ), "The agent object should be an instance of BaseAgent!"
 
     if is_not_null(cfg.resume_from):
         logger.info("Resume agent with checkpoint!")
         for file in cfg.resume_from:
-            load_checkpoint(agent, file, device, keys_map=args.resume_keys_map, logger=logger)
+            load_checkpoint(
+                agent, file, device, keys_map=args.resume_keys_map, logger=logger
+            )
             if hasattr(agent, "load_keyframe_model"):
                 agent.load_keyframe_model()
 
@@ -295,7 +397,7 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
             from torchsparse.nn.modules import SyncBatchNorm as SpSyncBatchNorm
 
             agent = SpSyncBatchNorm.convert_sync_batchnorm(agent)
-        except:
+        except Exception:
             pass
         agent.to_ddp(device_ids=["cuda"])
 
@@ -303,7 +405,7 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
     if len(args.gpu_ids) > 0:
         logger.info(f"Train over GPU {args.gpu_ids}!")
     else:
-        logger.info(f"Train over CPU!")
+        logger.info("Train over CPU!")
 
     if not args.evaluation:
         train_rl(
@@ -326,7 +428,9 @@ def main_rl(rollout, evaluator, replay, args, cfg, expert_replay=None, recent_tr
             logger.info(dict_to_str(loss_dict))
         if is_not_null(evaluator):
             # For RL
-            info = evaluator.run(agent, work_dir=work_dir, memory=replay, **cfg.eval_cfg)
+            info = evaluator.run(
+                agent, work_dir=work_dir, memory=replay, **cfg.eval_cfg
+            )
             save_eval_statistics(work_dir, logger, **info)
         agent.train()
         agent.set_mode("train")
@@ -346,25 +450,34 @@ def run_one_process(rank, world_size, args, cfg):
 
     if is_not_null(cfg.env_cfg) and len(args.gpu_ids) > 0:
         if args.sim_gpu_ids is not None:
-            assert len(args.sim_gpu_ids) == len(args.gpu_ids), "Number of simulation gpus should be the same as the number of training gpus!"
+            assert len(args.sim_gpu_ids) == len(
+                args.gpu_ids
+            ), "Number of simulation gpus should be the same as the number of training gpus!"
         else:
             args.sim_gpu_ids = args.gpu_ids
         cfg.env_cfg.device = f"cuda:{args.sim_gpu_ids[rank]}"
 
     work_dir = args.work_dir
     logger_file = osp.join(work_dir, f"{args.timestamp}-{args.name_suffix}.log")
-    logger = get_logger(name=None, log_file=logger_file, log_level=cfg.get("log_level", "INFO"))
+    logger = get_logger(
+        name=None, log_file=logger_file, log_level=cfg.get("log_level", "INFO")
+    )
 
     if is_debug_mode():
         dash_line = "-" * 60 + "\n"
-        logger.info("Environment info:\n" + dash_line + args.env_info + "\n" + dash_line)
+        logger.info(
+            "Environment info:\n" + dash_line + args.env_info + "\n" + dash_line
+        )
 
     logger.info(f"Config:\n{cfg.pretty_text}")
     logger.info(f"Set random seed to {args.seed}")
-    
+
     # Create replay buffer for RL
-    if is_not_null(cfg.replay_cfg) and ((not (args.evaluation and not args.build_replay)) or (args.reg_loss and cfg.replay_cfg.get("buffer_filenames", None) is not None)):
-        logger.info(f"Build replay buffer!")
+    if is_not_null(cfg.replay_cfg) and (
+        (not (args.evaluation and not args.build_replay))
+        or (args.reg_loss and cfg.replay_cfg.get("buffer_filenames", None) is not None)
+    ):
+        logger.info("Build replay buffer!")
         from maniskill2_learn.env import build_replay
 
         replay = build_replay(cfg.replay_cfg)
@@ -383,10 +496,10 @@ def run_one_process(rank, world_size, args, cfg):
     if not args.evaluation and is_not_null(cfg.rollout_cfg):
         from maniskill2_learn.env import build_rollout
 
-        logger.info(f"Build rollout!")
+        logger.info("Build rollout!")
         rollout_cfg = cfg.rollout_cfg
         rollout_cfg["env_cfg"] = deepcopy(cfg.env_cfg)
-        rollout_cfg['seed'] = np.random.randint(0, int(1E9))
+        rollout_cfg["seed"] = np.random.randint(0, int(1e9))
         rollout = build_rollout(rollout_cfg)
     else:
         rollout = None
@@ -396,7 +509,7 @@ def run_one_process(rank, world_size, args, cfg):
         # Only the first process will do evaluation
         from maniskill2_learn.env import build_evaluation
 
-        logger.info(f"Build evaluation!")
+        logger.info("Build evaluation!")
         eval_cfg = cfg.eval_cfg
         # Evaluation environment setup can be different from the training set-up. (Like early-stop or object sets)
         if eval_cfg.get("env_cfg", None) is None:
@@ -406,31 +519,37 @@ def run_one_process(rank, world_size, args, cfg):
             eval_cfg["env_cfg"] = deepcopy(cfg.env_cfg)
             eval_cfg["env_cfg"].update(tmp)
         get_logger().info(f"Building evaluation: eval_cfg: {eval_cfg}")
-        eval_cfg['seed'] = args.seed
+        eval_cfg["seed"] = args.seed
         if args.seed is None:
-            eval_cfg['seed'] = np.random.randint(0, int(1E9))
+            eval_cfg["seed"] = np.random.randint(0, int(1e9))
         evaluator = build_evaluation(eval_cfg)
     else:
         evaluator = None
 
     # Get environments information for agents
     obs_shape, action_shape = None, None
-    if is_not_null(cfg.env_cfg): # May fail on Arnold
+    if is_not_null(cfg.env_cfg):  # May fail on Arnold
         if getattr(cfg, "eval_cfg", None) is None:
-            raise NotImplementedError("Not supported for rendering during training! Current env cfg: {}".format(cfg.env_cfg))
+            raise NotImplementedError(
+                "Not supported for rendering during training! Current env cfg: {}".format(
+                    cfg.env_cfg
+                )
+            )
         # For RL which needs environments
-        logger.info(f"Get obs shape!")
+        logger.info("Get obs shape!")
         from maniskill2_learn.env import get_env_info
 
         if rollout is not None:
             env_params = get_env_info(cfg.env_cfg, rollout.vec_env)
-        elif hasattr(evaluator, 'vec_env'):
+        elif hasattr(evaluator, "vec_env"):
             env_params = get_env_info(cfg.env_cfg, evaluator.vec_env)
         else:
             env_params = get_env_info(cfg.env_cfg)
         obs_shape = env_params["obs_shape"]
         action_shape = env_params["action_shape"]
-        logger.info(f'Got shapes from env_params: state shape:{env_params["obs_shape"]}, action shape:{env_params["action_shape"]}')
+        logger.info(
+            f'Got shapes from env_params: state shape:{env_params["obs_shape"]}, action shape:{env_params["action_shape"]}'
+        )
 
     elif is_not_null(replay):
         obs_shape = None
@@ -445,7 +564,11 @@ def run_one_process(rank, world_size, args, cfg):
                         #     obs_shape[k] = obs_shape[k][1:]
                         if "rgb" in k and len(obs_shape[k]) == 4:
                             obs_shape[k] = obs_shape[k][1:]
-                        if "rgbd" in k and "using_depth" in cfg.replay_cfg and cfg.replay_cfg.using_depth == False:
+                        if (
+                            "rgbd" in k
+                            and "using_depth" in cfg.replay_cfg
+                            and cfg.replay_cfg.using_depth is False
+                        ):
                             obs_shape[k] = list(obs_shape[k])
                             obs_shape[k][0] = min(obs_shape[k][0], 3)
                             obs_shape[k] = tuple(obs_shape[k])
@@ -465,12 +588,19 @@ def run_one_process(rank, world_size, args, cfg):
             is_discrete=False,
         )
 
-        print("Obtained shapes from replay: obs {}; act: {}".format(obs_shape, action_shape))
+        print(
+            "Obtained shapes from replay: obs {}; act: {}".format(
+                obs_shape, action_shape
+            )
+        )
 
     cfg.agent_cfg["env_params"] = env_params
 
     if is_not_null(obs_shape) or is_not_null(action_shape):
-        from maniskill2_learn.networks.utils import get_kwargs_from_shape, replace_placeholder_with_args
+        from maniskill2_learn.networks.utils import (
+            get_kwargs_from_shape,
+            replace_placeholder_with_args,
+        )
 
         replaceable_kwargs = get_kwargs_from_shape(obs_shape, action_shape)
         cfg = replace_placeholder_with_args(cfg, **replaceable_kwargs)
@@ -479,7 +609,15 @@ def run_one_process(rank, world_size, args, cfg):
     # Output version of important packages
     log_meta_info(logger)
 
-    main_rl(rollout, evaluator, replay, args, cfg, expert_replay=expert_replay, recent_traj_replay=recent_traj_replay)
+    main_rl(
+        rollout,
+        evaluator,
+        replay,
+        args,
+        cfg,
+        expert_replay=expert_replay,
+        recent_traj_replay=recent_traj_replay,
+    )
 
     if is_not_null(replay):
         replay.close()
@@ -491,7 +629,7 @@ def run_one_process(rank, world_size, args, cfg):
         rollout.close()
         logger.info("Close rollout object")
 
-    time.sleep(1) # Wait for all processes to close
+    time.sleep(1)  # Wait for all processes to close
 
 
 def main():
@@ -499,14 +637,18 @@ def main():
         import torch.multiprocessing as mp
 
         world_size = len(args.gpu_ids)
-        mp.spawn(run_one_process, args=(world_size, args, cfg), nprocs=world_size, join=True)
+        mp.spawn(
+            run_one_process, args=(world_size, args, cfg), nprocs=world_size, join=True
+        )
     else:
         run_one_process(0, 1, args, cfg)
 
 
 if __name__ == "__main__":
     # Remove mujoco_py lock
-    mjpy_lock = Path(gym.__file__).parent.parent / "mujoco_py/generated/mujocopy-buildlock.lock"
+    mjpy_lock = (
+        Path(gym.__file__).parent.parent / "mujoco_py/generated/mujocopy-buildlock.lock"
+    )
     if mjpy_lock.exists():
         os.remove(str(mjpy_lock))
 
@@ -529,7 +671,9 @@ if __name__ == "__main__":
         os.makedirs(work_dir, exist_ok=True)
     args.work_dir = work_dir
 
-    logger_name = cfg.env_cfg.env_name if is_not_null(cfg.env_cfg) else cfg.agent_cfg.type
+    logger_name = (
+        cfg.env_cfg.env_name if is_not_null(cfg.env_cfg) else cfg.agent_cfg.type
+    )
     args.name_suffix = f"{args.mode}"
     if args.test_name is not None:
         args.name_suffix += f"-{args.test_name}"

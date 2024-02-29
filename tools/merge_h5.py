@@ -1,4 +1,3 @@
-
 import argparse
 import os, numpy as np
 import os.path as osp
@@ -19,14 +18,16 @@ python tools/merge_h5.py --source-dir /TODO/demos/PickSingleYCB-v0/ --pattern "t
 --output-file /TODO/demos/PickSingleYCB-v0/trajectory_pcd_all.h5
 """
 
-parser = argparse.ArgumentParser(description="Merge h5 files that match {pattern}.h5 under a directory into a single file")
+parser = argparse.ArgumentParser(
+    description="Merge h5 files that match {pattern}.h5 under a directory into a single file"
+)
 parser.add_argument("--source-dir", type=str, default="")
 parser.add_argument("--pattern", type=str, default="")
 parser.add_argument("--output-file", type=str, default="")
 args = parser.parse_args()
 assert args.source_dir != "" and args.pattern != "" and args.output_file != ""
 
-files = glob.glob(f'{args.source_dir}/**/{args.pattern}.h5', recursive=True)
+files = glob.glob(f"{args.source_dir}/**/{args.pattern}.h5", recursive=True)
 print("Input files", files)
 try:
     os.remove(args.output_file)

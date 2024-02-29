@@ -18,7 +18,9 @@ def check_md5sum(filename, md5, block_size=None):
     if md5_actual == md5:
         return True
     else:
-        print(f"MD5 does not match!: {filename} has md5 {md5_actual}, target md5 is {md5}")
+        print(
+            f"MD5 does not match!: {filename} has md5 {md5_actual}, target md5 is {md5}"
+        )
         return False
 
 

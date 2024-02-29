@@ -28,7 +28,7 @@ from copy import copy
 
 # class SparseCNNBase(ExtendedModule):
 #     def preprocess(self, inputs, transpose=True, **kwargs):
-#         xyz = inputs["xyz"] if isinstance(inputs, dict) else inputs                   
+#         xyz = inputs["xyz"] if isinstance(inputs, dict) else inputs
 
 #         with torch.no_grad():
 #             if isinstance(inputs, dict):

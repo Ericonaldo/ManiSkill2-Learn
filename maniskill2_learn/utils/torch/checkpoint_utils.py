@@ -40,7 +40,9 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
             soure_shape = np.array(state_dict[name].shape, dtype=int)
             target_shape = np.array(parameter.shape, dtype=int)
             if (soure_shape != target_shape).sum() == 1:
-                logger(f"We adapt weight with shape {soure_shape} to shape {target_shape}.")
+                logger(
+                    f"We adapt weight with shape {soure_shape} to shape {target_shape}."
+                )
                 tmp = parameter.data.clone()
                 index = np.nonzero(soure_shape != target_shape)[0][0]
                 tmp = tmp.transpose(0, index)
@@ -49,6 +51,7 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
                 state_dict[name] = tmp.transpose(0, index).detach().contiguous()
 
     loaded_modules = {}
+
     # use _load_from_state_dict to enable checkpoint version control
     def load(module, prefix=""):
         nonlocal loaded_modules
@@ -59,7 +62,11 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
         included_optimizer = []
         for name, child in module.__dict__.items():
             optimizer_name = f"{prefix}{name}"
-            if child is not None and isinstance(child, Optimizer) and id(child) not in included_optimizer:
+            if (
+                child is not None
+                and isinstance(child, Optimizer)
+                and id(child) not in included_optimizer
+            ):
                 if optimizer_name in state_dict:
                     included_optimizer.append(id(child))
                     try:
@@ -69,9 +76,19 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
                         logger(f"Exception from pytorch is {e}!")
                 else:
                     included_optimizer.append(id(child))
-                    logger(f"missing keys in source state_dict for optimizer {optimizer_name}")
+                    logger(
+                        f"missing keys in source state_dict for optimizer {optimizer_name}"
+                    )
 
-        module._load_from_state_dict(state_dict, prefix, local_metadata, True, all_missing_keys, unexpected_keys, err_msg)
+        module._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            True,
+            all_missing_keys,
+            unexpected_keys,
+            err_msg,
+        )
         for name, child in module._modules.items():
             if child is not None:
                 load(child, prefix + name + ".")
@@ -83,9 +100,13 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
     missing_keys = [key for key in all_missing_keys if "num_batches_tracked" not in key]
 
     if unexpected_keys:
-        err_msg.append(f'unexpected key in source state_dict: {", ".join(unexpected_keys)}\n')
+        err_msg.append(
+            f'unexpected key in source state_dict: {", ".join(unexpected_keys)}\n'
+        )
     if missing_keys:
-        err_msg.append(f'missing keys in source state_dict: {", ".join(missing_keys)}\n')
+        err_msg.append(
+            f'missing keys in source state_dict: {", ".join(missing_keys)}\n'
+        )
 
     rank, _ = get_dist_info()
     if len(err_msg) > 0 and rank == 0:
@@ -146,7 +167,9 @@ def _load_checkpoint(filename, map_location=None):
     return checkpoint
 
 
-def load_checkpoint(model, filename, map_location=None, strict=False, keys_map=None, logger=None):
+def load_checkpoint(
+    model, filename, map_location=None, strict=False, keys_map=None, logger=None
+):
     """Load checkpoint from a file or URI.
     Args:
         model (Module): Module to load checkpoint.
@@ -176,14 +199,18 @@ def load_checkpoint(model, filename, map_location=None, strict=False, keys_map=N
     # print(state_dict.keys())
     # exit(0)
     if keys_map is not None:
-        state_dict = map_dict_keys(state_dict, keys_map, logger.info if logger is not None else None)
+        state_dict = map_dict_keys(
+            state_dict, keys_map, logger.info if logger is not None else None
+        )
 
     # strip prefix of state_dict
     if list(state_dict.keys())[0].startswith("module."):
         state_dict = {k[7:]: v for k, v in checkpoint["state_dict"].items()}
     # load state_dict
     if not isinstance(model, DDP):
-        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(checkpoint, prefix="module.")
+        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
+            checkpoint, prefix="module."
+        )
     load_state_dict(model, state_dict, strict, logger)
 
     # exit(0)
@@ -235,7 +262,11 @@ def get_state_dict(module, destination=None, prefix="", keep_vars=False):
 
     included_optimizer = []
     for name, child in module.__dict__.items():
-        if child is not None and isinstance(child, Optimizer) and id(child) not in included_optimizer:
+        if (
+            child is not None
+            and isinstance(child, Optimizer)
+            and id(child) not in included_optimizer
+        ):
             included_optimizer.append(id(child))
             destination[f"{prefix}{name}"] = child.state_dict()
     for name, child in module._modules.items():

@@ -1,4 +1,3 @@
-
 agent_cfg = dict(
     type="SAC",
     batch_size=1024,
@@ -68,7 +67,7 @@ train_cfg = dict(
 env_cfg = dict(
     type="gym",
     env_name="PickCube-v0",
-    obs_mode='state',
+    obs_mode="state",
     ignore_dones=True,
 )
 

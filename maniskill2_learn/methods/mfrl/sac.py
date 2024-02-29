@@ -4,6 +4,7 @@ Soft Actor-Critic Algorithms and Applications:
 Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor:
    https://arxiv.org/abs/1801.01290
 """
+
 import numpy as np
 from copy import deepcopy
 import torch
@@ -56,7 +57,9 @@ class SAC(BaseAgent):
         actor_cfg.update(env_params)
         critic_cfg.update(env_params)
 
-        self.actor, self.critic = build_actor_critic(actor_cfg, critic_cfg, shared_backbone)
+        self.actor, self.critic = build_actor_critic(
+            actor_cfg, critic_cfg, shared_backbone
+        )
         self.shared_backbone = shared_backbone
         self.detach_actor_feature = detach_actor_feature
 
@@ -72,8 +75,13 @@ class SAC(BaseAgent):
                 # Use label smoothing to get the target entropy.
                 n = np.prod(action_shape)
                 explore_rate = (1 - target_smooth) / (n - 1)
-                self.target_entropy = -(target_smooth * np.log(target_smooth) + (n - 1) * explore_rate * np.log(explore_rate))
-                self.log_alpha = nn.Parameter(torch.tensor(np.log(0.1), requires_grad=True))
+                self.target_entropy = -(
+                    target_smooth * np.log(target_smooth)
+                    + (n - 1) * explore_rate * np.log(explore_rate)
+                )
+                self.log_alpha = nn.Parameter(
+                    torch.tensor(np.log(0.1), requires_grad=True)
+                )
                 # self.target_entropy = np.log(action_shape) * target_smooth
             else:
                 self.target_entropy = -np.prod(action_shape)
@@ -85,21 +93,42 @@ class SAC(BaseAgent):
         self.alpha_optim = build_optimizer(self.log_alpha, alpha_optim_cfg)
 
     def update_parameters(self, memory, updates):
-        sampled_batch = memory.sample(self.batch_size).to_torch(device=self.device, non_blocking=True)
+        sampled_batch = memory.sample(self.batch_size).to_torch(
+            device=self.device, non_blocking=True
+        )
         sampled_batch = self.process_obs(sampled_batch)
         with torch.no_grad():
             if self.is_discrete:
-                _, next_action_prob, _, _, dist_next = self.actor(sampled_batch["next_obs"], mode="all_discrete")
-                q_next_target = self.target_critic(sampled_batch["next_obs"], actions_prob=next_action_prob)
-                min_q_next_target = torch.min(q_next_target, dim=-1, keepdim=True).values + self.alpha * dist_next.entropy()[..., None]
+                _, next_action_prob, _, _, dist_next = self.actor(
+                    sampled_batch["next_obs"], mode="all_discrete"
+                )
+                q_next_target = self.target_critic(
+                    sampled_batch["next_obs"], actions_prob=next_action_prob
+                )
+                min_q_next_target = (
+                    torch.min(q_next_target, dim=-1, keepdim=True).values
+                    + self.alpha * dist_next.entropy()[..., None]
+                )
             else:
-                next_action, next_log_prob = self.actor(sampled_batch["next_obs"], mode="all")[:2]
-                q_next_target = self.target_critic(sampled_batch["next_obs"], next_action)
-                min_q_next_target = torch.min(q_next_target, dim=-1, keepdim=True).values - self.alpha * next_log_prob
+                next_action, next_log_prob = self.actor(
+                    sampled_batch["next_obs"], mode="all"
+                )[:2]
+                q_next_target = self.target_critic(
+                    sampled_batch["next_obs"], next_action
+                )
+                min_q_next_target = (
+                    torch.min(q_next_target, dim=-1, keepdim=True).values
+                    - self.alpha * next_log_prob
+                )
             if self.ignore_dones:
                 q_target = sampled_batch["rewards"] + self.gamma * min_q_next_target
             else:
-                q_target = sampled_batch["rewards"] + (1 - sampled_batch["dones"].float()) * self.gamma * min_q_next_target
+                q_target = (
+                    sampled_batch["rewards"]
+                    + (1 - sampled_batch["dones"].float())
+                    * self.gamma
+                    * min_q_next_target
+                )
             q_target = q_target.repeat(1, q_next_target.shape[-1])
         q = self.critic(sampled_batch["obs"], sampled_batch["actions"])
 
@@ -115,10 +144,20 @@ class SAC(BaseAgent):
             self.critic_optim.zero_grad()
 
         if self.is_discrete:
-            _, pi, _, _, dist = self.actor(sampled_batch["obs"], mode="all_discrete", save_feature=self.shared_backbone, detach_visual=self.detach_actor_feature)
+            _, pi, _, _, dist = self.actor(
+                sampled_batch["obs"],
+                mode="all_discrete",
+                save_feature=self.shared_backbone,
+                detach_visual=self.detach_actor_feature,
+            )
             entropy_term = dist.entropy().mean()
         else:
-            pi, log_pi = self.actor(sampled_batch["obs"], mode="all", save_feature=self.shared_backbone, detach_visual=self.detach_actor_feature)[:2]
+            pi, log_pi = self.actor(
+                sampled_batch["obs"],
+                mode="all",
+                save_feature=self.shared_backbone,
+                detach_visual=self.detach_actor_feature,
+            )[:2]
             entropy_term = -log_pi.mean()
 
         visual_feature = self.actor.backbone.pop_attr("saved_visual_feature")
@@ -126,7 +165,15 @@ class SAC(BaseAgent):
             visual_feature = visual_feature.detach()
 
         if self.is_discrete:
-            q = self.critic(sampled_batch["obs"], visual_feature=visual_feature, detach_value=True).min(-2).values
+            q = (
+                self.critic(
+                    sampled_batch["obs"],
+                    visual_feature=visual_feature,
+                    detach_value=True,
+                )
+                .min(-2)
+                .values
+            )
             q_pi = (q * pi).sum(-1)
             with torch.no_grad():
                 q_match_rate = (pi.argmax(-1) == q.argmax(-1)).float().mean().item()
@@ -141,7 +188,9 @@ class SAC(BaseAgent):
             actor_grad = self.actor.grad_norm
 
         if self.automatic_alpha_tuning:
-            alpha_loss = self.log_alpha.exp() * (entropy_term - self.target_entropy).detach()
+            alpha_loss = (
+                self.log_alpha.exp() * (entropy_term - self.target_entropy).detach()
+            )
             self.alpha_optim.zero_grad()
             alpha_loss.backward()
             self.alpha_optim.step()

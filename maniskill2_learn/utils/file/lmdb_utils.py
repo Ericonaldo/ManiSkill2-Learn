@@ -3,7 +3,16 @@ from .serialization import load, dump
 
 
 class LMDBFile:
-    def __init__(self, db_path, readonly=True, lock=True, all_async=False, readahead=False, replace=True, map_size=2 * (1024**4)):
+    def __init__(
+        self,
+        db_path,
+        readonly=True,
+        lock=True,
+        all_async=False,
+        readahead=False,
+        replace=True,
+        map_size=2 * (1024**4),
+    ):
         replace = replace and not readonly
         if replace:
             shutil.rmtree(db_path, ignore_errors=True)

@@ -18,16 +18,18 @@ def get_reset_kwargs_from_json(json_name):
         reset_kwargs[episode_id] = r_kwargs
     return reset_kwargs
 
+
 def requires_rollout_w_actions(trajectory):
     keys = trajectory.keys()
     assert "env_states" in keys or "env_init_state" in keys
-    return (not 'env_states' in keys)
+    return not "env_states" in keys
+
 
 def render_trajectories(trajectory_file, json_name, env_name, control_mode, video_dir):
     reset_kwargs = get_reset_kwargs_from_json(json_name)
     trajectories = GDict.from_hdf5(trajectory_file, wrapper=False)
-    env = build_env(ConfigDict(
-        {"type": "gym", "env_name": env_name, "control_mode": control_mode})
+    env = build_env(
+        ConfigDict({"type": "gym", "env_name": env_name, "control_mode": control_mode})
     )
     if not osp.exists(video_dir):
         os.makedirs(video_dir)
@@ -46,13 +48,18 @@ def render_trajectories(trajectory_file, json_name, env_name, control_mode, vide
             length = state.shape[0]
         img = env.render("rgb_array")
 
-        video_writer = cv2.VideoWriter(osp.join(video_dir, f"{traj_idx}.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), 20, (img.shape[1], img.shape[0]))
+        video_writer = cv2.VideoWriter(
+            osp.join(video_dir, f"{traj_idx}.mp4"),
+            cv2.VideoWriter_fourcc(*"mp4v"),
+            20,
+            (img.shape[1], img.shape[0]),
+        )
         for j in range(length):
             if not rrwa:
                 env.set_state(state[j])
             else:
                 if j == 0:
-                    pass# env.set_state(state)
+                    pass  # env.set_state(state)
                 else:
                     _ = env.step(trajectory["actions"][j - 1])
             img = env.render("rgb_array")
@@ -68,38 +75,42 @@ def render_with_o3d(trajectory_file, json_name, env_configs, traj_id=0):
 
     from pynput import keyboard
     import open3d as o3d
+
     vis = o3d.visualization.Visualizer()
     vis.create_window()
     geometry = o3d.geometry.PointCloud()
-    geometry.points = o3d.utility.Vector3dVector(np.random.random([3,3]))
-    geometry.colors = o3d.utility.Vector3dVector(np.ones([3,3]))
-    vis.add_geometry(geometry)    
+    geometry.points = o3d.utility.Vector3dVector(np.random.random([3, 3]))
+    geometry.colors = o3d.utility.Vector3dVector(np.ones([3, 3]))
+    vis.add_geometry(geometry)
 
-    trajectory = data[f'traj_{traj_id}']
+    trajectory = data[f"traj_{traj_id}"]
     rrwa = requires_rollout_w_actions(trajectory)
     if not rrwa:
-        env_states = trajectory['env_states']
+        env_states = trajectory["env_states"]
         length = env_states.shape[0]
     else:
-        env_states = trajectory['env_init_state']
-        length = trajectory['actions'].shape[0] + 1
+        env_states = trajectory["env_init_state"]
+        length = trajectory["actions"].shape[0] + 1
 
     env.reset(**reset_kwargs[traj_id])
 
     idx = 0
+
     def on_press(key):
         nonlocal idx
-        if hasattr(key, 'char'):
-            if key.char in ['n']:
-                idx = idx + 1    
-            elif key.char in ['l']:
+        if hasattr(key, "char"):
+            if key.char in ["n"]:
+                idx = idx + 1
+            elif key.char in ["l"]:
                 if rrwa:
-                    print("Cannot go back to the previous frame because env_states is not given for every step.")
+                    print(
+                        "Cannot go back to the previous frame because env_states is not given for every step."
+                    )
                 else:
                     idx = max(idx - 1, 0)
 
     listener = keyboard.Listener(on_press=on_press)
-    listener.start()     
+    listener.start()
 
     print("Press 'n' for next frame, 'l' for previous frame, 'h' for Open3d help")
     while idx < length:
@@ -109,10 +120,10 @@ def render_with_o3d(trajectory_file, json_name, env_configs, traj_id=0):
             if idx == 0:
                 env.set_state(env_states)
             else:
-                env.step(trajectory['actions'][idx - 1])
+                env.step(trajectory["actions"][idx - 1])
         obs = env.get_obs()
-        geometry.points = o3d.utility.Vector3dVector(obs['xyz'])
-        geometry.colors = o3d.utility.Vector3dVector(obs['rgb'])
+        geometry.points = o3d.utility.Vector3dVector(obs["xyz"])
+        geometry.colors = o3d.utility.Vector3dVector(obs["rgb"])
         vis.update_geometry(geometry)
         old_idx = idx
         while idx == old_idx:
@@ -125,30 +136,32 @@ def render_with_o3d_random_trajectory(env_configs):
 
     from pynput import keyboard
     import open3d as o3d
+
     vis = o3d.visualization.Visualizer()
     vis.create_window()
     geometry = o3d.geometry.PointCloud()
-    geometry.points = o3d.utility.Vector3dVector(np.random.random([3,3]))
-    geometry.colors = o3d.utility.Vector3dVector(np.ones([3,3]))
+    geometry.points = o3d.utility.Vector3dVector(np.random.random([3, 3]))
+    geometry.colors = o3d.utility.Vector3dVector(np.ones([3, 3]))
     vis.add_geometry(geometry)
     env.reset()
 
     idx = 0
+
     def on_press(key):
         nonlocal idx
-        if hasattr(key, 'char'):
-            if key.char in ['n']:
+        if hasattr(key, "char"):
+            if key.char in ["n"]:
                 idx = idx + 1
 
     listener = keyboard.Listener(on_press=on_press)
-    listener.start()     
+    listener.start()
 
     print("Press 'n' for next frame, 'h' for Open3d help")
     while True:
         env.step(env.action_space.sample())
         obs = env.get_obs()
-        geometry.points = o3d.utility.Vector3dVector(obs['xyz'])
-        geometry.colors = o3d.utility.Vector3dVector(obs['rgb'])
+        geometry.points = o3d.utility.Vector3dVector(obs["xyz"])
+        geometry.colors = o3d.utility.Vector3dVector(obs["rgb"])
         vis.update_geometry(geometry)
         old_idx = idx
         while idx == old_idx:
@@ -158,11 +171,11 @@ def render_with_o3d_random_trajectory(env_configs):
 
 if __name__ == "__main__":
     render_trajectories(
-        trajectory_file = '/home/eric/projects/ManiSkill2-Learn/demos/rigid_body/PickSingleYCB-v0/053_mini_soccer_ball.h5',
-        json_name = '/home/eric/projects/ManiSkill2-Learn/demos/rigid_body/PickSingleYCB-v0/053_mini_soccer_ball.json',
-        env_name = 'PickSingleYCB-v0',
-        control_mode = 'pd_joint_delta_pos',
-        video_dir = "/home/eric/projects/ManiSkill2-Learn/demos/PickSingleYCB-v0/videos",
+        trajectory_file="/home/eric/projects/ManiSkill2-Learn/demos/rigid_body/PickSingleYCB-v0/053_mini_soccer_ball.h5",
+        json_name="/home/eric/projects/ManiSkill2-Learn/demos/rigid_body/PickSingleYCB-v0/053_mini_soccer_ball.json",
+        env_name="PickSingleYCB-v0",
+        control_mode="pd_joint_delta_pos",
+        video_dir="/home/eric/projects/ManiSkill2-Learn/demos/PickSingleYCB-v0/videos",
     )
 
     # render_with_o3d(
@@ -177,7 +190,7 @@ if __name__ == "__main__":
     #          obs_frame='base',
     #     ),
     #     traj_id = 0,
-    # )    
+    # )
 
     # render_with_o3d_random_trajectory(dict(
     #         type='gym',

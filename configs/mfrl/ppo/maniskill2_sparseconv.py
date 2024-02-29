@@ -1,4 +1,3 @@
-
 # torchsparse comes from torchsparse@git+https://github.com/lz1oceani/torchsparse.git ,
 # which is modified from the original torchsparse with bug fix and additional normalization implementations
 agent_cfg = dict(
@@ -32,7 +31,12 @@ agent_cfg = dict(
         ),
         nn_cfg=dict(
             type="Visuomotor",
-            visual_nn_cfg=dict(type="SparseResNet10", in_channel="pcd_all_channel", voxel_size=0.05, dropout=0.0),
+            visual_nn_cfg=dict(
+                type="SparseResNet10",
+                in_channel="pcd_all_channel",
+                voxel_size=0.05,
+                dropout=0.0,
+            ),
             mlp_cfg=dict(
                 type="LinearMLP",
                 norm_cfg=None,
@@ -49,7 +53,11 @@ agent_cfg = dict(
             type="Visuomotor",
             visual_nn_cfg=None,
             mlp_cfg=dict(
-                type="LinearMLP", norm_cfg=None, mlp_spec=["512 + agent_shape", 256, 256, 1], inactivated_output=True, zero_init_output=True
+                type="LinearMLP",
+                norm_cfg=None,
+                mlp_spec=["512 + agent_shape", 256, 256, 1],
+                inactivated_output=True,
+                zero_init_output=True,
             ),
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
@@ -76,7 +84,7 @@ train_cfg = dict(
 env_cfg = dict(
     type="gym",
     env_name="PickCube-v0",
-    obs_mode='pointcloud',
+    obs_mode="pointcloud",
     ignore_dones=True,
 )
 

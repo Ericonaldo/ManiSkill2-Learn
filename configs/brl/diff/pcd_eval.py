@@ -1,15 +1,22 @@
 horizon = 16
 n_obs_steps = 8
 future_action_len = horizon - n_obs_steps
-eval_action_len = 2 # how many actions to be executed in the following timesteps for one input
+eval_action_len = (
+    2  # how many actions to be executed in the following timesteps for one input
+)
 workdir = "pcd"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=256,
     action_seq_len=horizon,
-    pcd_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
+    pcd_cfg=dict(
+        type="PointNet",
+        feat_dim="pcd_all_channel",
+        mlp_spec=[64, 128, 512],
+        feature_transform=[],
+    ),
     visual_nn_cfg=dict(
-        type="MultiImageObsEncoder", 
+        type="MultiImageObsEncoder",
         shape_meta=dict(
             obs=dict(
                 xyz=dict(
@@ -20,10 +27,7 @@ agent_cfg = dict(
                     type="pcd",
                     shape="pcd_rgb_shape",
                 ),
-                state=dict(
-                    type="low_dim",
-                    shape="agent_shape"
-                ),
+                state=dict(type="low_dim", shape="agent_shape"),
                 frame_related_states=dict(
                     type="low_dim",
                     shape="pcd_frame_related_states_shape",
@@ -39,7 +43,7 @@ agent_cfg = dict(
     actor_cfg=dict(
         type="ContDiffActor",
     ),
-    n_obs_steps=n_obs_steps, # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
+    n_obs_steps=n_obs_steps,  # n_obs_steps - 1 is the history length of the action, n_obs_steps is the history length of the observation
     obs_as_global_cond=True,
     fix_obs_stepd=True,
     action_visible=True,
@@ -50,7 +54,7 @@ agent_cfg = dict(
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
-        down_dims=[256,512,1024],
+        down_dims=[256, 512, 1024],
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,

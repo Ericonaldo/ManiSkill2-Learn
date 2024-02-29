@@ -9,7 +9,12 @@ agent_cfg = dict(
         ),
         nn_cfg=dict(
             type="Visuomotor",
-            visual_nn_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
+            visual_nn_cfg=dict(
+                type="PointNet",
+                feat_dim="pcd_all_channel",
+                mlp_spec=[64, 128, 512],
+                feature_transform=[],
+            ),
             mlp_cfg=dict(
                 type="LinearMLP",
                 norm_cfg=None,

@@ -1,4 +1,3 @@
-
 agent_cfg = dict(
     type="PPO",
     gamma=0.95,
@@ -30,11 +29,16 @@ agent_cfg = dict(
         ),
         nn_cfg=dict(
             type="FrameMiners",
-            visual_nn_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 300], feature_transform=[]),
-            num_frames=2, 
+            visual_nn_cfg=dict(
+                type="PointNet",
+                feat_dim="pcd_all_channel",
+                mlp_spec=[64, 128, 300],
+                feature_transform=[],
+            ),
+            num_frames=2,
             vis_feat_dim=300,
-            action_dim='action_shape', 
-            robot_state_dim='agent_shape',
+            action_dim="action_shape",
+            robot_state_dim="agent_shape",
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
     ),
@@ -43,10 +47,10 @@ agent_cfg = dict(
         nn_cfg=dict(
             type="FrameMiners",
             visual_nn_cfg=None,
-            num_frames=2, 
+            num_frames=2,
             vis_feat_dim=300,
-            action_dim='action_shape', 
-            robot_state_dim='agent_shape',
+            action_dim="action_shape",
+            robot_state_dim="agent_shape",
             is_critic=True,
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
@@ -58,7 +62,9 @@ train_cfg = dict(
     on_policy=True,
     total_steps=int(5e6),
     warm_steps=0,
-    n_steps=int(2.5e4), # FrameMiners might need a bit larger n_steps (and replay_cfg.capacity) than regular PPO (not tested)
+    n_steps=int(
+        2.5e4
+    ),  # FrameMiners might need a bit larger n_steps (and replay_cfg.capacity) than regular PPO (not tested)
     n_updates=1,
     n_eval=int(5e6),
     n_checkpoint=int(1e6),
@@ -73,7 +79,7 @@ train_cfg = dict(
 env_cfg = dict(
     type="gym",
     env_name="PickCube-v0",
-    obs_mode='pointcloud',
+    obs_mode="pointcloud",
     ignore_dones=True,
 )
 

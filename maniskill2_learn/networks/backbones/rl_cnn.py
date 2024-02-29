@@ -7,7 +7,6 @@ Nauture CNN:
     Code: https://github.com/hill-a/stable-baselines/blob/master/stable_baselines/common/policies.py
 """
 
-
 import numpy as np
 import torch.nn as nn, torch, torch.nn.functional as F
 from torch.nn import Conv2d
@@ -19,6 +18,7 @@ from maniskill2_learn.utils.torch import ExtendedModule, no_grad, ExtendedSequen
 
 from ..builder import BACKBONES
 from ..modules import build_norm_layer, need_bias, build_activation_layer
+
 
 class CNNBase(ExtendedModule):
     @no_grad
@@ -110,10 +110,16 @@ class IMPALA(CNNBase):
         self.feat_convs = nn.ModuleList(self.feat_convs)
         self.resnet1 = nn.ModuleList(self.resnet1)
         self.resnet2 = nn.ModuleList(self.resnet2)
-        self.img_feat_size = math.ceil(image_size[0] / (2**len(fcs) * 4)) * math.ceil(image_size[1] / (2**len(fcs) * 4)) * fcs[-1]
+        self.img_feat_size = (
+            math.ceil(image_size[0] / (2 ** len(fcs) * 4))
+            * math.ceil(image_size[1] / (2 ** len(fcs) * 4))
+            * fcs[-1]
+        )
 
         self.fc = nn.Linear(self.img_feat_size, out_feature_size)
-        self.final = nn.Linear(out_feature_size, self.out_channel) if out_channel else None
+        self.final = (
+            nn.Linear(out_feature_size, self.out_channel) if out_channel else None
+        )
 
     def forward(self, inputs, **kwargs):
         feature = self.preprocess(inputs)
@@ -143,7 +149,16 @@ class IMPALA(CNNBase):
 @BACKBONES.register_module()
 class NatureCNN(CNNBase):
     # DQN
-    def __init__(self, in_channel, image_size, mlp_spec=[32, 64, 64], out_channel=None, norm_cfg=dict(type="LN2d"), act_cfg=dict(type="ReLU"), **kwargs):
+    def __init__(
+        self,
+        in_channel,
+        image_size,
+        mlp_spec=[32, 64, 64],
+        out_channel=None,
+        norm_cfg=dict(type="LN2d"),
+        act_cfg=dict(type="ReLU"),
+        **kwargs
+    ):
         super(NatureCNN, self).__init__()
         assert len(mlp_spec) == 3, "Nature Net only contain 3 layers"
         with_bias = need_bias(norm_cfg)
@@ -171,11 +186,16 @@ class NatureCNN(CNNBase):
             ]
         )
         if out_channel is not None:
-            self.net.append_list([nn.Linear(512, 256), build_activation_layer(act_cfg), nn.Linear(256, out_channel)])
+            self.net.append_list(
+                [
+                    nn.Linear(512, 256),
+                    build_activation_layer(act_cfg),
+                    nn.Linear(256, out_channel),
+                ]
+            )
 
         if "conv_init_cfg" in kwargs:
             self.init_weights(self.convs, kwargs["conv_init_cfg"])
-        
 
     def forward(self, inputs, **kwargs):
         feature = self.preprocess(inputs)

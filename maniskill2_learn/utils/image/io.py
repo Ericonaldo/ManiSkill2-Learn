@@ -23,7 +23,11 @@ except ImportError:
 jpeg = None
 supported_backends = ["cv2", "turbojpeg", "pillow"]
 
-imread_flags = {"color": IMREAD_COLOR, "grayscale": IMREAD_GRAYSCALE, "unchanged": IMREAD_UNCHANGED}
+imread_flags = {
+    "color": IMREAD_COLOR,
+    "grayscale": IMREAD_GRAYSCALE,
+    "unchanged": IMREAD_UNCHANGED,
+}
 imread_backend = "cv2"
 
 
@@ -104,7 +108,9 @@ def _pillow2array(img, flag="color", channel_order="bgr"):
             img = img.convert("L")
             array = np.array(img)
         else:
-            raise ValueError('flag must be "color", "grayscale" or "unchanged", ' f"but got {flag}")
+            raise ValueError(
+                'flag must be "color", "grayscale" or "unchanged", ' f"but got {flag}"
+            )
     return array
 
 
@@ -131,7 +137,10 @@ def imread(img_or_path, flag="color", channel_order="bgr", backend=None):
     if backend is None:
         backend = imread_backend
     if backend not in supported_backends:
-        raise ValueError(f"backend: {backend} is not supported. Supported " "backends are 'cv2', 'turbojpeg', 'pillow'")
+        raise ValueError(
+            f"backend: {backend} is not supported. Supported "
+            "backends are 'cv2', 'turbojpeg', 'pillow'"
+        )
     if isinstance(img_or_path, Path):
         img_or_path = str(img_or_path)
 
@@ -156,7 +165,9 @@ def imread(img_or_path, flag="color", channel_order="bgr", backend=None):
                 cv2.cvtColor(img, cv2.COLOR_BGR2RGB, img)
             return img
     else:
-        raise TypeError('"img" must be a numpy array or a str or ' "a pathlib.Path object")
+        raise TypeError(
+            '"img" must be a numpy array or a str or ' "a pathlib.Path object"
+        )
 
 
 def imfrombytes(content, flag="color", channel_order="bgr", backend=None):
@@ -174,7 +185,9 @@ def imfrombytes(content, flag="color", channel_order="bgr", backend=None):
     if backend is None:
         backend = imread_backend
     if backend not in supported_backends:
-        raise ValueError(f"backend: {backend} is not supported. Supported backends are 'cv2', 'turbojpeg', 'pillow'")
+        raise ValueError(
+            f"backend: {backend} is not supported. Supported backends are 'cv2', 'turbojpeg', 'pillow'"
+        )
     if backend == "turbojpeg":
         img = jpeg.decode(content, _jpegflag(flag, channel_order))
         if img.shape[-1] == 1:
@@ -219,5 +232,7 @@ def imencode(img, format=".png", binary=True):
 
 def imdecode(sparse_array):
     if isinstance(sparse_array, (bytes, np.void)):
-        sparse_array = np.frombuffer(base64.binascii.a2b_base64(sparse_array), dtype=np.uint8)
+        sparse_array = np.frombuffer(
+            base64.binascii.a2b_base64(sparse_array), dtype=np.uint8
+        )
     return cv2.imdecode(sparse_array, -1)

@@ -18,7 +18,10 @@ def load_hdf5(file, keys=None):
                     new_keys[key[0]] = []
                 if len(key) > 1:
                     new_keys[key[0]].append(key[1:])
-            load_keys = {key: (None if len(item) == 0 else item) for key, item in new_keys.items()}
+            load_keys = {
+                key: (None if len(item) == 0 else item)
+                for key, item in new_keys.items()
+            }
         if isinstance(file, (File, Group)):
             keys = list(file.keys())
             if keys[0].startswith("list"):
@@ -26,7 +29,9 @@ def load_hdf5(file, keys=None):
                 for key in range(len(keys)):
                     if is_not_null(load_keys) and f"{key}" not in load_keys:
                         continue
-                    load_keys_i = load_keys[f"{key}"] if is_not_null(load_keys) else None
+                    load_keys_i = (
+                        load_keys[f"{key}"] if is_not_null(load_keys) else None
+                    )
                     key = f"list_{type(key).__name__}_{key}"
                     ret.append(_load_hdf5(file[key], load_keys_i, only_one))
                 ret = ret[0] if only_one else ret
@@ -40,7 +45,9 @@ def load_hdf5(file, keys=None):
                         key_value = key
                     if is_not_null(load_keys) and f"{key_value}" not in load_keys:
                         continue
-                    load_keys_i = load_keys[f"{key_value}"] if is_not_null(load_keys) else None
+                    load_keys_i = (
+                        load_keys[f"{key_value}"] if is_not_null(load_keys) else None
+                    )
                     ret[key_value] = _load_hdf5(file[key], load_keys_i, only_one)
                 ret = ret[list(ret.keys())[0]] if only_one and len(ret) > 0 else ret
             elif len(keys) == 1 and keys[0] == "GDict":
@@ -55,7 +62,9 @@ def load_hdf5(file, keys=None):
                     # print(key_value, load_keys, key_value in load_keys)
                     if is_not_null(load_keys) and f"{key_value}" not in load_keys:
                         continue
-                    load_keys_i = load_keys[f"{key_value}"] if is_not_null(load_keys) else None
+                    load_keys_i = (
+                        load_keys[f"{key_value}"] if is_not_null(load_keys) else None
+                    )
                     ret[key_value] = _load_hdf5(file[key], load_keys_i, only_one)
                 ret = ret[list(ret.keys())[0]] if only_one and len(ret) > 0 else ret
             return ret
@@ -91,14 +100,21 @@ def dump_hdf5(obj, file):
         if isinstance(memory, (list, dict)):
             keys = range(len(memory)) if is_list_of(memory) else memory.keys()
             for key in keys:
-                _dump_hdf5(memory[key], file, f"{root_key}/{type(memory).__name__}_{type(key).__name__}_{key}")
+                _dump_hdf5(
+                    memory[key],
+                    file,
+                    f"{root_key}/{type(memory).__name__}_{type(key).__name__}_{key}",
+                )
         else:
             root_key = root_key.replace("//", "/") if root_key != "" else "GDict"
             if is_arr(memory):
                 memory = to_np(memory)
-                file.create_dataset(name=root_key, data=memory, compression="gzip", compression_opts=5)
+                file.create_dataset(
+                    name=root_key, data=memory, compression="gzip", compression_opts=5
+                )
             else:
                 from .serialization import dump
+
                 memory = np.void(dump(memory, file_format="pkl"))
                 file[root_key] = memory
 

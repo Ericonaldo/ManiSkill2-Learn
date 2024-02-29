@@ -79,18 +79,28 @@ def delta_orthogonal_init(module, gain=1):
 
 
 @INIT.register_module()
-def kaiming_init(module, a=0, mode="fan_out", nonlinearity="relu", bias=0, distribution="normal"):
+def kaiming_init(
+    module, a=0, mode="fan_out", nonlinearity="relu", bias=0, distribution="normal"
+):
     assert distribution in ["uniform", "normal"]
     if distribution == "uniform":
         if hasattr(module, "weight"):
-            nn.init.kaiming_uniform_(module.weight, a=a, mode=mode, nonlinearity=nonlinearity)
+            nn.init.kaiming_uniform_(
+                module.weight, a=a, mode=mode, nonlinearity=nonlinearity
+            )
         elif hasattr(module, "kernel"):
-            nn.init.kaiming_uniform_(module.kernel, a=a, mode=mode, nonlinearity=nonlinearity)
+            nn.init.kaiming_uniform_(
+                module.kernel, a=a, mode=mode, nonlinearity=nonlinearity
+            )
     else:
         if hasattr(module, "weight"):
-            nn.init.kaiming_normal_(module.weight, a=a, mode=mode, nonlinearity=nonlinearity)
+            nn.init.kaiming_normal_(
+                module.weight, a=a, mode=mode, nonlinearity=nonlinearity
+            )
         elif hasattr(module, "kernel"):
-            nn.init.kaiming_normal_(module.kernel, a=a, mode=mode, nonlinearity=nonlinearity)
+            nn.init.kaiming_normal_(
+                module.kernel, a=a, mode=mode, nonlinearity=nonlinearity
+            )
     if hasattr(module, "bias") and module.bias is not None:
         nn.init.constant_(module.bias, bias)
 
@@ -99,7 +109,9 @@ def kaiming_init(module, a=0, mode="fan_out", nonlinearity="relu", bias=0, distr
 def caffe2_xavier_init(module, bias=0):
     # `XavierFill` in Caffe2 corresponds to `kaiming_uniform_` in PyTorch
     # Acknowledgment to FAIR's internal code
-    kaiming_init(module, a=1, mode="fan_in", nonlinearity="leaky_relu", distribution="uniform")
+    kaiming_init(
+        module, a=1, mode="fan_in", nonlinearity="leaky_relu", distribution="uniform"
+    )
 
 
 @INIT.register_module()

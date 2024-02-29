@@ -9,7 +9,6 @@ logger_initialized = OrderedDict()
 
 
 class CustomFormatter(logging.Formatter):
-
     grey = "\x1b[38;21m"
     yellow = "\x1b[33;21m"
     red = "\x1b[31;21m"
@@ -85,7 +84,7 @@ def get_logger(name=None, with_stream=True, log_file=None, log_level=logging.INF
 
     if not (rank == 0 or is_debug_mode()) or not with_stream:
         log_level = logging.ERROR
-    
+
     # exit(0)
     for handler in handlers:
         if isinstance(handler, logging.FileHandler):
@@ -94,7 +93,7 @@ def get_logger(name=None, with_stream=True, log_file=None, log_level=logging.INF
         else:
             handler.setFormatter(formatter)
             logger.addHandler(handler)
-        
+
     logger.setLevel(log_level)
     logger_initialized[name] = log_level
     return logger
@@ -120,7 +119,10 @@ def print_log(msg, logger="print", level=logging.INFO):
     elif isinstance(logger, str) or logger is None:
         get_logger(logger).log(level, msg)
     else:
-        raise TypeError(f'logger should be either a logging.Logger object, str, "silent" or None, ' f"but got {type(logger)}")
+        raise TypeError(
+            f'logger should be either a logging.Logger object, str, "silent" or None, '
+            f"but got {type(logger)}"
+        )
 
 
 def flush_print(*args):

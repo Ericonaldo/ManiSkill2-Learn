@@ -15,7 +15,7 @@ from maniskill2_learn.utils.data import (
     is_np_arr,
     is_tuple_of,
     is_list_of,
-    index_to_slice
+    index_to_slice,
 )
 from maniskill2_learn.utils.meta import Worker
 from maniskill2_learn.utils.math import split_num
@@ -42,7 +42,13 @@ def idle_idx(self):
 def create_buffer_for_env(env, num_envs=1, shared_np=True):
     assert isinstance(env, ExtendedEnv)
     obs = env.reset()
-    item = [obs, np.float32(1.0), True, GDict(env.step(env.action_space.sample())[-1]).to_array().float(), env.render("rgb_array")]
+    item = [
+        obs,
+        np.float32(1.0),
+        True,
+        GDict(env.step(env.action_space.sample())[-1]).to_array().float(),
+        env.render("rgb_array"),
+    ]
     buffer = DictArray(GDict(item).to_array(), capacity=num_envs)
     if shared_np:
         buffer = SharedDictArray(buffer)
@@ -53,13 +59,24 @@ class UnifiedVectorEnvAPI(ExtendedWrapper):
     """
     This wrapper is necessary for all environments. Otherwise some output will be the buffer and you can not use list to store them!!!!
     """
+
     def __init__(self, vec_env):
         super(UnifiedVectorEnvAPI, self).__init__(vec_env)
-        assert isinstance(vec_env, VectorEnvBase), f"Please use correct type of environments {type(vec_env)}!"
-        self.vec_env, self.num_envs, self.action_space = vec_env, vec_env.num_envs, vec_env.action_space
+        assert isinstance(
+            vec_env, VectorEnvBase
+        ), f"Please use correct type of environments {type(vec_env)}!"
+        self.vec_env, self.num_envs, self.action_space = (
+            vec_env,
+            vec_env.num_envs,
+            vec_env.action_space,
+        )
         self.all_env_indices = np.arange(self.num_envs, dtype=np.int32)
         self.single_env = self.vec_env.single_env
-        self.is_discrete, self.reward_scale, self.is_cost = self.single_env.is_discrete, self.single_env.reward_scale, self.single_env.is_cost
+        self.is_discrete, self.reward_scale, self.is_cost = (
+            self.single_env.is_discrete,
+            self.single_env.reward_scale,
+            self.single_env.is_cost,
+        )
 
         self.recent_obs = DictArray(self.vec_env.reset(idx=self.all_env_indices)).copy()
         self.episode_dones = np.zeros([self.num_envs, 1], dtype=np.bool_)
@@ -85,23 +102,29 @@ class UnifiedVectorEnvAPI(ExtendedWrapper):
         args, kwargs = list(args), dict(kwargs)
         if len(args) > 0:
             for arg_i in args:
-                if not hasattr(arg_i, '__len__'):
+                if not hasattr(arg_i, "__len__"):
                     arg_i = [arg_i for i in idx]
                 else:
-                    assert len(arg_i) == len(idx), f"Len of value {len(arg_i)} is not {len(idx)}!"
+                    assert len(arg_i) == len(
+                        idx
+                    ), f"Len of value {len(arg_i)} is not {len(idx)}!"
         if len(kwargs) > 0:
             for key, value in kwargs.items():
-                if not hasattr(value, '__len__'):
+                if not hasattr(value, "__len__"):
                     kwargs[key] = [value for i in idx]
                 else:
-                    assert len(value) == len(idx), f"Len of value {len(value)} is not {len(idx)}!"
+                    assert len(value) == len(
+                        idx
+                    ), f"Len of value {len(value)} is not {len(idx)}!"
         obs = self.vec_env.reset(idx=idx, *args, **kwargs)
         self.episode_dones[slice_idx] = False
         self.recent_obs.assign(slice_idx, obs)
         return GDict(obs).copy(wrapper=False)
 
     def step(self, actions, idx=None):
-        assert not self.dirty, "You need to reset environment after doing step_states_actions!"
+        assert (
+            not self.dirty
+        ), "You need to reset environment after doing step_states_actions!"
         idx, slice_idx = self._process_idx(idx)
         assert len(actions) == len(idx)
         alls = self.vec_env.step(actions, idx=idx)
@@ -148,12 +171,13 @@ class UnifiedVectorEnvAPI(ExtendedWrapper):
     # Special functions
     def step_dict(self, actions, idx=None, restart=True):
         from .env_utils import true_done
+
         idx, slice_idx = self._process_idx(idx)
         obs = self.recent_obs.slice(slice_idx).copy(wrapper=False)
         next_obs, reward, done, info = self.step(actions, idx=idx)
         if np.any(done) and restart:
             self.reset(idx=np.where(done[..., 0])[0])
-            
+
         return dict(
             obs=obs,
             next_obs=next_obs,
@@ -177,15 +201,27 @@ class VectorEnvBase(Env):
 
     def __init__(self, env_cfgs=None, wait_num=None, timeout=None, **kwargs):
         super(VectorEnvBase, self).__init__()
-        self.env_cfgs, self.single_env, self.num_envs = env_cfgs, build_env(env_cfgs[0]), len(env_cfgs)
+        self.env_cfgs, self.single_env, self.num_envs = (
+            env_cfgs,
+            build_env(env_cfgs[0]),
+            len(env_cfgs),
+        )
 
-        assert wait_num is None and timeout is None, "We do not support partial env step now!"
+        assert (
+            wait_num is None and timeout is None
+        ), "We do not support partial env step now!"
         self.timeout = int(1e9) if timeout is None else timeout
-        self.wait_num = len(env_cfgs) if wait_num is None and env_cfgs is not None else wait_num
+        self.wait_num = (
+            len(env_cfgs) if wait_num is None and env_cfgs is not None else wait_num
+        )
         self.workers, self.buffers = None, None
-        self.action_space = stack_action_space(self.single_env.action_space, self.num_envs)
+        self.action_space = stack_action_space(
+            self.single_env.action_space, self.num_envs
+        )
         if self.SHARED_NP_BUFFER is not None:
-            self.buffers = create_buffer_for_env(self.single_env, self.num_envs, self.SHARED_NP_BUFFER)
+            self.buffers = create_buffer_for_env(
+                self.single_env, self.num_envs, self.SHARED_NP_BUFFER
+            )
             buffers = self.buffers.memory
             self.reset_buffer = DictArray(buffers[0])
             self.step_buffer = DictArray(buffers[:4])
@@ -196,9 +232,11 @@ class VectorEnvBase(Env):
             return None
         else:
             return self.get_attr(name, idx)
-            
+
     def _init_obs_space(self):
-        self.observation_space = convert_observation_to_space(self.reset(idx=np.arange(self.num_envs)))
+        self.observation_space = convert_observation_to_space(
+            self.reset(idx=np.arange(self.num_envs))
+        )
 
     def _assert_id(self, idx=None):
         raise NotImplementedError
@@ -297,7 +335,9 @@ class SingleEnv2VecEnv(VectorEnvBase):
         return self._unsqueeze(getattr(self._env, name))
 
     def call(self, name, idx=None, *args, **kwargs):
-        args, kwargs = GDict(list(args)).squeeze(0, False), GDict(dict(kwargs)).squeeze(0, False)
+        args, kwargs = GDict(list(args)).squeeze(0, False), GDict(dict(kwargs)).squeeze(
+            0, False
+        )
         ret = getattr(self._env, name)(*args, **kwargs)
         ret = GDict(ret).to_array()
         return self._unsqueeze(ret)
@@ -318,12 +358,17 @@ class VectorEnv(VectorEnvBase):
         super(VectorEnv, self).__init__(env_cfgs=env_cfgs, **kwargs)
 
         base_seed = np.random.randint(int(1e9)) if seed is None else seed
-        self.workers = [Worker(build_env, i, base_seed + i, True, self.buffers.get_infos(), cfg=cfg) for i, cfg in enumerate(env_cfgs)]
+        self.workers = [
+            Worker(build_env, i, base_seed + i, True, self.buffers.get_infos(), cfg=cfg)
+            for i, cfg in enumerate(env_cfgs)
+        ]
         self._init_obs_space()
 
     def _assert_id(self, idx):
         for i in idx:
-            assert self.workers[i].is_idle, f"Cannot interact with environment {i} which is stepping now."
+            assert self.workers[
+                i
+            ].is_idle, f"Cannot interact with environment {i} which is stepping now."
 
     def reset(self, idx=None, *args, **kwargs):
         args, kwargs = list(args), dict(kwargs)
@@ -405,7 +450,9 @@ class VectorEnv(VectorEnvBase):
         shared_mem_value = [bool(self.workers[i].shared_memory.value) for i in idx]
         for j, i in enumerate(idx):
             self.workers[i].set_shared_memory(False)
-            self.workers[i].call(name, *args.slice(j, 0, False), **kwargs.slice(j, 0, False))
+            self.workers[i].call(
+                name, *args.slice(j, 0, False), **kwargs.slice(j, 0, False)
+            )
 
         ret = []
         for i, mem_flag in zip(idx, shared_mem_value):
@@ -446,30 +493,39 @@ class SapienThreadEnv(VectorEnvBase):
     def _check_cfgs(self, env_cfgs):
         sign = True
         for cfg in env_cfgs:
-            sign = sign and (cfg.get("with_torch", False) and cfg.get("with_cpp", False))
+            sign = sign and (
+                cfg.get("with_torch", False) and cfg.get("with_cpp", False)
+            )
         if not sign:
             from maniskill2_learn.utils.meta import get_logger
 
             logger = get_logger()
-            logger.warning("You need to use torch and cpp extension, otherwise the speed is not fast enough!")
+            logger.warning(
+                "You need to use torch and cpp extension, otherwise the speed is not fast enough!"
+            )
 
     def _assert_id(self, idx):
         for i in idx:
-            assert self._env_stages[i] == -1, f"Cannot interact with environment {i} which is stepping now."
+            assert (
+                self._env_stages[i] == -1
+            ), f"Cannot interact with environment {i} which is stepping now."
 
     def reset(self, level=None, idx=None):
         self._env_stages[idx] = -1
 
         for i in range(len(idx)):
-            self.workers[idx[i]].reset_no_render(level if is_num(level) or level is None else level[i])
+            self.workers[idx[i]].reset_no_render(
+                level if is_num(level) or level is None else level[i]
+            )
         for i in range(len(idx)):
             self.workers[idx[i]].get_obs(sync=False)
         for i in range(len(idx)):
-            self.workers[idx[i]].image_wait(mode='o')
+            self.workers[idx[i]].image_wait(mode="o")
         return self.reset_buffer.slice(index_to_slice(idx), wrapper=False)
 
     def step(self, actions, idx=None, rew_only=False):
         import sapien
+
         wait_num = len(idx)
 
         with sapien.core.ProfilerBlock("step_async"):
@@ -488,12 +544,12 @@ class SapienThreadEnv(VectorEnvBase):
                         if not rew_only:
                             self.workers[i].call_renderer_async(mode="o")
                             render_jobs.append(i)
-    
+
         for i in render_jobs:
             self.workers[i].get_obs(sync=False)
         with sapien.core.ProfilerBlock("wait for render"):
             for i in render_jobs:
-                self.workers[i].image_wait(mode='o')
+                self.workers[i].image_wait(mode="o")
             self._env_stages[idx] = -1
 
         if rew_only:
@@ -507,7 +563,9 @@ class SapienThreadEnv(VectorEnvBase):
         if mode == "human":
             assert len(self.workers) == 1, "Human rendering only allows num_envs = 1!"
             return self.workers[0].render(mode)
-        assert mode == "rgb_array", "We only support rgb_array mode for multiple environments!"
+        assert (
+            mode == "rgb_array"
+        ), "We only support rgb_array mode for multiple environments!"
         [self.workers[i].call_renderer_async(mode="v") for i in idx]
         [self.workers[i].image_wait(mode="v") for i in idx]
         return self.vis_img_buffer.slice(index_to_slice(idx), wrapper=False)
@@ -554,7 +612,9 @@ class SapienThreadEnv(VectorEnvBase):
                     self.workers[j].set_state(states[i + j])
 
             for j in range(len(actions[i])):
-                rewards[i : i + num_i, j] = self.step(actions[i : i + num_i, j], idx=np.arange(num_i), rew_only=True)
+                rewards[i : i + num_i, j] = self.step(
+                    actions[i : i + num_i, j], idx=np.arange(num_i), rew_only=True
+                )
         return rewards
 
     def get_attr(self, name, idx=None):
@@ -563,6 +623,11 @@ class SapienThreadEnv(VectorEnvBase):
 
     def call(self, name, idx=None, *args, **kwargs):
         args, kwargs = GDict(list(args)), GDict(dict(kwargs))
-        ret = [getattr(self.workers[i], name)(*args.slice(i, 0, False), **kwargs.slice(i, 0, False)) for i in idx]
+        ret = [
+            getattr(self.workers[i], name)(
+                *args.slice(i, 0, False), **kwargs.slice(i, 0, False)
+            )
+            for i in idx
+        ]
         ret = GDict(ret).to_array()
         return None if ret[0] is None else GDict.stack(ret, axis=0, wrapper=False)

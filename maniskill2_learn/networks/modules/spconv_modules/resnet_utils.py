@@ -1,4 +1,5 @@
 import torch.nn as nn
+
 try:
     from torchsparse import SparseTensor
     import torchsparse.nn as spnn
@@ -11,10 +12,25 @@ def build_sparse_norm(channels, use_ln=True):
 
 
 class BasicConvolutionBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, dilation=1, use_ln=False):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        dilation=1,
+        use_ln=False,
+    ):
         super().__init__()
         self.net = nn.Sequential(
-            spnn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, dilation=dilation, transposed=False),
+            spnn.Conv3d(
+                in_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                dilation=dilation,
+                transposed=False,
+            ),
             build_sparse_norm(out_channels, use_ln),
             spnn.ReLU(True),
         )
@@ -24,10 +40,18 @@ class BasicConvolutionBlock(nn.Module):
 
 
 class BasicDeconvolutionBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, use_ln=False):
+    def __init__(
+        self, in_channels, out_channels, kernel_size=3, stride=1, use_ln=False
+    ):
         super().__init__()
         self.net = nn.Sequential(
-            spnn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, transposed=True),
+            spnn.Conv3d(
+                in_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                transposed=True,
+            ),
             build_sparse_norm(out_channels, use_ln),
             spnn.ReLU(True),
         )
@@ -39,13 +63,33 @@ class BasicDeconvolutionBlock(nn.Module):
 class ResidualBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, dilation=1, use_ln=False):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        dilation=1,
+        use_ln=False,
+    ):
         super().__init__()
         self.net = nn.Sequential(
-            spnn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, dilation=dilation, stride=stride),
+            spnn.Conv3d(
+                in_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                dilation=dilation,
+                stride=stride,
+            ),
             build_sparse_norm(out_channels, use_ln),
             spnn.ReLU(True),
-            spnn.Conv3d(out_channels, out_channels, kernel_size=kernel_size, dilation=dilation, stride=1),
+            spnn.Conv3d(
+                out_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                dilation=dilation,
+                stride=1,
+            ),
             build_sparse_norm(out_channels, use_ln),
         )
 
@@ -54,12 +98,24 @@ class ResidualBlock(nn.Module):
         else:
             if stride == 1:
                 self.downsample = nn.Sequential(
-                    spnn.Conv3d(in_channels, out_channels, kernel_size=1, dilation=1, stride=stride),
+                    spnn.Conv3d(
+                        in_channels,
+                        out_channels,
+                        kernel_size=1,
+                        dilation=1,
+                        stride=stride,
+                    ),
                     build_sparse_norm(out_channels, use_ln),
                 )
             else:
                 self.downsample = nn.Sequential(
-                    spnn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, dilation=1, stride=stride),
+                    spnn.Conv3d(
+                        in_channels,
+                        out_channels,
+                        kernel_size=kernel_size,
+                        dilation=1,
+                        stride=stride,
+                    ),
                     build_sparse_norm(out_channels, use_ln),
                 )
 
@@ -72,14 +128,28 @@ class ResidualBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, dilation=1, use_ln=False):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        dilation=1,
+        use_ln=False,
+    ):
         super(Bottleneck, self).__init__()
 
         self.net = nn.Sequential(
             spnn.Conv3d(in_channels, out_channels, kernel_size=1),
             build_sparse_norm(out_channels, use_ln),
             spnn.ReLU(True),
-            spnn.Conv3d(out_channels, out_channels, kernel_size=kernel_size, dilation=dilation, stride=stride),
+            spnn.Conv3d(
+                out_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                dilation=dilation,
+                stride=stride,
+            ),
             build_sparse_norm(out_channels, use_ln),
             spnn.ReLU(True),
             spnn.Conv3d(out_channels, out_channels * self.expansion, kernel_size=1),
@@ -91,12 +161,24 @@ class Bottleneck(nn.Module):
         else:
             if stride == 1:
                 self.downsample = nn.Sequential(
-                    spnn.Conv3d(in_channels, out_channels * self.expansion, kernel_size=1, dilation=1, stride=stride),
+                    spnn.Conv3d(
+                        in_channels,
+                        out_channels * self.expansion,
+                        kernel_size=1,
+                        dilation=1,
+                        stride=stride,
+                    ),
                     build_sparse_norm(out_channels * self.expansion, use_ln),
                 )
             else:
                 self.downsample = nn.Sequential(
-                    spnn.Conv3d(in_channels, out_channels * self.expansion, kernel_size=kernel_size, dilation=1, stride=stride),
+                    spnn.Conv3d(
+                        in_channels,
+                        out_channels * self.expansion,
+                        kernel_size=kernel_size,
+                        dilation=1,
+                        stride=stride,
+                    ),
                     build_sparse_norm(out_channels * self.expansion, use_ln),
                 )
 

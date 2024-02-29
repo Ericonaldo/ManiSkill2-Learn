@@ -56,7 +56,9 @@ class PetrelBackend(BaseStorageBackend):
         try:
             from petrel_client import client
         except ImportError:
-            raise ImportError("Please install petrel_client to enable " "PetrelBackend.")
+            raise ImportError(
+                "Please install petrel_client to enable " "PetrelBackend."
+            )
 
         self._client = client.Client(enable_mc=enable_mc)
         assert isinstance(path_mapping, dict) or path_mapping is None
@@ -95,7 +97,9 @@ class MemcachedBackend(BaseStorageBackend):
 
         self.server_list_cfg = server_list_cfg
         self.client_cfg = client_cfg
-        self._client = mc.MemcachedClient.GetInstance(self.server_list_cfg, self.client_cfg)
+        self._client = mc.MemcachedClient.GetInstance(
+            self.server_list_cfg, self.client_cfg
+        )
         # mc.pyvector servers as a point which points to a memory cache
         self._mc_buffer = mc.pyvector()
 
@@ -133,7 +137,9 @@ class LmdbBackend(BaseStorageBackend):
             raise ImportError("Please install lmdb to enable LmdbBackend.")
 
         self.db_path = str(db_path)
-        self._client = lmdb.open(self.db_path, readonly=readonly, lock=lock, readahead=readahead, **kwargs)
+        self._client = lmdb.open(
+            self.db_path, readonly=readonly, lock=lock, readahead=readahead, **kwargs
+        )
 
     def get(self, filepath):
         """Get values according to the filepath.
@@ -187,7 +193,10 @@ class FileClient:
 
     def __init__(self, backend="disk", **kwargs):
         if backend not in self._backends:
-            raise ValueError("Backend {backend} is not supported. Currently supported ones are " f"{list(self._backends.keys())}")
+            raise ValueError(
+                "Backend {backend} is not supported. Currently supported ones are "
+                f"{list(self._backends.keys())}"
+            )
         self.backend = backend
         self.client = self._backends[backend](**kwargs)
 
@@ -198,9 +207,14 @@ class FileClient:
         if not inspect.isclass(backend):
             raise TypeError(f"backend should be a class but got {type(backend)}")
         if not issubclass(backend, BaseStorageBackend):
-            raise TypeError(f"backend {backend} is not a subclass of BaseStorageBackend")
+            raise TypeError(
+                f"backend {backend} is not a subclass of BaseStorageBackend"
+            )
         if not force and name in cls._backends:
-            raise KeyError(f"{name} is already registered as a storage backend, " 'add "force=True" if you want to override it')
+            raise KeyError(
+                f"{name} is already registered as a storage backend, "
+                'add "force=True" if you want to override it'
+            )
         cls._backends[name] = backend
 
     @classmethod

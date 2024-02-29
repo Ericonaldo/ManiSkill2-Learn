@@ -1,4 +1,3 @@
-
 agent_cfg = dict(
     type="PPO",
     gamma=0.95,
@@ -32,7 +31,12 @@ agent_cfg = dict(
         ),
         nn_cfg=dict(
             type="Visuomotor",
-            visual_nn_cfg=dict(type="PointNet", feat_dim="pcd_all_channel", mlp_spec=[64, 128, 512], feature_transform=[]),
+            visual_nn_cfg=dict(
+                type="PointNet",
+                feat_dim="pcd_all_channel",
+                mlp_spec=[64, 128, 512],
+                feature_transform=[],
+            ),
             mlp_cfg=dict(
                 type="LinearMLP",
                 norm_cfg=None,
@@ -49,7 +53,11 @@ agent_cfg = dict(
             type="Visuomotor",
             visual_nn_cfg=None,
             mlp_cfg=dict(
-                type="LinearMLP", norm_cfg=None, mlp_spec=["512 + agent_shape", 256, 256, 1], inactivated_output=True, zero_init_output=True
+                type="LinearMLP",
+                norm_cfg=None,
+                mlp_spec=["512 + agent_shape", 256, 256, 1],
+                inactivated_output=True,
+                zero_init_output=True,
             ),
         ),
         optim_cfg=dict(type="Adam", lr=3e-4),
@@ -85,7 +93,7 @@ train_cfg = dict(
 env_cfg = dict(
     type="gym",
     env_name="PickCube-v0",
-    obs_mode='pointcloud',
+    obs_mode="pointcloud",
     ignore_dones=True,
 )
 

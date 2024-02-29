@@ -2,6 +2,7 @@
 Generative Adversarial Imitation Learning
 SAC version..
 """
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -19,6 +20,7 @@ import math
 # Modified from Hao Shen, Weikang Wan, and He Wang's ManiSkill2021 challenge submission:
 # Paper: https://arxiv.org/pdf/2203.02107.pdf
 # Code: https://github.com/wkwan7/EPICLab-ManiSkill
+
 
 @MFRL.register_module()
 class GAIL(BaseAgent):
@@ -66,7 +68,7 @@ class GAIL(BaseAgent):
 
         actor_cfg.update(env_params)
         critic_cfg.update(env_params)
-        discriminator_cfg.update(env_params)        
+        discriminator_cfg.update(env_params)
 
         self.discriminator_batch_size = discriminator_batch_size
         assert 0 < discriminator_update_freq and discriminator_update_freq <= 1
@@ -87,17 +89,21 @@ class GAIL(BaseAgent):
         # (which will be replaced by online experiences when the buffer is full)
         self.use_demo_for_policy_update = use_demo_for_policy_update
 
-        self.actor, self.critic = build_actor_critic(actor_cfg, critic_cfg, shared_backbone)
+        self.actor, self.critic = build_actor_critic(
+            actor_cfg, critic_cfg, shared_backbone
+        )
         self.shared_backbone = shared_backbone
         self.detach_actor_feature = detach_actor_feature
-        
+
         self.discriminator = build_model(discriminator_cfg)
         self.discriminator_criterion = nn.BCELoss()
 
         self.actor_optim = build_optimizer(self.actor, actor_optim_cfg)
         self.critic_optim = build_optimizer(self.critic, critic_optim_cfg)
-        self.discriminator_optim = build_optimizer(self.discriminator, discriminator_optim_cfg)
-        
+        self.discriminator_optim = build_optimizer(
+            self.discriminator, discriminator_optim_cfg
+        )
+
         self.target_critic = build_model(critic_cfg)
         hard_update(self.target_critic, self.critic)
 
@@ -112,32 +118,47 @@ class GAIL(BaseAgent):
         self.alpha_optim = build_optimizer(self.log_alpha, alpha_optim_cfg)
 
     def update_discriminator_helper(self, expert_replay, recent_traj_replay):
-        expert_sampled_batch = expert_replay.sample(self.discriminator_batch_size // 2).to_torch(
-            dtype="float32", device=self.device, non_blocking=True
-        )
-        recent_traj_sampled_batch = recent_traj_replay.sample(self.discriminator_batch_size // 2).to_torch(
-            dtype="float32", device=self.device, non_blocking=True
-        )
+        expert_sampled_batch = expert_replay.sample(
+            self.discriminator_batch_size // 2
+        ).to_torch(dtype="float32", device=self.device, non_blocking=True)
+        recent_traj_sampled_batch = recent_traj_replay.sample(
+            self.discriminator_batch_size // 2
+        ).to_torch(dtype="float32", device=self.device, non_blocking=True)
         expert_sampled_batch = self.process_obs(expert_sampled_batch)
         recent_traj_sampled_batch = self.process_obs(recent_traj_sampled_batch)
 
-        expert_out = torch.sigmoid(self.discriminator(expert_sampled_batch["obs"], expert_sampled_batch["actions"]))
-        recent_traj_out = torch.sigmoid(self.discriminator(recent_traj_sampled_batch["obs"], recent_traj_sampled_batch["actions"]))
+        expert_out = torch.sigmoid(
+            self.discriminator(
+                expert_sampled_batch["obs"], expert_sampled_batch["actions"]
+            )
+        )
+        recent_traj_out = torch.sigmoid(
+            self.discriminator(
+                recent_traj_sampled_batch["obs"], recent_traj_sampled_batch["actions"]
+            )
+        )
 
         self.discriminator_optim.zero_grad()
         discriminator_loss = self.discriminator_criterion(
             expert_out, torch.zeros((expert_out.shape[0], 1), device=self.device)
-        ) + self.discriminator_criterion(recent_traj_out, torch.ones((recent_traj_out.shape[0], 1), device=self.device))
+        ) + self.discriminator_criterion(
+            recent_traj_out,
+            torch.ones((recent_traj_out.shape[0], 1), device=self.device),
+        )
         discriminator_loss = discriminator_loss.mean()
         discriminator_loss.backward()
         self.discriminator_optim.step()
 
-    def update_discriminator(self, expert_replay, recent_traj_replay, n_finished_episodes):
+    def update_discriminator(
+        self, expert_replay, recent_traj_replay, n_finished_episodes
+    ):
         if self.episode_based_discriminator_update:
             self.discriminator_counter += n_finished_episodes
         else:
             self.discriminator_counter += 1
-        if self.discriminator_counter >= math.ceil(1.0 / self.discriminator_update_freq):
+        if self.discriminator_counter >= math.ceil(
+            1.0 / self.discriminator_update_freq
+        ):
             for _ in range(self.discriminator_update_n):
                 self.update_discriminator_helper(expert_replay, recent_traj_replay)
             self.discriminator_counter = 0
@@ -149,34 +170,59 @@ class GAIL(BaseAgent):
         if self.use_demo_for_policy_update:
             mem_sample_n = self.batch_size // 4 * 3
             demo_sample_n = self.batch_size - mem_sample_n
-            sampled_batch = memory.sample(mem_sample_n).to_torch(dtype="float32", device=self.device, non_blocking=True)
-            demo_sampled_batch = expert_replay.sample(demo_sample_n).to_torch(dtype="float32", device=self.device, non_blocking=True)
+            sampled_batch = memory.sample(mem_sample_n).to_torch(
+                dtype="float32", device=self.device, non_blocking=True
+            )
+            demo_sampled_batch = expert_replay.sample(demo_sample_n).to_torch(
+                dtype="float32", device=self.device, non_blocking=True
+            )
             sampled_batch = DictArray.concat([sampled_batch, demo_sampled_batch])
         else:
-            sampled_batch = memory.sample(self.batch_size).to_torch(dtype="float32", device=self.device, non_blocking=True)
+            sampled_batch = memory.sample(self.batch_size).to_torch(
+                dtype="float32", device=self.device, non_blocking=True
+            )
 
         sampled_batch = self.process_obs(sampled_batch)
 
         with torch.no_grad():
-            discriminator_rewards = -torch.log(torch.sigmoid(self.discriminator(sampled_batch["obs"], sampled_batch["actions"])))
+            discriminator_rewards = -torch.log(
+                torch.sigmoid(
+                    self.discriminator(sampled_batch["obs"], sampled_batch["actions"])
+                )
+            )
             assert sampled_batch["rewards"].size() == discriminator_rewards.size()
             old_rewards = sampled_batch["rewards"]
-            sampled_batch["rewards"] = self.env_reward_proportion * old_rewards + (1 - self.env_reward_proportion) * discriminator_rewards
+            sampled_batch["rewards"] = (
+                self.env_reward_proportion * old_rewards
+                + (1 - self.env_reward_proportion) * discriminator_rewards
+            )
             if self.clip_reward:
                 clip_max = torch.clamp(old_rewards, min=-0.5)
-                sampled_batch["rewards"] = torch.clamp(sampled_batch["rewards"], max=clip_max)
-            next_action, next_log_prob = self.actor(sampled_batch["next_obs"], mode="all")[:2]
+                sampled_batch["rewards"] = torch.clamp(
+                    sampled_batch["rewards"], max=clip_max
+                )
+            next_action, next_log_prob = self.actor(
+                sampled_batch["next_obs"], mode="all"
+            )[:2]
             q_next_target = self.target_critic(sampled_batch["next_obs"], next_action)
-            min_q_next_target = torch.min(q_next_target, dim=-1, keepdim=True).values - self.alpha * next_log_prob
+            min_q_next_target = (
+                torch.min(q_next_target, dim=-1, keepdim=True).values
+                - self.alpha * next_log_prob
+            )
             if not self.ignore_dones:
-                q_target = sampled_batch["rewards"] + (1 - sampled_batch["dones"]) * self.gamma * min_q_next_target
+                q_target = (
+                    sampled_batch["rewards"]
+                    + (1 - sampled_batch["dones"]) * self.gamma * min_q_next_target
+                )
             else:
                 q_target = sampled_batch["rewards"] + self.gamma * min_q_next_target
 
         q = self.critic(sampled_batch["obs"], sampled_batch["actions"])
         critic_loss = F.mse_loss(q, q_target.repeat(1, q.shape[-1])) * q.shape[-1]
         with torch.no_grad():
-            abs_critic_error = torch.abs(q - q_target.repeat(1, q.shape[-1])).max().item()
+            abs_critic_error = (
+                torch.abs(q - q_target.repeat(1, q.shape[-1])).max().item()
+            )
 
         self.critic_optim.zero_grad()
         critic_loss.backward()
@@ -184,10 +230,14 @@ class GAIL(BaseAgent):
         with torch.no_grad():
             critic_grad = self.critic.grad_norm
         if self.shared_backbone:
-            self.critic_optim.zero_grad()        
+            self.critic_optim.zero_grad()
 
-        pi, log_pi = self.actor(sampled_batch["obs"], mode="all", 
-            save_feature=self.shared_backbone, detach_visual=self.detach_actor_feature)[:2]
+        pi, log_pi = self.actor(
+            sampled_batch["obs"],
+            mode="all",
+            save_feature=self.shared_backbone,
+            detach_visual=self.detach_actor_feature,
+        )[:2]
         entropy_term = -log_pi.mean()
 
         visual_feature = self.actor.backbone.pop_attr("saved_visual_feature")
@@ -204,7 +254,9 @@ class GAIL(BaseAgent):
             actor_grad = self.actor.grad_norm
 
         if self.automatic_alpha_tuning:
-            alpha_loss = self.log_alpha.exp() * (entropy_term - self.target_entropy).detach()
+            alpha_loss = (
+                self.log_alpha.exp() * (entropy_term - self.target_entropy).detach()
+            )
             self.alpha_optim.zero_grad()
             alpha_loss.backward()
             self.alpha_optim.step()

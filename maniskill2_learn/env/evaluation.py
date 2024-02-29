@@ -26,7 +26,15 @@ from maniskill2_learn.utils.data import (
 )
 from maniskill2_learn.utils.file import dump, load, merge_h5_trajectory
 from maniskill2_learn.utils.math import split_num
-from maniskill2_learn.utils.meta import TqdmToLogger, Worker, get_dist_info, get_logger, get_logger_name, get_total_memory, get_meta_info
+from maniskill2_learn.utils.meta import (
+    TqdmToLogger,
+    Worker,
+    get_dist_info,
+    get_logger,
+    get_logger_name,
+    get_total_memory,
+    get_meta_info,
+)
 
 from .builder import EVALUATIONS
 from .env_utils import build_vec_env, build_env, true_done, get_max_episode_steps
@@ -57,7 +65,10 @@ def save_eval_statistics(folder, logger=None, **kwargs):
         )
         if folder is not None:
             table = [["length", "reward", "finish"]]
-            table += [[num_to_str(__, precision=2) for __ in _] for _ in zip(lengths, rewards, finishes)]
+            table += [
+                [num_to_str(__, precision=2) for __ in _]
+                for _ in zip(lengths, rewards, finishes)
+            ]
             dump(table, osp.join(folder, "statistics.csv"))
     else:
         action_diff = kwargs.get("action_diff", None)
@@ -71,7 +82,9 @@ def save_eval_statistics(folder, logger=None, **kwargs):
             )
         if folder is not None:
             table = [["action_diff"]]
-            table += [[num_to_str(__, precision=2) for __ in _] for _ in zip(action_diff)]
+            table += [
+                [num_to_str(__, precision=2) for __ in _] for _ in zip(action_diff)
+            ]
             dump(table, osp.join(folder, "statistics.csv"))
 
 
@@ -86,14 +99,18 @@ def log_mem_info(logger):
 
     print_dict = {}
     print_dict["memory"] = get_total_memory("G", False)
-    print_dict.update(get_cuda_info(device=torch.cuda.current_device(), number_only=False))
+    print_dict.update(
+        get_cuda_info(device=torch.cuda.current_device(), number_only=False)
+    )
     print_info = dict_to_str(print_dict)
     logger.info(f"Resource usage: {print_info}")
 
 
 @EVALUATIONS.register_module()
 class FastEvaluation:
-    def __init__(self, env_cfg=None, num_procs=1, seed=None, eval_action_len=1, **kwargs):
+    def __init__(
+        self, env_cfg=None, num_procs=1, seed=None, eval_action_len=1, **kwargs
+    ):
         self.n = num_procs
         self.vec_env = build_vec_env(env_cfg, num_procs, **kwargs, seed=seed)
         self.vec_env.reset()
@@ -113,25 +130,29 @@ class FastEvaluation:
         self.video_format = kwargs.get("video_format", "mp4")
         self.video_fps = kwargs.get("fps", 20)
 
-        self.render_mode = kwargs.get("render_mode", "cameras"), # "rgb_array",
+        self.render_mode = (kwargs.get("render_mode", "cameras"),)  # "rgb_array",
 
         logger_name = get_logger_name()
         self.logger = get_logger("Evaluation-" + logger_name, with_stream=True)
-        self.logger.info(f"Evaluation environments have seed in [{seed}, {seed + num_procs})!")
+        self.logger.info(
+            f"Evaluation environments have seed in [{seed}, {seed + num_procs})!"
+        )
 
         if self.eval_levels is not None and is_str(self.eval_levels):
             is_csv = eval_levels.split(".")[-1] == "csv"
             eval_levels = load(self.eval_levels)
             self.eval_levels = eval_levels[0] if is_csv else eval_levels
         if self.eval_levels is not None:
-            self.logger.info(f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}")
+            self.logger.info(
+                f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}"
+            )
 
     def reset_pi(self, pi, idx):
-        """ When we run CEM, we need the level of the rollout env to match the level of test env.  """
+        """When we run CEM, we need the level of the rollout env to match the level of test env."""
         if not hasattr(pi, "reset"):
             return
         reset_kwargs = {}
-        if hasattr(self.vec_env.vec_env.single_env, 'level'):
+        if hasattr(self.vec_env.vec_env.single_env, "level"):
             reset_kwargs["level"] = self.vec_env.level
         pi.reset(**reset_kwargs)  # For CEM and PETS-like model-based method.
 
@@ -144,11 +165,13 @@ class FastEvaluation:
         self.logger.info(f"We will evaluate over {num} episodes!")
 
         if osp.exists(work_dir):
-            self.logger.warning(f"We will overwrite this folder {work_dir} during evaluation!")
+            self.logger.warning(
+                f"We will overwrite this folder {work_dir} during evaluation!"
+            )
             shutil.rmtree(work_dir, ignore_errors=True)
         os.makedirs(work_dir, exist_ok=True)
 
-        if self.save_video and self.render_mode!="human":
+        if self.save_video and self.render_mode != "human":
             video_dir = osp.join(work_dir, "videos")
             self.logger.info(f"Save videos to {video_dir}.")
             os.makedirs(video_dir, exist_ok=True)
@@ -156,7 +179,9 @@ class FastEvaluation:
         if self.save_traj:
             trajectory_path = osp.join(work_dir, "trajectory.h5")
             if osp.exists(trajectory_path):
-                self.logger.warning(f"We will overwrite this file {trajectory_path} during evaluation!")
+                self.logger.warning(
+                    f"We will overwrite this file {trajectory_path} during evaluation!"
+                )
             h5_file = File(trajectory_path, "w")
             self.logger.info(f"Save trajectory at {trajectory_path}.")
             group = h5_file.create_group(f"meta")
@@ -168,26 +193,41 @@ class FastEvaluation:
         traj_idx = np.arange(num_envs, dtype=np.int32)
         video_writers, episodes = None, None
 
-        if eval_levels is not None and hasattr(self.vec_env.vec_env.single_env, 'level'):
-            obs_all = self.vec_env.reset(level=eval_levels[:num_envs], idx=np.arange(num_envs))
+        if eval_levels is not None and hasattr(
+            self.vec_env.vec_env.single_env, "level"
+        ):
+            obs_all = self.vec_env.reset(
+                level=eval_levels[:num_envs], idx=np.arange(num_envs)
+            )
         else:
             obs_all = self.vec_env.reset(idx=np.arange(num_envs))
         obs_all = DictArray(obs_all).copy()
         self.reset_pi(pi, self.all_env_indices)
 
-        if self.save_video and self.render_mode!="human":
+        if self.save_video and self.render_mode != "human":
             video_writers = []
-            imgs = self.vec_env.render(mode=self.render_mode, idx=np.arange(num_envs))[..., ::-1]
+            imgs = self.vec_env.render(mode=self.render_mode, idx=np.arange(num_envs))[
+                ..., ::-1
+            ]
             for i in range(num_envs):
                 video_file = osp.join(video_dir, f"{i}.{self.video_format}")
                 video_writers.append(
-                    cv2.VideoWriter(video_file, CV_VIDEO_CODES[self.video_format], self.video_fps, (imgs[i].shape[1], imgs[i].shape[0]))
+                    cv2.VideoWriter(
+                        video_file,
+                        CV_VIDEO_CODES[self.video_format],
+                        self.video_fps,
+                        (imgs[i].shape[1], imgs[i].shape[0]),
+                    )
                 )
         else:
             self.vec_env.render(mode=self.render_mode)
         episodes = [[] for i in range(num_envs)]
         num_start = num_envs
-        episode_lens, episode_rewards, episode_finishes = np.zeros(num, dtype=np.int32), np.zeros(num, dtype=np.float32), np.zeros(num, dtype=np.bool_)
+        episode_lens, episode_rewards, episode_finishes = (
+            np.zeros(num, dtype=np.int32),
+            np.zeros(num, dtype=np.float32),
+            np.zeros(num, dtype=np.bool_),
+        )
         while num_finished < num:
             idx = np.nonzero(traj_idx >= 0)[0]
             obs = obs_all.slice(idx, wrapper=False)
@@ -208,15 +248,22 @@ class FastEvaluation:
             obs_all.assign(idx, infos["next_obs"])
 
             if self.log_every_step and self.num_envs == 1:
-                reward, done, info, episode_done = GDict([infos["rewards"], infos["dones"], infos["infos"], infos["episode_dones"]]).item(
-                    wrapper=False
-                )
+                reward, done, info, episode_done = GDict(
+                    [
+                        infos["rewards"],
+                        infos["dones"],
+                        infos["infos"],
+                        infos["episode_dones"],
+                    ]
+                ).item(wrapper=False)
                 assert isinstance(info, dict)
-                info_str = dict_to_str({key.split('/')[-1]: val for key, val in info.items()})
+                info_str = dict_to_str(
+                    {key.split("/")[-1]: val for key, val in info.items()}
+                )
                 self.logger.info(
                     f"Episode {traj_idx[0]}, Step {episode_lens[traj_idx[0]]}: Reward: {reward:.3f}, Early Stop or Finish: {done}, Info: {info_str}"
                 )
-            if self.save_video and self.render_mode!="human":
+            if self.save_video and self.render_mode != "human":
                 imgs = self.vec_env.render(mode=self.render_mode, idx=idx)[..., ::-1]
                 for j, i in enumerate(idx):
                     video_writers[i].write(imgs[j])
@@ -230,7 +277,7 @@ class FastEvaluation:
                 episode_rewards[traj_idx[i]] += to_item(infos["rewards"][j])
                 if to_item(episode_dones[j]):
                     num_finished += 1
-                    if self.save_video and self.render_mode!="human":
+                    if self.save_video and self.render_mode != "human":
                         video_writers[i].release()
 
                     episodes_i = GDict.stack(episodes[i], 0)
@@ -271,14 +318,21 @@ class FastEvaluation:
                 if self.save_traj:
                     imgs = self.vec_env.render(mode="cameras", idx=reset_idx)[..., ::-1]
                     for j, i in enumerate(reset_idx):
-                        video_file = osp.join(video_dir, f"{traj_idx[i]}.{self.video_format}")
+                        video_file = osp.join(
+                            video_dir, f"{traj_idx[i]}.{self.video_format}"
+                        )
                         video_writers[i] = cv2.VideoWriter(
-                            video_file, CV_VIDEO_CODES[self.video_format], self.video_fps, (imgs[j].shape[1], imgs[j].shape[0])
+                            video_file,
+                            CV_VIDEO_CODES[self.video_format],
+                            self.video_fps,
+                            (imgs[j].shape[1], imgs[j].shape[0]),
                         )
 
         h5_file.close()
         return dict(
-            lengths=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+            lengths=self.episode_lens,
+            rewards=self.episode_rewards,
+            finishes=self.episode_finishes,
         )
         # return episode_lens, episode_rewards, episode_finishes
 
@@ -298,14 +352,13 @@ class Evaluation:
         save_video=True,
         use_hidden_state=False,
         sample_mode="eval",
-        render_mode="cameras", # "rgb_array",
+        render_mode="cameras",  # "rgb_array",
         # render_mode="human", # cameras", # "rgb_array",
         eval_levels=None,
         seed=None,
         eval_action_len=1,
         **kwargs,
     ):
-        
         self.vec_env = build_vec_env(env_cfg, seed=seed)
         self.vec_env.reset()
         self.n = 1
@@ -320,17 +373,29 @@ class Evaluation:
 
         self.video_format = kwargs.get("video_format", "mp4")
         self.video_fps = kwargs.get("fps", 20)
-        
+
         self.log_every_episode = kwargs.get("log_every_episode", True)
         self.log_every_step = kwargs.get("log_every_step", False)
 
         self.logger = logger
         if logger is None:
             logger_name = get_logger_name()
-            log_level = logging.INFO if (kwargs.get("log_all", False) or self.worker_id is None or self.worker_id == 0) else logging.ERROR
-            worker_suffix = "-env" if self.worker_id is None else f"-env-{self.worker_id}"
-    
-            self.logger = get_logger("Evaluation-" + logger_name + worker_suffix, log_level=log_level)
+            log_level = (
+                logging.INFO
+                if (
+                    kwargs.get("log_all", False)
+                    or self.worker_id is None
+                    or self.worker_id == 0
+                )
+                else logging.ERROR
+            )
+            worker_suffix = (
+                "-env" if self.worker_id is None else f"-env-{self.worker_id}"
+            )
+
+            self.logger = get_logger(
+                "Evaluation-" + logger_name + worker_suffix, log_level=log_level
+            )
             self.logger.info(f"The Evaluation environment has seed in {seed}!")
 
         self.use_hidden_state = use_hidden_state
@@ -359,14 +424,20 @@ class Evaluation:
                 if is_csv:
                     eval_levels = eval_levels[0]
             self.eval_levels = eval_levels
-            self.logger.info(f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}")
+            self.logger.info(
+                f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}"
+            )
         else:
             self.eval_levels = None
 
-        assert not (self.use_hidden_state and worker_id is not None), "Use hidden state is only for CEM evaluation!!"
+        assert not (
+            self.use_hidden_state and worker_id is not None
+        ), "Use hidden state is only for CEM evaluation!!"
         assert self.horizon is not None and self.horizon, f"{self.horizon}"
-        assert self.worker_id is None or not use_hidden_state, "Parallel evaluation does not support hidden states!"
-        if save_video and self.render_mode!="human":
+        assert (
+            self.worker_id is None or not use_hidden_state
+        ), "Parallel evaluation does not support hidden states!"
+        if save_video and self.render_mode != "human":
             # Use rendering with use additional 1Gi memory in sapien
             image = self.vec_env.render(self.render_mode)[0, ..., ::-1]
             self.logger.info(f"Size of image in the rendered video {image.shape}")
@@ -376,14 +447,18 @@ class Evaluation:
         self.eval_action_queue = None
         self.eval_action_len = eval_action_len
         if self.eval_action_len > 1:
-            self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
+            self.eval_action_queue = deque(maxlen=self.eval_action_len - 1)
 
     def start(self, work_dir=None):
         if work_dir is not None:
-            self.work_dir = work_dir if self.worker_id is None else os.path.join(work_dir, f"thread_{self.worker_id}")
+            self.work_dir = (
+                work_dir
+                if self.worker_id is None
+                else os.path.join(work_dir, f"thread_{self.worker_id}")
+            )
             # shutil.rmtree(self.work_dir, ignore_errors=True)
             os.makedirs(self.work_dir, exist_ok=True)
-            if self.save_video and self.render_mode!="human":
+            if self.save_video and self.render_mode != "human":
                 self.video_dir = osp.join(self.work_dir, "videos")
                 os.makedirs(self.video_dir, exist_ok=True)
             if self.save_traj:
@@ -411,7 +486,9 @@ class Evaluation:
         self.episode_finishes.append(self.episode_finish)
 
         if self.save_traj and self.data_episode is not None:
-            if (not self.only_save_success_traj) or (self.only_save_success_traj and self.episode_finish):
+            if (not self.only_save_success_traj) or (
+                self.only_save_success_traj and self.episode_finish
+            ):
                 group = self.h5_file.create_group(f"traj_{self.episode_id}")
                 self.data_episode.to_hdf5(group, with_traj_index=False)
 
@@ -441,15 +518,19 @@ class Evaluation:
             elif hasattr(self.vec_env.unwrapped, "_main_seed"):
                 level = self.vec_env.unwrapped._main_seed
         if level is not None and self.log_every_episode:
-            extra_output = "" if self.level_index is None else f"with level id {self.level_index}"
-            self.logger.info(f"Episode {self.episode_id} begins, run on level {level} {extra_output}!")
+            extra_output = (
+                "" if self.level_index is None else f"with level id {self.level_index}"
+            )
+            self.logger.info(
+                f"Episode {self.episode_id} begins, run on level {level} {extra_output}!"
+            )
 
         self.init_eval()
-    
+
     def init_eval(self):
         if self.eval_action_queue is not None:
             if self.eval_action_len > 1:
-                self.eval_action_queue = deque(maxlen=self.eval_action_len-1)
+                self.eval_action_queue = deque(maxlen=self.eval_action_len - 1)
 
     def step(self, action):
         data_to_store = {"obs": self.recent_obs}
@@ -458,35 +539,53 @@ class Evaluation:
             env_state = self.vec_env.get_env_state()
             data_to_store.update(env_state)
 
-        if self.save_video and self.render_mode!="human":
+        if self.save_video and self.render_mode != "human":
             image = self.vec_env.render(mode=self.render_mode)[0, ..., ::-1]
             image = image.astype(np.uint8).copy()
-            image = cv2.putText(image, "Current action: " + str(action[0]), (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1, cv2.LINE_AA)
+            image = cv2.putText(
+                image,
+                "Current action: " + str(action[0]),
+                (20, 240),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.4,
+                (255, 255, 0),
+                1,
+                cv2.LINE_AA,
+            )
 
             if self.video_writer is None:
-                self.video_file = osp.join(self.video_dir, f"{self.episode_id}.{self.video_format}")
-                
+                self.video_file = osp.join(
+                    self.video_dir, f"{self.episode_id}.{self.video_format}"
+                )
+
                 self.video_writer = cv2.VideoWriter(
-                    self.video_file, CV_VIDEO_CODES[self.video_format], self.video_fps, (image.shape[1], image.shape[0])
+                    self.video_file,
+                    CV_VIDEO_CODES[self.video_format],
+                    self.video_fps,
+                    (image.shape[1], image.shape[0]),
                 )
             self.video_writer.write(image)
         else:
             self.vec_env.render(mode=self.render_mode)
         infos = self.vec_env.step_dict(action, restart=False)
 
-        reward, done, info, episode_done = GDict([infos["rewards"], infos["dones"], infos["infos"], infos["episode_dones"]]).item(wrapper=False)
+        reward, done, info, episode_done = GDict(
+            [infos["rewards"], infos["dones"], infos["infos"], infos["episode_dones"]]
+        ).item(wrapper=False)
         self.episode_len += 1
         self.episode_reward += float(reward)
         if self.log_every_step:
             assert isinstance(info, dict)
-            info_str = dict_to_str({key.split('/')[-1]: val for key, val in info.items()})
+            info_str = dict_to_str(
+                {key.split("/")[-1]: val for key, val in info.items()}
+            )
             self.logger.info(
                 f"Episode {self.episode_id}, Step {self.episode_len}: Reward: {reward:.3f}, Early Stop or Finish: {done}, Info: {info_str}"
             )
             if self.worker_id is not None:
                 print(
                     f"Woker ID {self.worker_id}, Episode {self.episode_id}, Step {self.episode_len}: Reward: {reward:.3f}, Early Stop or Finish: {done}, Info: {info_str}",
-                    flush=True
+                    flush=True,
                 )
 
         if self.save_traj:
@@ -501,10 +600,19 @@ class Evaluation:
             self.data_episode.push_batch(data_to_store)
 
         if episode_done:
-            if self.save_video and self.render_mode!="human":
+            if self.save_video and self.render_mode != "human":
                 image = self.vec_env.render(mode=self.render_mode)[0, ..., ::-1]
                 image = image.astype(np.uint8).copy()
-                image = cv2.putText(image, "Current action: " + str(action[0]), (20, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1, cv2.LINE_AA)
+                image = cv2.putText(
+                    image,
+                    "Current action: " + str(action[0]),
+                    (20, 240),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.4,
+                    (255, 255, 0),
+                    1,
+                    cv2.LINE_AA,
+                )
                 self.video_writer.write(image)
             else:
                 self.vec_env.render(mode=self.render_mode)
@@ -515,7 +623,7 @@ class Evaluation:
                 if self.worker_id is not None:
                     print(
                         f"Woker ID {self.worker_id}, Episode {self.episode_id} ends: Length {self.episode_len}, Reward: {self.episode_reward}, Early Stop or Finish: {done}",
-                        flush=True
+                        flush=True,
                     )
             self.episode_finish = done
             self.done()
@@ -531,7 +639,10 @@ class Evaluation:
     def run(self, pi, num=1, work_dir=None, **kwargs):
         if self.eval_levels is not None:
             if num > len(self.eval_levels):
-                print(f"We do not need to select more than {len(self.eval_levels)} levels!", flush=True)
+                print(
+                    f"We do not need to select more than {len(self.eval_levels)} levels!",
+                    flush=True,
+                )
                 num = min(num, len(self.eval_levels))
         self.start(work_dir)
         import torch
@@ -542,7 +653,9 @@ class Evaluation:
 
         def reset_pi():
             if hasattr(pi, "reset"):
-                assert self.worker_id is None, "Reset policy only works for single thread!"
+                assert (
+                    self.worker_id is None
+                ), "Reset policy only works for single thread!"
                 reset_kwargs = {}
                 if hasattr(self.vec_env, "level"):
                     # When we run CEM, we need the level of the rollout env to match the level of test env.
@@ -562,12 +675,18 @@ class Evaluation:
                     with pi.no_sync(mode="actor"):
                         action = pi(recent_obs, mode=self.sample_mode, memory=replay)
                         action = to_np(action)
-                        if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0) and self.eval_action_len>1:
+                        if (
+                            (self.eval_action_queue is not None)
+                            and (len(self.eval_action_queue) == 0)
+                            and self.eval_action_len > 1
+                        ):
                             # for i in range(self.eval_action_len-1):
-                            for i in range(min(self.eval_action_len-1, action.shape[1]-1)): # Allow eval action len to be different with predicted action len
-                                self.eval_action_queue.append(action[:,i+1,:])
-                            action = action[:,0]
-                        
+                            for i in range(
+                                min(self.eval_action_len - 1, action.shape[1] - 1)
+                            ):  # Allow eval action len to be different with predicted action len
+                                self.eval_action_queue.append(action[:, i + 1, :])
+                            action = action[:, 0]
+
             recent_obs, episode_done = self.step(action)
 
             if episode_done:
@@ -576,7 +695,9 @@ class Evaluation:
         self.finish()
 
         return dict(
-            lengths=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+            lengths=self.episode_lens,
+            rewards=self.episode_rewards,
+            finishes=self.episode_finishes,
         )
         # return self.episode_lens, self.episode_rewards, self.episode_finishes
 
@@ -610,7 +731,7 @@ class BatchEvaluation:
         self.num_procs = num_procs
         self.enable_merge = enable_merge
         self.sample_mode = sample_mode
-        self.render_mode=render_mode
+        self.render_mode = render_mode
 
         self.video_dir = None
         self.trajectory_path = None
@@ -632,14 +753,18 @@ class BatchEvaluation:
                     eval_levels = eval_levels[0]
             self.eval_levels = eval_levels
             self.n, num_levels = split_num(len(eval_levels), self.n)
-            self.logger.info(f"Split {len(eval_levels)} levels into {self.n} processes, and {num_levels}!")
+            self.logger.info(
+                f"Split {len(eval_levels)} levels into {self.n} processes, and {num_levels}!"
+            )
             ret = []
             for i in range(self.n):
                 ret.append(eval_levels[: num_levels[i]])
                 eval_levels = eval_levels[num_levels[i] :]
             eval_levels = ret
-        seed = seed if seed is not None else np.random.randint(int(1E9))
-        self.logger.info(f"Evaluation environments have seed in [{seed}, {seed + self.n})!")
+        seed = seed if seed is not None else np.random.randint(int(1e9))
+        self.logger.info(
+            f"Evaluation environments have seed in [{seed}, {seed + self.n})!"
+        )
         for i in range(self.n):
             self.workers.append(
                 Worker(
@@ -656,18 +781,18 @@ class BatchEvaluation:
                     eval_levels=eval_levels[i],
                     **kwargs,
                 )
-            )        
-        
+            )
+
         self.eval_action_queue = None
         self.eval_action_len = eval_action_len
         if self.eval_action_len > 1:
             self.eval_action_queue = {}
             for i in range(self.n):
-                self.eval_action_queue[i] = deque(maxlen=self.eval_action_len-1)
+                self.eval_action_queue[i] = deque(maxlen=self.eval_action_len - 1)
 
     def init_eval(self, i):
         if self.eval_action_queue is not None:
-            self.eval_action_queue[i] = deque(maxlen=self.eval_action_len-1)
+            self.eval_action_queue[i] = deque(maxlen=self.eval_action_len - 1)
 
     def start(self, work_dir=None):
         self.work_dir = work_dir
@@ -682,7 +807,9 @@ class BatchEvaluation:
 
         for i in range(self.n):
             self.workers[i].get_attr("recent_obs")
-        self.recent_obs = DictArray.concat([self.workers[i].wait() for i in range(self.n)], axis=0)
+        self.recent_obs = DictArray.concat(
+            [self.workers[i].wait() for i in range(self.n)], axis=0
+        )
 
     @property
     def episode_lens(self):
@@ -710,16 +837,26 @@ class BatchEvaluation:
 
     def merge_results(self, num_threads):
         if self.save_traj:
-            h5_files = [osp.join(self.work_dir, f"thread_{i}", "trajectory.h5") for i in range(num_threads)]
+            h5_files = [
+                osp.join(self.work_dir, f"thread_{i}", "trajectory.h5")
+                for i in range(num_threads)
+            ]
             merge_h5_trajectory(h5_files, self.trajectory_path)
-            self.logger.info(f"Merge {len(h5_files)} trajectories to {self.trajectory_path}")
-        if self.save_video and self.render_mode!="human":
+            self.logger.info(
+                f"Merge {len(h5_files)} trajectories to {self.trajectory_path}"
+            )
+        if self.save_video and self.render_mode != "human":
             index = 0
             os.makedirs(self.video_dir)
             for i in range(num_threads):
-                num_traj = len(glob.glob(osp.join(self.work_dir, f"thread_{i}", "videos", "*.mp4")))
+                num_traj = len(
+                    glob.glob(osp.join(self.work_dir, f"thread_{i}", "videos", "*.mp4"))
+                )
                 for j in range(num_traj):
-                    shutil.copyfile(osp.join(self.work_dir, f"thread_{i}", "videos", f"{j}.mp4"), osp.join(self.video_dir, f"{index}.mp4"))
+                    shutil.copyfile(
+                        osp.join(self.work_dir, f"thread_{i}", "videos", f"{j}.mp4"),
+                        osp.join(self.video_dir, f"{index}.mp4"),
+                    )
                     index += 1
             self.logger.info(f"Merge {index} videos to {self.video_dir}")
         for dir_name in glob.glob(osp.join(self.work_dir, "*")):
@@ -729,7 +866,9 @@ class BatchEvaluation:
     def run(self, pi, num=1, work_dir=None, **kwargs):
         if self.eval_levels is not None:
             if num > len(self.eval_levels):
-                self.logger.info(f"We use number of levels: {len(self.eval_levels)} instead of {num}!")
+                self.logger.info(
+                    f"We use number of levels: {len(self.eval_levels)} instead of {num}!"
+                )
                 num = len(self.eval_levels)
 
         n, running_steps = split_num(num, self.n)
@@ -738,7 +877,7 @@ class BatchEvaluation:
         if hasattr(pi, "reset"):
             pi.reset()
         import torch
-        
+
         while True:
             sys.stdout.flush()
             finish = True
@@ -756,29 +895,39 @@ class BatchEvaluation:
                         if len(self.eval_action_queue[i]):
                             actions[i] = self.eval_action_queue[i].popleft()
                             if num_finished[i] < running_steps[i]:
-                                self.workers[i].call("step", to_np(actions[i:i+1]))
-                none_idx = [i for i,x in enumerate(actions) if x is None]
+                                self.workers[i].call("step", to_np(actions[i : i + 1]))
+                none_idx = [i for i, x in enumerate(actions) if x is None]
                 if len(none_idx):
                     with pi.no_sync(mode="actor"):
-                        res = to_np(pi(dict(self.recent_obs.get(none_idx)), mode=self.sample_mode)[:,:self.eval_action_len,:])
-                        tmp[none_idx] = to_np(pi(dict(self.recent_obs.get(none_idx)), mode=self.sample_mode)[:,:self.eval_action_len,:])
-                if (self.eval_action_queue is not None):
+                        tmp[none_idx] = to_np(
+                            pi(
+                                dict(self.recent_obs.get(none_idx)),
+                                mode=self.sample_mode,
+                            )[:, : self.eval_action_len, :]
+                        )
+                if self.eval_action_queue is not None:
                     for j in range(self.n):
                         if (actions[j] is None) and self.eval_action_len > 1:
-                            assert len(self.eval_action_queue[j]) == 0, "Why queue not empty?"
+                            assert (
+                                len(self.eval_action_queue[j]) == 0
+                            ), "Why queue not empty?"
                             # for i in range(self.eval_action_len-1):
-                            for i in range(min(self.eval_action_len-1, tmp[j].shape[0]-1)): # Allow eval action len to be different with predicted action len
-                                self.eval_action_queue[j].append(tmp[j,i+1,:])
-                            actions[j] = tmp[j,0,:]
+                            for i in range(
+                                min(self.eval_action_len - 1, tmp[j].shape[0] - 1)
+                            ):  # Allow eval action len to be different with predicted action len
+                                self.eval_action_queue[j].append(tmp[j, i + 1, :])
+                            actions[j] = tmp[j, 0, :]
                             if num_finished[j] < running_steps[j]:
-                                self.workers[j].call("step", to_np(actions[j:j+1]))
+                                self.workers[j].call("step", to_np(actions[j : j + 1]))
             # actions = to_np(actions)
             # for i in range(n):
             #     if num_finished[i] < running_steps[i]:
             #         self.workers[i].call("step", actions[i:i+1])
             for i in range(n):
                 if num_finished[i] < running_steps[i]:
-                    obs_i, episode_done = GDict(self.workers[i].wait()).slice(0, wrapper=False)
+                    obs_i, episode_done = GDict(self.workers[i].wait()).slice(
+                        0, wrapper=False
+                    )
                     self.recent_obs.assign((i,), obs_i)
                     num_finished[i] += int(episode_done)
                     if episode_done:
@@ -791,7 +940,9 @@ class BatchEvaluation:
             self.merge_results(n)
 
         return dict(
-            lengths=self.episode_lens, rewards=self.episode_rewards, finishes=self.episode_finishes
+            lengths=self.episode_lens,
+            rewards=self.episode_rewards,
+            finishes=self.episode_finishes,
         )
         # return self.episode_lens, self.episode_rewards, self.episode_finishes
 
@@ -812,18 +963,27 @@ class OfflineDiffusionEvaluation:
         seed=None,
         **kwargs,
     ):
-        
         self.n = 1
         self.worker_id = worker_id
-        
+
         self.log_every_episode = kwargs.get("log_every_episode", True)
         self.log_every_step = kwargs.get("log_every_step", False)
 
         logger_name = get_logger_name()
-        log_level = logging.INFO if (kwargs.get("log_all", False) or self.worker_id is None or self.worker_id == 0) else logging.ERROR
+        log_level = (
+            logging.INFO
+            if (
+                kwargs.get("log_all", False)
+                or self.worker_id is None
+                or self.worker_id == 0
+            )
+            else logging.ERROR
+        )
         worker_suffix = "-env" if self.worker_id is None else f"-env-{self.worker_id}"
 
-        self.logger = get_logger("Evaluation-" + logger_name + worker_suffix, log_level=log_level)
+        self.logger = get_logger(
+            "Evaluation-" + logger_name + worker_suffix, log_level=log_level
+        )
         self.logger.info(f"The Evaluation environment has seed in {seed}!")
 
         self.sample_mode = sample_mode
@@ -849,13 +1009,19 @@ class OfflineDiffusionEvaluation:
                 if is_csv:
                     eval_levels = eval_levels[0]
             self.eval_levels = eval_levels
-            self.logger.info(f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}")
+            self.logger.info(
+                f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}"
+            )
         else:
             self.eval_levels = None
 
     def start(self, work_dir=None):
         if work_dir is not None:
-            self.work_dir = work_dir if self.worker_id is None else os.path.join(work_dir, f"thread_{self.worker_id}")
+            self.work_dir = (
+                work_dir
+                if self.worker_id is None
+                else os.path.join(work_dir, f"thread_{self.worker_id}")
+            )
             # shutil.rmtree(self.work_dir, ignore_errors=True)
             os.makedirs(self.work_dir, exist_ok=True)
 
@@ -872,11 +1038,14 @@ class OfflineDiffusionEvaluation:
     def run(self, pi, memory, num=1, work_dir=None, **kwargs):
         if self.eval_levels is not None:
             if num > len(self.eval_levels):
-                print(f"We do not need to select more than {len(self.eval_levels)} levels!", flush=True)
+                print(
+                    f"We do not need to select more than {len(self.eval_levels)} levels!",
+                    flush=True,
+                )
                 num = min(num, len(self.eval_levels))
         self.start(work_dir)
         import torch
-        
+
         sampled_batch = memory.sample(num, mode="eval")
         # sampled_batch = sampled_batch.to_torch(device=pi.device, dtype="float32", non_blocking=True) # ["obs","actions"]
 
@@ -885,19 +1054,24 @@ class OfflineDiffusionEvaluation:
             observation["actions"] = sampled_batch["actions"]
         if "timesteps" in sampled_batch:
             observation["timesteps"] = sampled_batch["timesteps"]
-            
+
         with torch.no_grad():
             with pi.no_sync(mode="actor"):
                 action_sequence = pi(observation, mode=self.sample_mode)
-                assert action_sequence.shape == sampled_batch["actions"].shape, "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(action_sequence.shape, sampled_batch["actions"].shape)
+                assert (
+                    action_sequence.shape == sampled_batch["actions"].shape
+                ), "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(
+                    action_sequence.shape, sampled_batch["actions"].shape
+                )
         action_sequence = action_sequence.cpu().numpy()
-        self.action_diff = ((action_sequence - sampled_batch["actions"])**2).sum(axis=-1).sum(axis=-1)
+        self.action_diff = (
+            ((action_sequence - sampled_batch["actions"]) ** 2)
+            .sum(axis=-1)
+            .sum(axis=-1)
+        )
 
         self.finish()
-        return dict(
-            num=num, 
-            action_diff=self.action_diff
-        )
+        return dict(num=num, action_diff=self.action_diff)
 
     def close(self):
         return

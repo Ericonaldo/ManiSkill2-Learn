@@ -11,11 +11,13 @@ from .env_utils import build_vec_env
 @ROLLOUTS.register_module()
 class Rollout:
     def __init__(self, env_cfg, num_procs=20, with_info=False, seed=None, **kwargs):
-        get_logger().info(f"Rollout environments have seed from [{seed}, {seed + num_procs})")
+        get_logger().info(
+            f"Rollout environments have seed from [{seed}, {seed + num_procs})"
+        )
         self.vec_env = build_vec_env(env_cfg, num_procs, seed=seed, **kwargs)
         self.with_info = with_info
         self.num_envs = self.vec_env.num_envs
-    
+
     def __getattr__(self, name):
         return getattr(self.vec_env, name)
 
@@ -47,7 +49,11 @@ class Rollout:
             if len(done_index) > 0:
                 self.reset(idx=done_index)
 
-            obs = DictArray(self.vec_env.recent_obs).slice(idx, wrapper=False) if idx is not None else self.vec_env.recent_obs
+            obs = (
+                DictArray(self.vec_env.recent_obs).slice(idx, wrapper=False)
+                if idx is not None
+                else self.vec_env.recent_obs
+            )
             with torch.no_grad():
                 with pi.no_sync(mode="actor"):
                     actions = pi(obs)
@@ -55,7 +61,9 @@ class Rollout:
             return actions
 
         if on_policy:
-            assert replay is not None, "Directly save samples to replay buffer to save memory."
+            assert (
+                replay is not None
+            ), "Directly save samples to replay buffer to save memory."
             world_size = get_world_size()
             num_done = build_dist_var("num_done", "int")
             trajs = [[] for i in range(self.vec_env.num_envs)]
@@ -76,7 +84,9 @@ class Rollout:
                 st = time.time()
                 unfinished += self.num_envs
                 total += self.num_envs
-                item["worker_indices"] = np.arange(self.num_envs, dtype=np.int32)[:, None]
+                item["worker_indices"] = np.arange(self.num_envs, dtype=np.int32)[
+                    :, None
+                ]
                 item["is_truncated"] = np.zeros(self.num_envs, dtype=np.bool_)[:, None]
                 item = DictArray(item).copy().to_numpy()
                 for i in range(self.num_envs):
@@ -87,7 +97,9 @@ class Rollout:
                         if len(trajs[i]) + finished > num:
                             trajs[i] = trajs[i][: num - finished]
 
-                        replay.push_batch(DictArray.stack(trajs[i], axis=0, wrapper=False))
+                        replay.push_batch(
+                            DictArray.stack(trajs[i], axis=0, wrapper=False)
+                        )
                         finished += len(trajs[i])
                         trajs[i] = []
 
@@ -120,7 +132,9 @@ class Rollout:
 
             ret = replay.get_all().memory
         else:
-            assert num % self.num_envs == 0, f"{self.num_envs} % {num} != 0, some processes are idle, you are wasting memory!"
+            assert (
+                num % self.num_envs == 0
+            ), f"{self.num_envs} % {num} != 0, some processes are idle, you are wasting memory!"
             ret = []
             for i in range(num // self.num_envs):
                 action = get_actions()
@@ -139,7 +153,9 @@ class Rollout:
 
 @ROLLOUTS.register_module()
 class NetworkRollout:
-    def __init__(self, model, reward_only=False, use_cost=False, num_samples=4, **kwargs):
+    def __init__(
+        self, model, reward_only=False, use_cost=False, num_samples=4, **kwargs
+    ):
         self.reward_only = reward_only
         self.model = model
         self.num_envsum_models = self.model.num_heads
@@ -175,13 +191,17 @@ class NetworkRollout:
                 .repeat(self.num_envsum_samples, axis=0, wrapper=False)
             )
             actions = (
-                DictArray(actions).to_torch(dtype="float32", device=device, non_blocking=True).repeat(self.num_envsum_samples, axis=0, wrapper=False)
+                DictArray(actions)
+                .to_torch(dtype="float32", device=device, non_blocking=True)
+                .repeat(self.num_envsum_samples, axis=0, wrapper=False)
             )
             assert current_states.ndim == 3
             rewards = []
             # print(len_seq)
             for i in range(len_seq):
-                current_actions = actions[:, i : i + 1].repeat_interleave(self.num_envsum_models, dim=1)
+                current_actions = actions[:, i : i + 1].repeat_interleave(
+                    self.num_envsum_models, dim=1
+                )
                 # print(current_actions.shape)
                 # print(current_states.mean(0).mean(0), current_actions.mean(0).mean(0))
                 # print(current_states, current_actions)
@@ -200,7 +220,9 @@ class NetworkRollout:
             # print(rewards.sum(-1).mean(), rewards.shape)
             # exit(0)
 
-            rewards = rewards.reshape(batch_size, self.num_envsum_samples, len_seq).mean(1)
+            rewards = rewards.reshape(
+                batch_size, self.num_envsum_samples, len_seq
+            ).mean(1)
         return rewards[..., None]
 
 

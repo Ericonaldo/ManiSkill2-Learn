@@ -118,7 +118,7 @@ def from_pd_joint_pos_to_ee(
     for t in range(n):
         if pbar is not None:
             pbar.update()
-        ori_action = ori_actions[t] # Joint
+        ori_action = ori_actions[t]  # Joint
         ori_action_dict = ori_controller.to_action_dict(ori_action)
         output_action_dict = ori_action_dict.copy()  # do not in-place modify
 
@@ -130,7 +130,9 @@ def from_pd_joint_pos_to_ee(
         # Use target joint positions for arm only
         full_qpos[ori_arm_controller.joint_indices] = ori_arm_controller._target_qpos
         pin_model.compute_forward_kinematics(full_qpos)
-        target_ee_pose = pin_model.get_link_pose(arm_controller.ee_link_idx) # target ee pose at base
+        target_ee_pose = pin_model.get_link_pose(
+            arm_controller.ee_link_idx
+        )  # target ee pose at base
 
         flag = True
 
@@ -140,11 +142,15 @@ def from_pd_joint_pos_to_ee(
                     prev_ee_pose_at_base = arm_controller._target_pose
                 else:
                     base_pose = arm_controller.articulation.pose
-                    prev_ee_pose_at_base = base_pose.inv() * ee_link.pose # ee_link.pose is the tcp_pose
-                ee_pose_at_ee = prev_ee_pose_at_base.inv() * target_ee_pose # Pose (pos, quat)
+                    prev_ee_pose_at_base = (
+                        base_pose.inv() * ee_link.pose
+                    )  # ee_link.pose is the tcp_pose
+                ee_pose_at_ee = (
+                    prev_ee_pose_at_base.inv() * target_ee_pose
+                )  # Pose (pos, quat)
                 arm_action = delta_pose_to_pd_ee_delta(
                     arm_controller, ee_pose_at_ee, pos_only=pos_only
-                ) # Pose (pos, axis-angle)
+                )  # Pose (pos, axis-angle)
 
                 if (np.abs(arm_action[:3])).max() > 1:  # position clipping
                     if verbose:
@@ -160,7 +166,7 @@ def from_pd_joint_pos_to_ee(
             else:
                 arm_action = delta_pose_to_pd_ee_delta(
                     arm_controller, target_ee_pose, pos_only=pos_only
-                ) # Pose (pos, axis-angle)
+                )  # Pose (pos, axis-angle)
             output_action_dict["arm"] = arm_action
             output_action = controller.from_action_dict(output_action_dict)
 

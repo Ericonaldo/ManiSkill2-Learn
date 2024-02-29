@@ -11,7 +11,7 @@ def combine_obs_with_action(obs, action=None):
         return obs
     elif isinstance(obs, dict):
         obs = obs.copy()
-        if 'state' not in obs:
+        if "state" not in obs:
             # For DM Control
             obs["state"] = action
         else:
@@ -23,14 +23,33 @@ def combine_obs_with_action(obs, action=None):
 
 
 def get_kwargs_from_shape(obs_shape, action_shape):
-    PCD_KEYS = ["pointcloud", "full_pcd", "no_robot", "handle_only", "fused_pcd", "fused_ball_pcd", "pointcloud_3d_ann", "particles"]
-    IMAGE_KEYS = ["rgb", "rgbd", "depth", "base_camera_rgbd", "hand_camera_rgbd", "base_camera_rgbd", "hand_camera_rgbd"] # Add your own keys if you have different obs space
+    PCD_KEYS = [
+        "pointcloud",
+        "full_pcd",
+        "no_robot",
+        "handle_only",
+        "fused_pcd",
+        "fused_ball_pcd",
+        "pointcloud_3d_ann",
+        "particles",
+    ]
+    IMAGE_KEYS = [
+        "rgb",
+        "rgbd",
+        "depth",
+        "base_camera_rgbd",
+        "hand_camera_rgbd",
+        "base_camera_rgbd",
+        "hand_camera_rgbd",
+    ]  # Add your own keys if you have different obs space
     replaceable_kwargs = {}
     if action_shape is not None:
         replaceable_kwargs["action_shape"] = deepcopy(action_shape)
 
     for key in obs_shape.keys():
-        if isinstance(obs_shape[key], list) and (not isinstance(obs_shape[key][0], int)):
+        if isinstance(obs_shape[key], list) and (
+            not isinstance(obs_shape[key][0], int)
+        ):
             obs_shape[key] = obs_shape[key][0]
 
     if isinstance(obs_shape, dict):
@@ -40,7 +59,7 @@ def get_kwargs_from_shape(obs_shape, action_shape):
         elif "agent" in obs_shape:
             replaceable_kwargs["agent_shape"] = obs_shape["state"]
             # replaceable_kwargs["agent_shape"] = obs_shape["agent"] - 9 # We remove the dimension of velocity
-        
+
         if "hand_pose" in obs_shape:
             replaceable_kwargs["nhand"] = obs_shape["hand_pose"][1]
 
@@ -48,7 +67,11 @@ def get_kwargs_from_shape(obs_shape, action_shape):
             visual_key = "pointcloud"
             visual_shape = obs_shape
         else:
-            visual_key = [name for name in obs_shape.keys() if name in PCD_KEYS or name in IMAGE_KEYS][0]
+            visual_key = [
+                name
+                for name in obs_shape.keys()
+                if name in PCD_KEYS or name in IMAGE_KEYS
+            ][0]
             visual_shape = obs_shape
 
         if visual_key in PCD_KEYS:
@@ -73,22 +96,34 @@ def get_kwargs_from_shape(obs_shape, action_shape):
             # For new maniskill callback envs
             if len(visual_shape[visual_key]) == 3:  # NOTE: Be careful!
                 num_images = 1
-            else: 
+            else:
                 # assert len(visual_shape[visual_key]) == 4, f"You need to provide either 3-dim or 5-dim inputs! The input shape is {visual_shape[visual_key]}!"
                 num_images = visual_shape[visual_key][0]  # [K, C, N, M]
-            replaceable_kwargs["image_size"], replaceable_kwargs["num_images"] = visual_shape[visual_key][-2:], num_images
+            replaceable_kwargs["image_size"], replaceable_kwargs["num_images"] = (
+                visual_shape[visual_key][-2:],
+                num_images,
+            )
             # if isinstance(replaceable_kwargs["image_size"], list) and (not isinstance(replaceable_kwargs["image_size"][0], int)):
             #     replaceable_kwargs["image_size"] = replaceable_kwargs["image_size"][0]
             replaceable_kwargs["num_pixels"] = np.prod(replaceable_kwargs["image_size"])
             replaceable_kwargs["image_channels"] = (
-                sum([visual_shape[name][-3] for name in IMAGE_KEYS if name in visual_shape]) * num_images # NOTE: Be careful!
+                sum(
+                    [
+                        visual_shape[name][-3]
+                        for name in IMAGE_KEYS
+                        if name in visual_shape
+                    ]
+                )
+                * num_images  # NOTE: Be careful!
             )
             if "depth" in visual_shape and "seg" in visual_shape:
                 replaceable_kwargs["seg_per_image"] = visual_shape["seg"][-3]
     else:
         replaceable_kwargs["obs_shape"] = deepcopy(obs_shape)
-    
-    replaceable_kwargs["agent_shape+action_shape"] = replaceable_kwargs["agent_shape"] + replaceable_kwargs["action_shape"]
+
+    replaceable_kwargs["agent_shape+action_shape"] = (
+        replaceable_kwargs["agent_shape"] + replaceable_kwargs["action_shape"]
+    )
 
     print("Got replaceable kwargs, ", replaceable_kwargs)
 

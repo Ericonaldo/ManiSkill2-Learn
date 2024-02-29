@@ -10,7 +10,9 @@ from ..data.string_utils import any_string, regex_match
 
 
 def get_frozen_params(module):
-    return [name for name, params in module.named_parameters() if not params.requires_grad]
+    return [
+        name for name, params in module.named_parameters() if not params.requires_grad
+    ]
 
 
 def get_frozen_modules(module):

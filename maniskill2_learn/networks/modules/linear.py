@@ -28,15 +28,27 @@ class EnsembledLinear(nn.Module):
     num_modules: int
     weight: Tensor
 
-    def __init__(self, in_features: int, out_features: int, num_modules: int = 1, bias: bool = True, device=None, dtype=None) -> None:
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        num_modules: int = 1,
+        bias: bool = True,
+        device=None,
+        dtype=None,
+    ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
         super(EnsembledLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.num_modules = num_modules
-        self.weight = Parameter(torch.zeros((num_modules, out_features, in_features), **factory_kwargs))
+        self.weight = Parameter(
+            torch.zeros((num_modules, out_features, in_features), **factory_kwargs)
+        )
         if bias:
-            self.bias = Parameter(torch.zeros(num_modules, out_features, **factory_kwargs))
+            self.bias = Parameter(
+                torch.zeros(num_modules, out_features, **factory_kwargs)
+            )
         else:
             self.register_parameter("bias", None)
         self.reset_parameters()
