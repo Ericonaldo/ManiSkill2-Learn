@@ -1056,13 +1056,15 @@ class OfflineDiffusionEvaluation:
             observation["timesteps"] = sampled_batch["timesteps"]
 
         with torch.no_grad():
-            with pi.no_sync(mode="actor"):
-                action_sequence = pi(observation, mode=self.sample_mode)
-                assert (
-                    action_sequence.shape == sampled_batch["actions"].shape
-                ), "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(
-                    action_sequence.shape, sampled_batch["actions"].shape
-                )
+            with pi.no_sync(mode="model"):
+                with pi.no_sync(mode="obs_encoder", ignore=True):
+                    action_sequence = pi(observation, mode=self.sample_mode)
+                    assert (
+                        action_sequence.shape == sampled_batch["actions"].shape
+                    ), "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(
+                        action_sequence.shape, sampled_batch["actions"].shape
+                    )
+
         action_sequence = action_sequence.cpu().numpy()
         self.action_diff = (
             ((action_sequence - sampled_batch["actions"]) ** 2)

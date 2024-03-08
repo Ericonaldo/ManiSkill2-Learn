@@ -3,7 +3,8 @@ n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 workdir = "newkeyframe-posediff-poseonly-quat-rgbd"
 eval_action_len = (
-    34  # 6 # how many actions to be executed in the following timesteps for one input
+    # 34  # 6 # how many actions to be executed in the following timesteps for one input
+    27
 )
 pose_dim = 7
 agent_cfg = dict(

@@ -3,7 +3,8 @@
 # For all rigid-body environments which do not have demo for each individual asset
 # and which do provide goal position in observation
 # i.e. StackCube-v0, PegInsertionSide-v0, PlugCharger-v0, PandaAvoidObstacles-v0, AssemblingKits-v0
-ENV="StackCube-v0" 
+# ENV="StackCube-v0" 
+ENV="PegInsertionSide-v0" 
 
 # Assume current working directory is ManiSkill2-Learn/
 # Assume conda environment contains all dependencies of ManiSkill2 and ManiSkill2-Learn 

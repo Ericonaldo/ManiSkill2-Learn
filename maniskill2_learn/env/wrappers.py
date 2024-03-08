@@ -227,8 +227,6 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         elif self.obs_mode == "pointcloud":
             self.n_points = n_points
             self.n_goal_points = n_goal_points
-        elif self.obs_mode == "particles":
-            obs_space = env.observation_space
 
         self.ignore_dones = ignore_dones
         self.concat_rgbd = concat_rgbd
@@ -387,7 +385,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         from sapien.core import Pose
 
         if self.obs_mode == "state":
-            return observation
+            return {"state": observation}
 
         # print(GDict(observation).shape)
         # exit(0)

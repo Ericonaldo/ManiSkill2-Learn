@@ -1,12 +1,11 @@
+from contextlib import contextmanager, nullcontext
+
 from torch.nn import Module, ModuleList, Sequential
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import parameters_to_vector
-from contextlib import contextmanager
-import torch, numpy as np
-import math
+import torch
 
-from maniskill2_learn.utils.data import GDict, DictArray, to_torch
-from maniskill2_learn.utils.meta import get_logger
+from maniskill2_learn.utils.data import GDict, to_torch
 from .misc import no_grad, mini_batch, run_with_mini_batch
 
 
@@ -346,8 +345,13 @@ class BaseAgent(ExtendedModule):
     def is_data_parallel(self):
         return self._be_data_parallel
 
-    def no_sync(self, mode="actor"):
-        return getattr(self, mode).no_sync()
+    def no_sync(self, mode="actor", ignore=False):
+        try:
+            return getattr(self, mode).no_sync()
+        except AttributeError as e:
+            if not ignore:
+                raise e
+            return nullcontext()
 
 
 def async_no_grad_pi(pi):
