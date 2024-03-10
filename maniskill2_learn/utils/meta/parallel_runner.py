@@ -1,8 +1,10 @@
-from inspect import isfunction
+import random
+import time
 from ctypes import c_bool, c_int32
 from multiprocessing import Process, set_start_method, Pipe, Value, shared_memory
 from copy import deepcopy
-import numpy as np, random, time
+
+import numpy as np
 
 
 try:

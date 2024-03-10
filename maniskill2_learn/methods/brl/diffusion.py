@@ -305,11 +305,15 @@ class DiffAgent(BaseAgent):
 
         action_history = observation["actions"]
         if self.obs_encoder is None:
+            action_history = torch.cat([
+                action_history,
+                torch.zeros(action_history.shape[0], 1, action_history.shape[2], dtype=action_history.dtype, device=action_history.device)
+            ], dim=1)
             data = self.normalizer.normalize(
                 torch.cat((observation["state"], action_history), dim=-1)
             )
             observation["state"] = data[..., :observation["state"].shape[-1]]
-            action_history = data[..., -self.action_dim:]
+            action_history = data[:, :-1, -self.action_dim:]
         else:
             action_history = self.normalizer.normalize(action_history)
         bs = action_history.shape[0]
@@ -324,7 +328,7 @@ class DiffAgent(BaseAgent):
 
         if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(
+                act_mask, obs_mask, _ = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
                 self.act_mask, self.obs_mask = act_mask, obs_mask

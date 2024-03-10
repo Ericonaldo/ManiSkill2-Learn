@@ -274,13 +274,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         if get_shape:
             return observation
 
-        observation["timesteps"] = np.array(
-            [
-                self.timestep,
-            ]
-        )
+        observation["timesteps"] = np.array([self.timestep])
 
-        if self.history_len > 1 and self.obs_mode != "state":
+        if self.history_len > 1:
             for obs_key in observation.keys():
                 if isinstance(observation[obs_key], (list, tuple)):
                     observation[obs_key] = observation[obs_key][0]
@@ -309,13 +305,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         if self.ignore_dones:
             done = False
 
-        next_obs["timesteps"] = np.array(
-            [
-                self.timestep,
-            ]
-        )
+        next_obs["timesteps"] = np.array([self.timestep])
 
-        if self.history_len > 1 and self.obs_mode != "state":
+        if self.history_len > 1:
             # if self.action_queue is None:
             #     self.action_queue = deque(maxlen=self.history_len-1)
             #     self.action_queue.extend([action for _ in range(self.history_len-1)])

@@ -1,4 +1,5 @@
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager, nullcontext, ExitStack
+from typing import List, Union
 
 from torch.nn import Module, ModuleList, Sequential
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -345,13 +346,19 @@ class BaseAgent(ExtendedModule):
     def is_data_parallel(self):
         return self._be_data_parallel
 
-    def no_sync(self, mode="actor", ignore=False):
-        try:
-            return getattr(self, mode).no_sync()
-        except AttributeError as e:
-            if not ignore:
-                raise e
-            return nullcontext()
+    def no_sync(self, mode: Union[List[str], str] = "actor", ignore=False):
+        if isinstance(mode, str):
+            mode = [mode]
+        stack = ExitStack()
+        for md in mode:
+            try:
+                ctx = getattr(self, md).no_sync()
+            except AttributeError as e:
+                if not ignore:
+                    raise e
+                ctx = nullcontext()
+            stack.enter_context(ctx)
+        return stack
 
 
 def async_no_grad_pi(pi):

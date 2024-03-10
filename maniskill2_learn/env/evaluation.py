@@ -465,7 +465,7 @@ class Evaluation:
                 self.trajectory_path = osp.join(self.work_dir, "trajectory.h5")
                 self.h5_file = File(self.trajectory_path, "w")
                 self.logger.info(f"Save trajectory at {self.trajectory_path}.")
-                group = self.h5_file.create_group(f"meta")
+                group = self.h5_file.create_group("meta")
                 GDict(get_meta_info()).to_hdf5(group)
 
         self.episode_lens, self.episode_rewards, self.episode_finishes = [], [], []
@@ -672,7 +672,7 @@ class Evaluation:
                 if self.use_hidden_state:
                     recent_obs = self.vec_env.get_state()
                 with torch.no_grad():
-                    with pi.no_sync(mode="actor"):
+                    with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
                         action = pi(recent_obs, mode=self.sample_mode, memory=replay)
                         action = to_np(action)
                         if (
@@ -889,6 +889,7 @@ class BatchEvaluation:
                 action_dim = self.recent_obs["actions"].shape[-1]
                 tmp = np.array([[[None] * action_dim] * self.eval_action_len] * self.n)
                 actions = np.array([None] * self.n)
+
             with torch.no_grad():
                 if self.eval_action_queue is not None:
                     for i in range(n):
@@ -896,15 +897,17 @@ class BatchEvaluation:
                             actions[i] = self.eval_action_queue[i].popleft()
                             if num_finished[i] < running_steps[i]:
                                 self.workers[i].call("step", to_np(actions[i : i + 1]))
+
                 none_idx = [i for i, x in enumerate(actions) if x is None]
                 if len(none_idx):
-                    with pi.no_sync(mode="actor"):
+                    with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
                         tmp[none_idx] = to_np(
                             pi(
                                 dict(self.recent_obs.get(none_idx)),
                                 mode=self.sample_mode,
                             )[:, : self.eval_action_len, :]
                         )
+
                 if self.eval_action_queue is not None:
                     for j in range(self.n):
                         if (actions[j] is None) and self.eval_action_len > 1:
@@ -919,6 +922,7 @@ class BatchEvaluation:
                             actions[j] = tmp[j, 0, :]
                             if num_finished[j] < running_steps[j]:
                                 self.workers[j].call("step", to_np(actions[j : j + 1]))
+
             # actions = to_np(actions)
             # for i in range(n):
             #     if num_finished[i] < running_steps[i]:
@@ -935,6 +939,7 @@ class BatchEvaluation:
                     # Commenting this out for now; this causes pynvml.nvml.NVMLError_FunctionNotFound for some reason
                     # if i == 0 and bool(episode_done):
                     #     log_mem_info(self.logger)
+
         self.finish()
         if self.enable_merge:
             self.merge_results(n)
@@ -1056,14 +1061,13 @@ class OfflineDiffusionEvaluation:
             observation["timesteps"] = sampled_batch["timesteps"]
 
         with torch.no_grad():
-            with pi.no_sync(mode="model"):
-                with pi.no_sync(mode="obs_encoder", ignore=True):
-                    action_sequence = pi(observation, mode=self.sample_mode)
-                    assert (
-                        action_sequence.shape == sampled_batch["actions"].shape
-                    ), "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(
-                        action_sequence.shape, sampled_batch["actions"].shape
-                    )
+            with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
+                action_sequence = pi(observation, mode=self.sample_mode)
+                assert (
+                    action_sequence.shape == sampled_batch["actions"].shape
+                ), "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(
+                    action_sequence.shape, sampled_batch["actions"].shape
+                )
 
         action_sequence = action_sequence.cpu().numpy()
         self.action_diff = (
