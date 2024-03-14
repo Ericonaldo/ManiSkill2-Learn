@@ -1,7 +1,7 @@
-horizon = 128
+horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "state"
+workdir = f"state-obstep_{n_obs_steps}-horizon_{horizon}"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=256,
@@ -62,7 +62,7 @@ train_cfg = dict(
 
 eval_cfg = dict(
     type="OfflineDiffusionEvaluation",
-    num=10,
+    num=100,
     num_procs=1,
     use_hidden_state=False,
     save_traj=False,

@@ -101,7 +101,9 @@ class DiffAgent(BaseAgent):
         self.loss_fn = Losses[loss_type](loss_weights, self.action_dim)
 
         if self.obs_encoder is not None:
-            self.actor_optim = build_optimizer([self.model, self.obs_encoder], optim_cfg)
+            self.actor_optim = build_optimizer(
+                [self.model, self.obs_encoder], optim_cfg
+            )
         else:
             self.actor_optim = build_optimizer(self.model, optim_cfg)
 
@@ -275,11 +277,9 @@ class DiffAgent(BaseAgent):
         action_noisy[cond_mask] = actions[cond_mask]
 
         pred = self.model(action_noisy, t, local_cond, global_cond, returns)
-
-        pred[cond_mask] = actions[cond_mask]
         assert noise.shape == pred.shape
 
-        loss = F.mse_loss(pred, noise, reduction="none")
+        loss = F.mse_loss(pred[~cond_mask], noise[~cond_mask], reduction="none")
         return loss, {}
 
     def loss(
@@ -296,8 +296,15 @@ class DiffAgent(BaseAgent):
         info.update({"action_diff_loss": diffuse_loss.item()})
         return diffuse_loss, info
 
-    def forward(self, observation: np.ndarray, returns_rate: float = 0.9, mode: str = "eval", *args, **kwargs):
-        # if mode=="eval": # Only used for ms-skill challenge online evaluation
+    def forward(
+        self,
+        observation: np.ndarray,
+        returns_rate: float = 0.9,
+        mode: str = "eval",
+        *args,
+        **kwargs,
+    ):
+        # if mode == "eval":  # Only used for ms-skill challenge online evaluation
         #     if self.eval_action_queue is not None and len(self.eval_action_queue):
         #         return self.eval_action_queue.popleft()
 
@@ -305,15 +312,15 @@ class DiffAgent(BaseAgent):
 
         action_history = observation["actions"]
         if self.obs_encoder is None:
-            action_history = torch.cat([
-                action_history,
-                torch.zeros(action_history.shape[0], 1, action_history.shape[2], dtype=action_history.dtype, device=action_history.device)
-            ], dim=1)
+            action_history = torch.cat(
+                [action_history, torch.zeros_like(action_history[:, :1])],
+                dim=1,
+            )
             data = self.normalizer.normalize(
                 torch.cat((observation["state"], action_history), dim=-1)
             )
-            observation["state"] = data[..., :observation["state"].shape[-1]]
-            action_history = data[:, :-1, -self.action_dim:]
+            observation["state"] = data[..., : observation["state"].shape[-1]]
+            action_history = data[:, :-1, -self.action_dim :]
         else:
             action_history = self.normalizer.normalize(action_history)
         bs = action_history.shape[0]
@@ -380,12 +387,10 @@ class DiffAgent(BaseAgent):
             )
             data = torch.cat([supp, pred_action_seq], dim=-1)
         data = self.normalizer.unnormalize(data)
-        pred_action = data[..., -self.action_dim:]
+        pred_action = data[..., -self.action_dim :]
 
         if mode == "eval":
-            pred_action = pred_action_seq[
-                :, -(self.action_seq_len - hist_len) :, -self.action_dim :
-            ]
+            pred_action = pred_action[:, -(self.action_seq_len - hist_len):]
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),-self.action_dim:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
@@ -398,7 +403,9 @@ class DiffAgent(BaseAgent):
         if not self.init_normalizer:
             # Fit normalizer
             if self.obs_encoder is None:
-                data = np.concatenate((memory.get_all("obs", "state"), memory.get_all("actions")), axis=-1)
+                data = np.concatenate(
+                    (memory.get_all("obs", "state"), memory.get_all("actions")), axis=-1
+                )
             else:
                 data = memory.get_all("actions")
             self.normalizer.fit(data, last_n_dims=1, mode="limits", range_eps=1e-7)
@@ -426,11 +433,12 @@ class DiffAgent(BaseAgent):
         # 'episode_dones': (bs, horizon, 1), 'worker_indices': (bs, 1), 'is_truncated': (bs, 1), 'is_valid': (bs, 1)}
 
         # generate impainting mask
-        traj_data = sampled_batch[
-            "actions"
-        ]  # Need Normalize! (Already did in replay buffer)
+        traj_data = sampled_batch["normed_actions"]
         masked_obs = sampled_batch["obs"]
-        # traj_data = self.normalizer.normalize(traj_data)
+        if self.obs_encoder is None:
+            if self.obs_mask is not None:
+                sampled_batch["normed_states"] = sampled_batch["normed_states"][:, self.obs_mask]
+            masked_obs["state"] = sampled_batch["normed_states"]
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:
             act_mask, obs_mask = self.act_mask, self.obs_mask

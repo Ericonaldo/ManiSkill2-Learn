@@ -266,6 +266,7 @@ def find_checkpoint():
         else:
             cfg.resume_from = latest_name
             cfg.train_cfg["resume_steps"] = latest_index
+
     if is_not_null(cfg.resume_from):
         if isinstance(cfg.resume_from, str):
             index_str = osp.basename(model_i).split(".")[0].split("_")[1]

@@ -1,8 +1,8 @@
-horizon = 128
+horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
 eval_action_len = (
-    4  # how many actions to be executed in the following timesteps for one input
+    27  # how many actions to be executed in the following timesteps for one input
 )
 workdir = "state_eval"
 agent_cfg = dict(
@@ -62,8 +62,8 @@ train_cfg = dict(
 
 eval_cfg = dict(
     type="Evaluation",
-    num=10,
-    num_procs=1,
+    num=100,
+    num_procs=20,
     use_hidden_state=False,
     save_traj=False,
     save_video=True,

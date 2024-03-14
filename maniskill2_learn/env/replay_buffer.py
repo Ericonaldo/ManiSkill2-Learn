@@ -381,7 +381,7 @@ class ReplayMemory:
             ret["keyframe_actions"] = ret["keyframe_actions"][:, :, 0]
             ret["keyframe_masks"] = ret["keyframe_masks"][:, :, 0]
 
-        ret["normed_states"] = copy.deepcopy(ret["obs"]["state"])
+        # ret["normed_states"] = copy.deepcopy(ret["obs"]["state"])
         if action_normalizer is not None:
             # for key in ["actions", "keyframe_actions"]:
             #     if key in ret:

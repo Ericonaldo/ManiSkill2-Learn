@@ -699,7 +699,6 @@ class Evaluation:
             rewards=self.episode_rewards,
             finishes=self.episode_finishes,
         )
-        # return self.episode_lens, self.episode_rewards, self.episode_finishes
 
     def close(self):
         if hasattr(self, "env"):
@@ -949,7 +948,6 @@ class BatchEvaluation:
             rewards=self.episode_rewards,
             finishes=self.episode_finishes,
         )
-        # return self.episode_lens, self.episode_rewards, self.episode_finishes
 
     def close(self):
         for worker in self.workers:
@@ -1001,6 +999,7 @@ class OfflineDiffusionEvaluation:
         self.episode_lens, self.episode_rewards, self.episode_finishes = [], [], []
         self.episode_len, self.episode_reward, self.episode_finish = 0, 0, False
         self.recent_obs = None
+        self.obs_mask, self.act_mask = None, None
 
         self.data_episode = None
         self.video_writer = None
@@ -1052,11 +1051,18 @@ class OfflineDiffusionEvaluation:
         import torch
 
         sampled_batch = memory.sample(num, mode="eval")
-        # sampled_batch = sampled_batch.to_torch(device=pi.device, dtype="float32", non_blocking=True) # ["obs","actions"]
+
+        if self.act_mask is None or self.obs_mask is None:
+            act_mask, obs_mask, _ = pi.mask_generator(
+                (num, pi.horizon, pi.action_dim), pi.device
+            )
+            self.act_mask, self.obs_mask = to_np(act_mask), to_np(obs_mask)
 
         observation = sampled_batch["obs"]
+        if "state" in observation:
+            observation["state"] = observation["state"][:, self.obs_mask]
         if "actions" in sampled_batch:
-            observation["actions"] = sampled_batch["actions"]
+            observation["actions"] = sampled_batch["actions"][:, self.act_mask[0, :, 0]]
         if "timesteps" in sampled_batch:
             observation["timesteps"] = sampled_batch["timesteps"]
 
@@ -1072,8 +1078,8 @@ class OfflineDiffusionEvaluation:
         action_sequence = action_sequence.cpu().numpy()
         self.action_diff = (
             ((action_sequence - sampled_batch["actions"]) ** 2)
-            .sum(axis=-1)
-            .sum(axis=-1)
+            .mean(axis=-1)
+            .mean(axis=-1)
         )
 
         self.finish()
