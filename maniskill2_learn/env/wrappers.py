@@ -220,13 +220,15 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
         self.ms2_env_name = self.env.spec.id
         self.obs_frame = obs_frame
-        if self.obs_mode == "state":
+        if self.obs_mode in ["state", "state_dict"]:
             pass
         elif self.obs_mode == "rgbd":
             self.img_size = img_size
         elif self.obs_mode == "pointcloud":
             self.n_points = n_points
             self.n_goal_points = n_goal_points
+        else:
+            raise ValueError(f"Unknown obs_mode {self.obs_mode}")
 
         self.ignore_dones = ignore_dones
         self.concat_rgbd = concat_rgbd

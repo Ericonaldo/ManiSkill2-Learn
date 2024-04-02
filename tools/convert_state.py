@@ -1,5 +1,5 @@
 import argparse
-import os, numpy as np
+import os
 import os.path as osp
 from multiprocessing import Process
 import h5py
@@ -12,10 +12,10 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
-from maniskill2_learn.env import make_gym_env, ReplayMemory, import_env
-from maniskill2_learn.utils.data import DictArray, GDict, f64_to_f32
+from maniskill2_learn.env import make_gym_env, ReplayMemory
+from maniskill2_learn.utils.data import GDict
 from maniskill2_learn.utils.file import merge_h5_trajectory
-from maniskill2_learn.utils.meta import get_total_memory, flush_print
+from maniskill2_learn.utils.meta import flush_print
 from maniskill2_learn.utils.math import split_num
 
 # from maniskill2_learn.utils.data import compress_f64
@@ -60,6 +60,7 @@ def convert_state_representation(keys, args, worker_id, main_process_id):
         "concat_rgbd": args.concat_rgbd,
         "using_angle": args.using_angle,
         "using_target": args.using_target,
+        "state_version": args.state_version,
     }
     if args.enable_seg:
         input_dict["camera_cfgs"]["add_segmentation"] = True
@@ -204,6 +205,9 @@ def parse_args():
         "--obs-mode", default="pointcloud", type=str, help="Observation mode"
     )
     parser.add_argument(
+        "--state-version", default="v0", type=str, help="Version of state observations"
+    )
+    parser.add_argument(
         "--control-mode",
         default="pd_joint_delta_pos",
         type=str,
@@ -285,7 +289,7 @@ def parse_args():
     args = parser.parse_args()
     args.traj_name = osp.abspath(args.traj_name)
     args.output_name = osp.abspath(args.output_name)
-    print(f"Obs mode: {args.obs_mode}; Control mode: {args.control_mode}")
+    print(f"Obs mode: {args.obs_mode}; Control mode: {args.control_mode}; State version: {args.state_version}")
     if args.obs_mode == "pointcloud":
         print(
             f"Obs frame: {args.obs_frame}; n_points: {args.n_points}; n_goal_points: {args.n_goal_points}"

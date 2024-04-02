@@ -189,6 +189,12 @@ class UnifiedVectorEnvAPI(ExtendedWrapper):
             worker_indices=idx,
         )
 
+    def is_grasped(self, idx=None):
+        return self.call("is_grasped", idx=idx)
+
+    def get_obs_kpam(self, idx=None):
+        return self.call("get_obs_kpam", idx=idx)
+
     def __getattr__(self, name, idx=None):
         return self.vec_env.get_attr(name, self._process_idx(idx)[0])
 

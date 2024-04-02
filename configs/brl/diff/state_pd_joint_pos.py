@@ -1,7 +1,7 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "state"
+workdir = "state_joint_pos"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=256,

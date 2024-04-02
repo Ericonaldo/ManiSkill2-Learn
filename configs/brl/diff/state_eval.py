@@ -33,6 +33,7 @@ env_cfg = dict(
     unwrapped=False,
     history_len=n_obs_steps,
     obs_mode="state",
+    state_version="v0",
     control_mode="pd_ee_delta_pose",
 )
 

@@ -1,7 +1,10 @@
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "state"
+eval_action_len = (
+    27  # how many actions to be executed in the following timesteps for one input
+)
+workdir = "state_joint_pos_eval"
 agent_cfg = dict(
     type="DiffAgent",
     batch_size=256,
@@ -24,21 +27,21 @@ agent_cfg = dict(
     ),
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-#     history_len=n_obs_steps,
-#     obs_mode="state",
-#     control_mode="pd_ee_delta_pose"
-# )
+env_cfg = dict(
+    type="gym",
+    env_name="PickCube-v0",
+    unwrapped=False,
+    history_len=n_obs_steps,
+    obs_mode="state",
+    state_version="v0",
+    control_mode="pd_joint_pos",
+)
 
 replay_cfg = dict(
     type="ReplayMemory",
     sampling_cfg=dict(
         type="TStepTransition",
         horizon=horizon,
-        future_action_len=future_action_len,
     ),
     capacity=-1,
     num_samples=-1,
@@ -46,25 +49,25 @@ replay_cfg = dict(
     buffer_filenames=[
         "SOME_DEMO_FILE",
     ],
-    num_procs=4,
-    synchronized=False,
 )
 
 train_cfg = dict(
     on_policy=False,
-    total_steps=100000,
+    total_steps=50000,
     warm_steps=0,
     n_steps=0,
     n_updates=500,
-    n_eval=10000,
+    n_eval=50000,
     n_checkpoint=10000,
 )
 
 eval_cfg = dict(
-    type="OfflineDiffusionEvaluation",
+    type="Evaluation",
     num=100,
-    num_procs=1,
+    num_procs=20,
     use_hidden_state=False,
     save_traj=False,
+    save_video=True,
     use_log=False,
+    eval_action_len=eval_action_len,
 )

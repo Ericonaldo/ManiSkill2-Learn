@@ -1,8 +1,15 @@
+workdir = "kpam_eval"
+agent_cfg = dict(
+    type="KPamAgent",
+)
+
 horizon = 32
 n_obs_steps = 6
 future_action_len = horizon - n_obs_steps
-workdir = "state"
-agent_cfg = dict(
+eval_action_len = (
+    27  # how many actions to be executed in the following timesteps for one input
+)
+diff_agent_cfg = dict(
     type="DiffAgent",
     batch_size=256,
     action_seq_len=horizon,
@@ -24,47 +31,23 @@ agent_cfg = dict(
     ),
 )
 
-# env_cfg = dict(
-#     type="gym",
-#     env_name="PickCube-v0",
-#     unwrapped=False,
-#     history_len=n_obs_steps,
-#     obs_mode="state",
-#     control_mode="pd_ee_delta_pose"
-# )
-
-replay_cfg = dict(
-    type="ReplayMemory",
-    sampling_cfg=dict(
-        type="TStepTransition",
-        horizon=horizon,
-        future_action_len=future_action_len,
-    ),
-    capacity=-1,
-    num_samples=-1,
-    keys=["obs", "actions", "dones", "episode_dones"],
-    buffer_filenames=[
-        "SOME_DEMO_FILE",
-    ],
-    num_procs=4,
-    synchronized=False,
-)
-
-train_cfg = dict(
-    on_policy=False,
-    total_steps=100000,
-    warm_steps=0,
-    n_steps=0,
-    n_updates=500,
-    n_eval=10000,
-    n_checkpoint=10000,
+env_cfg = dict(
+    type="gym",
+    env_name="PegInsertionSide-v0",
+    unwrapped=False,
+    obs_mode="state",
+    state_version="v2",
+    history_len=n_obs_steps,
+    control_mode="pd_joint_pos",
 )
 
 eval_cfg = dict(
-    type="OfflineDiffusionEvaluation",
+    type="KPamEvaluation",
     num=100,
     num_procs=1,
     use_hidden_state=False,
     save_traj=False,
+    save_video=False,
     use_log=False,
+    eval_action_len=eval_action_len,
 )

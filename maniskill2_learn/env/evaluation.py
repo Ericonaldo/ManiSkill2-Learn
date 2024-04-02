@@ -1,10 +1,8 @@
-import copy
 import glob
 import logging
 import os
 import os.path as osp
 import shutil
-from copy import deepcopy
 from collections import deque
 import sys
 
@@ -15,11 +13,9 @@ from maniskill2_learn.utils.data import (
     DictArray,
     GDict,
     concat_list,
-    decode_np,
     dict_to_str,
     is_str,
     num_to_str,
-    split_list_of_parameters,
     to_np,
     dict_to_str,
     to_item,
@@ -27,9 +23,7 @@ from maniskill2_learn.utils.data import (
 from maniskill2_learn.utils.file import dump, load, merge_h5_trajectory
 from maniskill2_learn.utils.math import split_num
 from maniskill2_learn.utils.meta import (
-    TqdmToLogger,
     Worker,
-    get_dist_info,
     get_logger,
     get_logger_name,
     get_total_memory,
@@ -552,6 +546,17 @@ class Evaluation:
                 1,
                 cv2.LINE_AA,
             )
+            # # HACK(zbzhu)
+            # image = cv2.putText(
+            #     image,
+            #     "Current relative pose: " + str(np.round(self.recent_obs["state"][0, -1, -7:], 2)),
+            #     (20, 320),
+            #     cv2.FONT_HERSHEY_SIMPLEX,
+            #     0.4,
+            #     (255, 255, 0),
+            #     1,
+            #     cv2.LINE_AA,
+            # )
 
             if self.video_writer is None:
                 self.video_file = osp.join(
@@ -1087,3 +1092,78 @@ class OfflineDiffusionEvaluation:
 
     def close(self):
         return
+
+
+@EVALUATIONS.register_module()
+class KPamEvaluation(Evaluation):
+    def run(self, pi, num=1, work_dir=None, **kwargs):
+        if self.eval_levels is not None:
+            if num > len(self.eval_levels):
+                print(
+                    f"We do not need to select more than {len(self.eval_levels)} levels!",
+                    flush=True,
+                )
+                num = min(num, len(self.eval_levels))
+        self.start(work_dir)
+        import torch
+
+        replay = None
+        if "memory" in kwargs:
+            replay = kwargs["memory"]
+
+        def reset_pi():
+            if hasattr(pi, "reset"):
+                assert (
+                    self.worker_id is None
+                ), "Reset policy only works for single thread!"
+                reset_kwargs = {}
+                if hasattr(self.vec_env, "level"):
+                    # When we run CEM, we need the level of the rollout env to match the level of test env.
+                    reset_kwargs["level"] = self.vec_env.level
+                pi.reset(**reset_kwargs)  # For CEM and PETS-like model-based method.
+
+        reset_pi()
+        grasped = self.vec_env.is_grasped().item()
+        recent_obs = self.recent_obs
+
+        while self.episode_id < num:
+            if grasped:
+                kpam_obs = self.vec_env.get_obs_kpam()
+                action = pi(kpam_obs, use_kpam=True).reshape(1, -1)
+            else:
+                if self.eval_action_queue is not None and len(self.eval_action_queue):
+                    action = self.eval_action_queue.popleft()
+                else:
+                    if self.use_hidden_state:
+                        recent_obs = self.vec_env.get_state()
+                    with torch.no_grad():
+                        with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
+                            action = pi(recent_obs, mode=self.sample_mode, memory=replay, use_kpam=False)
+                            action = to_np(action)
+                            if (
+                                (self.eval_action_queue is not None)
+                                and (len(self.eval_action_queue) == 0)
+                                and self.eval_action_len > 1
+                            ):
+                                # for i in range(self.eval_action_len-1):
+                                for i in range(
+                                    min(self.eval_action_len - 1, action.shape[1] - 1)
+                                ):  # Allow eval action len to be different with predicted action len
+                                    self.eval_action_queue.append(action[:, i + 1, :])
+                                action = action[:, 0]
+
+            recent_obs, episode_done = self.step(action)
+            grasped = self.vec_env.is_grasped().item()
+            if grasped:
+                self.eval_action_queue.clear()
+
+            if episode_done:
+                reset_pi()
+                log_mem_info(self.logger)
+        self.finish()
+
+        return dict(
+            lengths=self.episode_lens,
+            rewards=self.episode_rewards,
+            finishes=self.episode_finishes,
+        )
