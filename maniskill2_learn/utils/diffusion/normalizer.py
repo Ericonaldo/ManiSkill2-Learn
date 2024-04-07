@@ -284,7 +284,7 @@ def _normalize(x, params, forward=True):
     assert "scale" in params
     if isinstance(x, np.ndarray):
         x = torch.from_numpy(x)
-        x = x.to(device=params["scale"].device, dtype=scale.dtype)
+        x = x.to(device=params["scale"].device, dtype=params["scale"].dtype)
     scale = params["scale"].to(device=x.device, dtype=x.dtype)
     offset = params["offset"].to(device=x.device, dtype=x.dtype)
     # x = x.to(device=scale.device, dtype=scale.dtype)

@@ -54,7 +54,7 @@ class DiffAgent(BaseAgent):
         extra_dim: int = 0,
         **kwargs,
     ):
-        super(DiffAgent, self).__init__()
+        super().__init__()
         self.batch_size = batch_size
 
         if visual_nn_cfg is not None:

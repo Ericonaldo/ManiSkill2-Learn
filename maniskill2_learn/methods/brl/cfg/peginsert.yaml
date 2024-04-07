@@ -1,0 +1,44 @@
+task_name: PegInsertionSide
+category_name: Articulate
+
+tool_keypoint_name_list: [tool_head, tool_tail, tool_side]
+object_keypoint_name_list: [object_head, object_tail]
+
+constraint_list:
+- keypoint_name: tool_head
+  target_keypoint_name: object_head
+  tolerance: 0.00001
+  type: point2point_constraint
+
+- axis_from_keypoint_name: tool_head
+  axis_to_keypoint_name: tool_tail
+  target_axis_from_keypoint_name: object_head
+  target_axis_to_keypoint_name: object_tail
+  tolerance: 0.00001
+  target_inner_product: -1
+  type: keypoint_axis_parallel
+
+# ensure the axis between the peg head and the peg side to be parallel to the table. 
+- axis_from_keypoint_name: tool_head
+  axis_to_keypoint_name: tool_side
+  target_axis: [0, 0, 1.0]
+  target_axis_frame: world
+  tolerance: 0.001
+  target_inner_product: 1
+  type: frame_axis_parallel
+
+# for pre-actuation and post-actuation poses relative to the tool. 
+# Z axis positive points from gripper to fingers and X axis points to the front direction. 
+# Each pose is represented in the [[x,y,z,roll,pitch,yaw]] format
+# Units are in meters and radians respectively.
+
+# pre-actuation pose list. 
+pre_actuation_motions: [["translate_x", -0.05]] # [standoff]
+
+# post-actuation pose list. pushing down
+post_actuation_motions: [["translate_x", 0.15]] # [push]
+
+# trajectory time
+actuation_time: 50  # time to reach task goal pose
+pre_actuation_times: [40]
+post_actuation_times: [60]

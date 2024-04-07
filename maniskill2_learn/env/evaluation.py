@@ -29,6 +29,7 @@ from maniskill2_learn.utils.meta import (
     get_total_memory,
     get_meta_info,
 )
+from maniskill2_learn.methods.brl import KPamDiffAgent
 
 from .builder import EVALUATIONS
 from .env_utils import build_vec_env, build_env, true_done, get_max_episode_steps
@@ -678,7 +679,11 @@ class Evaluation:
                     recent_obs = self.vec_env.get_state()
                 with torch.no_grad():
                     with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
-                        action = pi(recent_obs, mode=self.sample_mode, memory=replay)
+                        if isinstance(pi, KPamDiffAgent) and self.vec_env.is_grasped().item():
+                            kpam_obs = self.vec_env.get_obs_kpam()
+                            action = pi(recent_obs, kpam_obs=kpam_obs, mode=self.sample_mode, memory=replay)
+                        else:
+                            action = pi(recent_obs, mode=self.sample_mode, memory=replay)
                         action = to_np(action)
                         if (
                             (self.eval_action_queue is not None)

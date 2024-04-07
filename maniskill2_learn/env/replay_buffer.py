@@ -5,7 +5,6 @@ from itertools import count
 from h5py import File
 import threading
 import torch
-import copy
 
 from maniskill2_learn.utils.meta import get_logger, TqdmToLogger, parse_files
 from maniskill2_learn.utils.data import DictArray, GDict, is_null, DataCoder, is_not_null
@@ -344,6 +343,7 @@ class ReplayMemory:
         #         ret["keyframe_states"] = np.concatenate([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
         #     else:
         #         raise NotImplementedError()
+
         if self.horizon > 1:
             batch_flat_idx = [
                 i for i in range(batch_size) for j in range(self.horizon - ret_len[i])

@@ -44,6 +44,7 @@ tmp_folder_in_docker = "/tmp"
 
 def render(env):
     viewer = env.render("human")
+    return viewer
 
 
 def convert_state_representation(keys, args, worker_id, main_process_id):
@@ -138,6 +139,9 @@ def convert_state_representation(keys, args, worker_id, main_process_id):
                 "rewards": reward,
             }
 
+            if args.include_kpam_state:
+                item_i["kpam_states"] = env.get_kpam_state()
+
             if args.with_next:
                 item_i["next_obs"] = next_obs
 
@@ -207,6 +211,7 @@ def parse_args():
     parser.add_argument(
         "--state-version", default="v0", type=str, help="Version of state observations"
     )
+    parser.add_argument("--include-kpam-state", action="store_true")
     parser.add_argument(
         "--control-mode",
         default="pd_joint_delta_pos",

@@ -9,8 +9,20 @@ from pydrake.all import RigidTransform, PiecewisePolynomial, PiecewisePose
 
 from maniskill2_learn.utils.torch import BaseAgent
 from maniskill2_learn.methods.kpam import se3_utils
-from maniskill2_learn.methods.kpam.kpam_utils import anchor_seeds, solve_ik_kpam, rotAxis, se3_inverse, dense_sample_traj_times, solve_ik_traj_with_standoff, build_plant, vector2pose, recursive_squeeze
-from maniskill2_learn.methods.kpam.optimization_spec import OptimizationProblemSpecification
+from maniskill2_learn.methods.kpam.kpam_utils import (
+    anchor_seeds,
+    solve_ik_kpam,
+    rotAxis,
+    se3_inverse,
+    dense_sample_traj_times,
+    solve_ik_traj_with_standoff,
+    build_plant,
+    vector2pose,
+    recursive_squeeze,
+)
+from maniskill2_learn.methods.kpam.optimization_spec import (
+    OptimizationProblemSpecification,
+)
 
 from ..builder import BRL
 
@@ -388,8 +400,12 @@ class KPamAgent(BaseAgent):
 
         self.object_keypoint_in_world = {}
         box_hole_pose = vector2pose(obs["box_hole_pose"])
-        self.object_keypoint_in_world["object_head"] = (box_hole_pose * peg_head_offset.inv()).p
-        self.object_keypoint_in_world["object_tail"] = (box_hole_pose * peg_head_offset).p
+        self.object_keypoint_in_world["object_head"] = (
+            box_hole_pose * peg_head_offset.inv()
+        ).p
+        self.object_keypoint_in_world["object_tail"] = (
+            box_hole_pose * peg_head_offset
+        ).p
 
         self.dt = obs["dt"]  # simulator dt
         self.time = obs["time"].item()  # current time
@@ -398,7 +414,9 @@ class KPamAgent(BaseAgent):
 
         self.ee_pose_in_world = vector2pose(obs["hand_pose"]).to_transformation_matrix()
         self.tool_pose_in_world = peg_pose.to_transformation_matrix()
-        self.object_pose_in_world = (box_hole_pose * peg_head_offset.inv()).to_transformation_matrix()
+        self.object_pose_in_world = (
+            box_hole_pose * peg_head_offset.inv()
+        ).to_transformation_matrix()
 
         self.curr_tool_keypoints = self.compute_tool_keypoints_inbase()
         self.curr_object_keypoints = self.compute_object_keypoints_inbase()
@@ -417,9 +435,7 @@ class KPamAgent(BaseAgent):
                 self.solve_actuation_joint()
                 self.solve_postactuation_traj()
                 self.solve_joint_traj()
-                print(
-                    "plan generation time: {:.3f}".format(time.time() - s)
-                )
+                print("plan generation time: {:.3f}".format(time.time() - s))
                 self.plan_time = self.time
 
             if self.time == self.plan_time + self.actuation_time:
@@ -427,7 +443,9 @@ class KPamAgent(BaseAgent):
                 ic(self.tool_keypoint_in_world["tool_head"])
 
             joint_action = self.joint_space_traj.value(self.time + self.dt).reshape(-1)
-            maniskill_joint_action = np.concatenate((joint_action[:7], -1 * np.ones_like(joint_action[:1])), axis=0)
+            maniskill_joint_action = np.concatenate(
+                (joint_action[:7], -1 * np.ones_like(joint_action[:1])), axis=0
+            )
             return maniskill_joint_action
         else:
             assert self.diff_model is not None
