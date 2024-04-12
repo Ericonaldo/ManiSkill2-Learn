@@ -44,6 +44,7 @@ class KPamAgent(BaseAgent):
         self.post_actuation_times = self.cfg["post_actuation_times"]
         self.pre_actuation_motions = self.cfg["pre_actuation_motions"]
         self.post_actuation_motions = self.cfg["post_actuation_motions"]
+        self.pre_actuation_standby_time = self.cfg["pre_actuation_standby_time"]
 
     def reset(self, *args, **kwargs):
         self.reset_expert()
@@ -104,7 +105,7 @@ class KPamAgent(BaseAgent):
         return optimization_spec
 
     # tool use related
-    def solve_actuation_joint(self, generate_traj: bool = True):
+    def solve_actuation_joint(self):
         """solve the formulated kpam problem and get goal joint"""
 
         optimization_spec = OptimizationProblemSpecification()
@@ -152,32 +153,10 @@ class KPamAgent(BaseAgent):
 
             self.plant.SetPositions(self.fk_context, res)
 
-        # self.task_goal_hand_pose = self.differential_ik.ForwardKinematics(diff_ik_context)
         self.task_goal_hand_pose = self.plant.EvalBodyPoseInWorld(
             self.fk_context, self.plant.GetBodyByName("panda_hand")
         )
         self.task_goal_hand_pose = np.array(self.task_goal_hand_pose.GetAsMatrix4())
-        self.task_goal_tool_pose = self.task_goal_hand_pose @ self.tool_rel_pose
-
-        # # Transform the keypoint
-        # self.curr_solution_tool_keypoint_head = SE3_utils.transform_point(
-        #     self.task_goal_hand_pose, tool_keypoint_loc_inhand[0, :]
-        # )
-        # self.curr_solution_tool_keypoint_tail = SE3_utils.transform_point(
-        #     self.task_goal_hand_pose, tool_keypoint_loc_inhand[1, :]
-        # )
-        # self.curr_solution_tool_keypoint_side = SE3_utils.transform_point(
-        #     self.task_goal_hand_pose, tool_keypoint_loc_inhand[2, :]
-        # )
-
-        # self.goal_keypoint = np.stack(
-        #     (
-        #         self.curr_solution_tool_keypoint_head,
-        #         self.curr_solution_tool_keypoint_tail,
-        #         self.curr_solution_tool_keypoint_side,
-        #     ),
-        #     axis=0,
-        # )
 
     def solve_postactuation_traj(self):
         """
@@ -195,10 +174,6 @@ class KPamAgent(BaseAgent):
         return actuation_pose
 
     def generate_actuation_poses(self):
-        """build the post-activation trajectory specified in the config
-        (1) reach above the screw
-        (2) hammer it by moving downward
-        """
         self.pre_actuation_poses = []
         self.post_actuation_poses = []
 
@@ -251,14 +226,14 @@ class KPamAgent(BaseAgent):
         self.sample_times = (
             [self.time]
             + [t + self.time for t in self.pre_actuation_times]
-            + [self.actuation_time + self.time]
+            # + [self.actuation_time + self.time]
             + [t + self.time for t in self.post_actuation_times]
         )
 
         self.traj_keyframes = (
             [self.ee_pose.reshape(4, 4)]
             + self.pre_actuation_poses
-            + [self.task_goal_hand_pose]
+            # + [self.task_goal_hand_pose]
             + self.post_actuation_poses
         )
 
@@ -295,9 +270,7 @@ class KPamAgent(BaseAgent):
         )
 
         if densify:
-            self.dense_traj_times = dense_sample_traj_times(
-                self.sample_times, self.actuation_time + self.time
-            )
+            self.dense_traj_times = dense_sample_traj_times(self.sample_times)
         else:
             self.dense_traj_times = self.sample_times
 
@@ -307,6 +280,7 @@ class KPamAgent(BaseAgent):
         res = solve_ik_traj_with_standoff(
             [self.ee_pose.reshape(4, 4), self.task_goal_hand_pose],
             np.array([self.joint_positions.copy(), self.goal_joint]).T,
+            endpoint_times=[self.time, self.actuation_time + self.time],
             q_traj=self.joint_space_traj,
             waypoint_times=self.dense_traj_times,
             keyposes=keyposes,
@@ -320,6 +294,29 @@ class KPamAgent(BaseAgent):
             self.joint_plan_success = True
             self.joint_traj_waypoints = res.get_x_val().reshape(-1, 9)
             self.joint_traj_waypoints = list(self.joint_traj_waypoints)
+            if self.pre_actuation_standby_time > 0:
+                self.joint_traj_waypoints = (
+                    self.joint_traj_waypoints[:self.pre_actuation_times[0]]
+                    + [self.joint_traj_waypoints[self.pre_actuation_times[0]]] * self.pre_actuation_standby_time
+                    + self.joint_traj_waypoints[self.pre_actuation_times[0]:]
+                )
+                self.dense_traj_times = (
+                    self.dense_traj_times[:self.pre_actuation_times[0]]
+                    + [self.dense_traj_times[self.pre_actuation_times[0]] + i for i in range(self.pre_actuation_standby_time)]
+                    + [t + self.pre_actuation_standby_time for t in self.dense_traj_times[self.pre_actuation_times[0]:]]
+                )
+
+                # self.joint_traj_waypoints = (
+                #     self.joint_traj_waypoints[:self.actuation_time]
+                #     + [self.joint_traj_waypoints[self.actuation_time]] * self.pre_actuation_standby_time
+                #     + self.joint_traj_waypoints[self.actuation_time:]
+                # )
+                # self.dense_traj_times = (
+                #     self.dense_traj_times[:self.actuation_time]
+                #     + [self.dense_traj_times[self.actuation_time] + i for i in range(self.pre_actuation_standby_time)]
+                #     + [t + self.pre_actuation_standby_time for t in self.dense_traj_times[self.actuation_time:]]
+                # )
+
             self.joint_space_traj = PiecewisePolynomial.CubicShapePreserving(
                 self.dense_traj_times, np.array(self.joint_traj_waypoints).T
             )
@@ -335,7 +332,7 @@ class KPamAgent(BaseAgent):
     def compute_tool_keypoints_inbase(self):
         inv_base_pose = se3_inverse(self.base_pose)
         tool_keypoints_inbase = {}
-        for name, loc in self.tool_keypoint_in_world.items():
+        for name, loc in self.tool_keypoints_in_world.items():
             tool_keypoints_inbase[name] = inv_base_pose.dot(
                 np.array([loc[0], loc[1], loc[2], 1])
             )[:3]
@@ -344,7 +341,7 @@ class KPamAgent(BaseAgent):
     def compute_object_keypoints_inbase(self):
         inv_base_pose = se3_inverse(self.base_pose)
         object_keypoints_inbase = {}
-        for name, loc in self.object_keypoint_in_world.items():
+        for name, loc in self.object_keypoints_in_world.items():
             object_keypoints_inbase[name] = inv_base_pose.dot(
                 np.array([loc[0], loc[1], loc[2], 1])
             )[:3]
@@ -380,6 +377,15 @@ class KPamAgent(BaseAgent):
             )[:3]
         return tool_keypoints_inhand
 
+    def compute_object_keypoints_inhand(self):
+        inv_ee_pose = se3_inverse(self.ee_pose)
+        object_keypoints_inhand = {}
+        for name, loc in self.curr_object_keypoints.items():
+            object_keypoints_inhand[name] = inv_ee_pose.dot(
+                np.array([loc[0], loc[1], loc[2], 1])
+            )[:3]
+        return object_keypoints_inhand
+
     def compute_tool_inhand(self):
         inv_ee_pose = se3_inverse(self.ee_pose)
         tool_rel_pose = inv_ee_pose.dot(self.tool_pose)
@@ -387,23 +393,23 @@ class KPamAgent(BaseAgent):
 
     def get_env_info(self, obs):
         # get current end effector pose, joint angles, object poses, and keypoints from the environment
-        self.tool_keypoint_in_world = {}
+        self.tool_keypoints_in_world = {}
         peg_pose = vector2pose(obs["peg_pose"])
         peg_head_offset = vector2pose(obs["peg_head_offset"])
         peg_head_pose = peg_pose.transform(peg_head_offset)
         peg_tail_pose = peg_pose.transform(peg_head_offset.inv())
         peg_radius = obs["peg_half_size"][2]
         peg_side_pose = peg_head_pose.transform(Pose([0, 0, peg_radius]))
-        self.tool_keypoint_in_world["tool_side"] = peg_side_pose.p
-        self.tool_keypoint_in_world["tool_head"] = peg_head_pose.p
-        self.tool_keypoint_in_world["tool_tail"] = peg_tail_pose.p
+        self.tool_keypoints_in_world["tool_side"] = peg_side_pose.p
+        self.tool_keypoints_in_world["tool_head"] = peg_head_pose.p
+        self.tool_keypoints_in_world["tool_tail"] = peg_tail_pose.p
 
-        self.object_keypoint_in_world = {}
+        self.object_keypoints_in_world = {}
         box_hole_pose = vector2pose(obs["box_hole_pose"])
-        self.object_keypoint_in_world["object_head"] = (
+        self.object_keypoints_in_world["object_head"] = (
             box_hole_pose * peg_head_offset.inv()
         ).p
-        self.object_keypoint_in_world["object_tail"] = (
+        self.object_keypoints_in_world["object_tail"] = (
             box_hole_pose * peg_head_offset
         ).p
 
@@ -424,6 +430,7 @@ class KPamAgent(BaseAgent):
         self.tool_pose = self.compute_tool_pose_inbase()
         self.object_pose = self.compute_object_pose_inbase()
         self.tool_keypoints_in_hand = self.compute_tool_keypoints_inhand()
+        self.object_keypoints_in_hand = self.compute_object_keypoints_inhand()
         self.tool_rel_pose = self.compute_tool_inhand()
 
     def forward(self, obs, use_kpam: bool = True, **kwargs):
@@ -437,10 +444,12 @@ class KPamAgent(BaseAgent):
                 self.solve_joint_traj()
                 print("plan generation time: {:.3f}".format(time.time() - s))
                 self.plan_time = self.time
+                # ic("plan", self.object_keypoints_in_hand["object_head"])
+                # ic("plan", self.tool_keypoints_in_hand["tool_head"])
 
-            if self.time == self.plan_time + self.actuation_time:
-                ic(self.object_keypoint_in_world["object_head"])
-                ic(self.tool_keypoint_in_world["tool_head"])
+            if self.time == self.plan_time + self.pre_actuation_times[0] + self.pre_actuation_standby_time:
+                ic("actuate", self.object_keypoints_in_hand["object_head"])
+                ic("actuate", self.tool_keypoints_in_hand["tool_head"])
 
             joint_action = self.joint_space_traj.value(self.time + self.dt).reshape(-1)
             maniskill_joint_action = np.concatenate(

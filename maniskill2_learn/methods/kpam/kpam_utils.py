@@ -200,11 +200,10 @@ def pack_pose(pose, rot_type="quat"):  # for action
     return packed
 
 
-def dense_sample_traj_times(sample_times, task_completion_time, start_idx=1):
+def dense_sample_traj_times(sample_times, start_idx=1):
     """densify the waypoints for IK trajectory"""
     ik_times = list(sample_times)
     for i in range(start_idx, len(sample_times)):
-        # ratio = 1 if sample_times[i] < task_completion_time else 2
         ratio = 1
         N = int((sample_times[i] - sample_times[i - 1]) * ratio)  #
         for j in range(N):
@@ -443,6 +442,7 @@ def solve_ik_kpam(
 def solve_ik_traj_with_standoff(
     endpoint_pose,
     endpoint_joints,
+    endpoint_times,
     q_traj,
     waypoint_times,
     keytimes,
@@ -460,6 +460,12 @@ def solve_ik_traj_with_standoff(
     q0 = np.array([q_traj.value(t) for t in waypoint_times])
 
     for idx, time in enumerate(waypoint_times):
+        # endpoint joint constraints
+        for edp_idx, edp_time in enumerate(endpoint_times):
+            if time == edp_time:
+                prog.AddConstraint(np.sum((q[:, idx] - endpoint_joints[:, edp_idx]) ** 2) == 0)
+
+        # keypoint pose constraints
         if time in keytimes:  # standoff
             keypoint_idx = keytimes.index(time)
             pose = RigidTransform(keyposes[keypoint_idx])
@@ -503,13 +509,10 @@ def solve_ik_traj_with_standoff(
         #     q[:, idx],
         # )
 
-    # add some other constraints
-    prog.AddConstraint(np.sum((q[:, 0] - endpoint_joints[:, 0]) ** 2) == 0)
-
     # Add smoothness cost
     weight = np.ones((9, 1))
-    # weight[0] = 10.0
-    # weight[-1] = 10.0
+    weight[0] = 10.0
+    weight[-1] = 10.0
     prog.AddQuadraticCost(np.sum(weight * (q[:, 1:] - q[:, :-1]) ** 2))
     prog.SetInitialGuess(q, q0.squeeze().T)
 

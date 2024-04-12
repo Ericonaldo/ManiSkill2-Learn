@@ -672,30 +672,39 @@ class Evaluation:
         recent_obs = self.recent_obs
 
         while self.episode_id < num:
-            if self.eval_action_queue is not None and len(self.eval_action_queue):
-                action = self.eval_action_queue.popleft()
+            if isinstance(pi, KPamDiffAgent) and pi.stage != "kpam":
+                kpam_obs = self.vec_env.get_obs_kpam()
+                if pi.is_preinserted(kpam_obs):
+                    pi.kpam()
+
+            if isinstance(pi, KPamDiffAgent) and pi.stage == "kpam":
+                kpam_obs = self.vec_env.get_obs_kpam()
+                action = pi(kpam_obs).reshape(1, -1)
             else:
-                if self.use_hidden_state:
-                    recent_obs = self.vec_env.get_state()
-                with torch.no_grad():
-                    with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
-                        if isinstance(pi, KPamDiffAgent) and self.vec_env.is_grasped().item():
-                            kpam_obs = self.vec_env.get_obs_kpam()
-                            action = pi(recent_obs, kpam_obs=kpam_obs, mode=self.sample_mode, memory=replay)
-                        else:
-                            action = pi(recent_obs, mode=self.sample_mode, memory=replay)
-                        action = to_np(action)
-                        if (
-                            (self.eval_action_queue is not None)
-                            and (len(self.eval_action_queue) == 0)
-                            and self.eval_action_len > 1
-                        ):
-                            # for i in range(self.eval_action_len-1):
-                            for i in range(
-                                min(self.eval_action_len - 1, action.shape[1] - 1)
-                            ):  # Allow eval action len to be different with predicted action len
-                                self.eval_action_queue.append(action[:, i + 1, :])
-                            action = action[:, 0]
+                if self.eval_action_queue is not None and len(self.eval_action_queue):
+                    action = self.eval_action_queue.popleft()
+                else:
+                    if self.use_hidden_state:
+                        recent_obs = self.vec_env.get_state()
+                    with torch.no_grad():
+                        with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
+                            if isinstance(pi, KPamDiffAgent) and self.vec_env.is_grasped().item():
+                                kpam_obs = self.vec_env.get_obs_kpam()
+                                action = pi(recent_obs, kpam_obs=kpam_obs, mode=self.sample_mode, memory=replay)
+                            else:
+                                action = pi(recent_obs, mode=self.sample_mode, memory=replay)
+                            action = to_np(action)
+                            if (
+                                (self.eval_action_queue is not None)
+                                and (len(self.eval_action_queue) == 0)
+                                and self.eval_action_len > 1
+                            ):
+                                # for i in range(self.eval_action_len-1):
+                                for i in range(
+                                    min(self.eval_action_len - 1, action.shape[1] - 1)
+                                ):  # Allow eval action len to be different with predicted action len
+                                    self.eval_action_queue.append(action[:, i + 1, :])
+                                action = action[:, 0]
 
             recent_obs, episode_done = self.step(action)
 

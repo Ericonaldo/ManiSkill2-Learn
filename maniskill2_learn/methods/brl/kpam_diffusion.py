@@ -4,7 +4,7 @@ from typing import Dict, Optional
 import torch
 import numpy as np
 from sapien.core import Pose
-from pydrake.all import RigidTransform
+from pydrake.all import RigidTransform, PiecewisePolynomial
 from icecream import ic
 
 from maniskill2_learn.methods.brl import DiffAgent
@@ -15,6 +15,10 @@ from maniskill2_learn.methods.kpam import se3_utils
 from maniskill2_learn.methods.brl.kpam_diff_utils import (
     anchor_seeds,
     solve_ik_kpam,
+    solve_ik_traj_with_standoff,
+    dense_sample_traj_times,
+    rotAxis,
+    se3_inverse,
     build_plant,
     vector2pose,
     recursive_squeeze,
@@ -30,8 +34,8 @@ from ..builder import BRL
 class KPamDiffAgent(DiffAgent):
     def __init__(
         self,
-        keyframe_modify_type: str = "middle",
-        keyframe_modify_length: Optional[int] = None,
+        keyframe_modify_type: str = "middle_range",
+        keyframe_modify_length: Optional[int] = 1,
         *args,
         **kwargs,
     ):
@@ -41,17 +45,40 @@ class KPamDiffAgent(DiffAgent):
         with open(cfg_path, "r") as f:
             self.cfg = yaml.load(f, Loader=yaml.SafeLoader)
 
-        assert keyframe_modify_type in [
-            "middle",
-            "first",
-            "last",
-            "all",
-            "middle_range",
-            "first_range",
-        ], keyframe_modify_type
+        self.modify_time = self.cfg["modify_time"]
+        self.standby_time = self.cfg["standby_time"]
+        self.pre_actuation_motions = self.cfg["pre_actuation_motions"]
+        self.post_actuation_motions = self.cfg["post_actuation_motions"]
+        self.pre_actuation_rel_times = self.cfg["pre_actuation_rel_times"]
+        self.post_actuation_rel_times = self.cfg["post_actuation_rel_times"]
+
+        assert keyframe_modify_type in ["all", "middle_range", "first_range"], keyframe_modify_type
         self.keyframe_modify_type = keyframe_modify_type
-        if "range" in self.keyframe_modify_type:
-            self.keyframe_modify_length = keyframe_modify_length
+        self.keyframe_modify_length = keyframe_modify_length
+
+        self._stage = "diffusion"
+
+    @property
+    def stage(self):
+        return self._stage
+
+    def kpam(self):
+        self._stage = "kpam"
+
+    def reset(self, *args, **kwargs):
+        self._stage = "diffusion"
+        self.reset_expert()
+
+    def setup(self):
+        # load keypoints
+        self.solved_ik_times = []
+        self.joint_traj_waypoints = []
+
+    def reset_expert(self):
+        """reinitialize expert state"""
+        self.joint_space_traj = None
+        self.plan_succeeded = False
+        self.setup()
 
     def create_opt_problem(self, optimization_spec):
         """create a keypoint optimization problem from the current keypoint state"""
@@ -67,11 +94,174 @@ class KPamDiffAgent(DiffAgent):
                 ).tolist()
         return optimization_spec
 
-    def forward(
+    def check_plan_empty(self):
+        """check if already have a plan"""
+        return self.joint_space_traj is None
+
+    def forward(self, *args, **kwargs):
+        return getattr(self, f"forward_with_{self.stage}")(*args, **kwargs)
+
+    def forward_with_kpam(self, kpam_obs: Dict[str, np.ndarray], *args, **kwargs):
+        kpam_obs = recursive_squeeze(kpam_obs, axis=0)
+        if self.check_plan_empty():
+            joint_positions = kpam_obs["joint_positions"]
+            modified_joint_positions, _ = self.modify_keyframe_joint(joint_positions, kpam_obs)
+
+            self.plant.SetPositions(self.fk_context, modified_joint_positions)
+            task_goal_hand_pose = self.plant.EvalBodyPoseInWorld(
+                self.fk_context, self.plant.GetBodyByName("panda_hand")
+            )
+            task_goal_hand_pose = np.array(task_goal_hand_pose.GetAsMatrix4())
+
+            _, post_actuation_poses = self.generate_actuation_poses(task_goal_hand_pose)
+            self.joint_space_traj, _ = self.solve_joint_traj(
+                keyposes=[task_goal_hand_pose] + post_actuation_poses,
+                keytimes=[self.modify_time] + [t + self.modify_time for t in self.post_actuation_rel_times],
+                curr_joint_positions=joint_positions,
+                goal_joint_positions=modified_joint_positions,
+            )
+            self.kpam_plan_time = kpam_obs["time"].item()
+
+        curr_time, dt = kpam_obs["time"].item(), kpam_obs["dt"]
+        joint_action = self.joint_space_traj.value(curr_time - self.kpam_plan_time + dt).reshape(-1)
+        maniskill_joint_action = np.concatenate(
+            (joint_action[:7], -1 * np.ones_like(joint_action[:1])), axis=0
+        )
+        return maniskill_joint_action
+
+    def solve_joint_traj(
+        self,
+        keyposes,
+        keytimes,
+        curr_joint_positions,
+        goal_joint_positions,
+    ):
+        """
+        solve for the IKs for each individual waypoint as an initial guess, and then
+        solve for the whole trajectory with smoothness cost
+        """
+
+        joint_traj_waypoints = [curr_joint_positions.copy()]
+        joint_space_traj = PiecewisePolynomial.FirstOrderHold(
+            [0.0, self.modify_time],
+            np.array([curr_joint_positions.copy(), goal_joint_positions]).T,
+        )
+
+        dense_traj_times = dense_sample_traj_times(keytimes)
+
+        print("solve traj endpoint")
+
+        # interpolated joint
+        res = solve_ik_traj_with_standoff(
+            np.array([curr_joint_positions.copy(), goal_joint_positions]).T,
+            endpoint_times=[0, self.modify_time],
+            q_traj=joint_space_traj,
+            waypoint_times=dense_traj_times,
+            keyposes=keyposes,
+            keytimes=keytimes,
+        )
+
+        # solve the standoff and the remaining pose use the goal as seed.
+        # stitch the trajectory
+        if res is not None:
+            # use the joint trajectory to build task trajectory for panda
+            joint_plan_success = True
+            joint_traj_waypoints = res.get_x_val().reshape(-1, 9)
+            joint_traj_waypoints = list(joint_traj_waypoints)
+
+            joint_traj_waypoints = (
+                joint_traj_waypoints[:self.modify_time]
+                + [joint_traj_waypoints[self.modify_time]] * self.standby_time
+                + joint_traj_waypoints[self.modify_time:]
+            )
+            dense_traj_times = (
+                dense_traj_times[:self.modify_time]
+                + [dense_traj_times[self.modify_time] + i for i in range(self.standby_time)]
+                + [t + self.standby_time for t in dense_traj_times[self.modify_time:]]
+            )
+
+            joint_space_traj = PiecewisePolynomial.CubicShapePreserving(
+                dense_traj_times, np.array(joint_traj_waypoints).T
+            )
+        else:
+            print("endpoint trajectory not solved! environment termination")
+            joint_plan_success = False
+
+        return joint_space_traj, joint_plan_success
+
+    def get_pose_from_translation(self, translation, pre_pose):
+        """get the pose from translation"""
+        pose = np.eye(4)
+        translation = np.array(translation)
+        pose[:3, 3] = translation
+        actuation_pose = pre_pose @ pose
+        return actuation_pose
+
+    def get_pose_from_rotation(self, rotation, pre_pose):
+        """get the pose from rotation"""
+        axis = self.env.get_object_axis()
+        Rot = rotAxis(angle=rotation, axis=axis)
+        actuation_pose = (
+            self.object_pose @ Rot @ se3_inverse(self.object_pose) @ pre_pose
+        )
+        return actuation_pose
+
+    def generate_actuation_poses(self, task_goal_hand_pose):
+        pre_actuation_poses = []
+        post_actuation_poses = []
+
+        curr_pose = task_goal_hand_pose
+        for motion in self.pre_actuation_motions:
+            mode = motion[0]
+            value = motion[1]
+
+            assert mode in ["translate_x", "translate_y", "translate_z", "rotate"]
+            assert type(value) is float
+
+            if mode == "rotate":
+                curr_pose = self.get_pose_from_rotation(value, curr_pose)
+                pre_actuation_poses.append(curr_pose)
+            else:
+                value_vec = [0, 0, 0]
+                if mode == "translate_x":
+                    value_vec[0] = value
+                elif mode == "translate_y":
+                    value_vec[1] = value
+                elif mode == "translate_z":
+                    value_vec[2] = value
+                curr_pose = self.get_pose_from_translation(value_vec, curr_pose)
+                pre_actuation_poses.append(curr_pose)
+
+        pre_actuation_poses.reverse()
+
+        curr_pose = task_goal_hand_pose
+        for motion in self.post_actuation_motions:
+            mode = motion[0]
+            value = motion[1]
+
+            assert mode in ["translate_x", "translate_y", "translate_z", "rotate"]
+            assert type(value) is float or type(value) is int
+
+            if mode == "rotate":
+                curr_pose = self.get_pose_from_rotation(value, curr_pose)
+                post_actuation_poses.append(curr_pose)
+            else:
+                value_vec = [0, 0, 0]
+                if mode == "translate_x":
+                    value_vec[0] = value
+                elif mode == "translate_y":
+                    value_vec[1] = value
+                elif mode == "translate_z":
+                    value_vec[2] = value
+                curr_pose = self.get_pose_from_translation(value_vec, curr_pose)
+                post_actuation_poses.append(curr_pose)
+
+        return pre_actuation_poses, post_actuation_poses
+
+    def forward_with_diffusion(
         self,
         observation: np.ndarray,
         kpam_obs: Optional[Dict[str, np.ndarray]] = None,
-        returns_rate: float = 0.9,
         mode: str = "eval",
         *args,
         **kwargs,
@@ -166,15 +356,7 @@ class KPamDiffAgent(DiffAgent):
             pred_is_keyframe = self.check_pred_keyframe(pred_action, kpam_obs)
             keyframe_steps = np.where(pred_is_keyframe)[0]
             if len(keyframe_steps) > 0:
-                if self.keyframe_modify_type == "first":
-                    keyframe_steps = np.array([keyframe_steps[0]])
-                elif self.keyframe_modify_type == "last":
-                    keyframe_steps = np.array([keyframe_steps[-1]])
-                elif self.keyframe_modify_type == "middle":
-                    keyframe_steps = np.array(
-                        [keyframe_steps[len(keyframe_steps) // 2]]
-                    )
-                elif self.keyframe_modify_type == "middle_range":
+                if self.keyframe_modify_type == "middle_range":
                     if len(keyframe_steps) >= self.keyframe_modify_length:
                         middle_idx = len(keyframe_steps) // 2
                         half_length = self.keyframe_modify_length // 2
@@ -196,9 +378,20 @@ class KPamDiffAgent(DiffAgent):
                 kpam_action_history = action_history.clone()
                 kpam_act_mask = act_mask.clone()
                 for keyframe_step in keyframe_steps:
-                    modified_action, solve_success = self.modify_keyframe_joint(
-                        pred_action[:, keyframe_step], kpam_obs
+                    pred_joint_positions = np.concatenate(
+                        (to_np(pred_action[:, keyframe_step])[0, :-1], kpam_obs["joint_positions"][-2:]), axis=-1
                     )
+                    modified_joint_positions, solve_success = self.modify_keyframe_joint(
+                        pred_joint_positions, kpam_obs
+                    )
+                    modified_joint_positions = to_torch(
+                        modified_joint_positions, device=self.device, dtype=torch.float32
+                    ).unsqueeze(0)
+                    # Transform back to maniskill format
+                    modified_action = torch.cat(
+                        (modified_joint_positions[:, :-2], pred_action[:, keyframe_step][:, -1:]), dim=-1
+                    )
+
                     if solve_success:
                         supp = torch.zeros(
                             *modified_action.shape[:-1],
@@ -242,6 +435,31 @@ class KPamDiffAgent(DiffAgent):
 
         return pred_action
 
+    def is_preinserted(self, kpam_obs):
+        kpam_obs = recursive_squeeze(kpam_obs, axis=0)
+        peg_rel_pose = vector2pose(kpam_obs["hand_pose"]).inv() * vector2pose(
+            kpam_obs["peg_pose"]
+        )
+        goal_pose = (
+            vector2pose(kpam_obs["box_hole_pose"])
+            * vector2pose(kpam_obs["peg_head_offset"]).inv()
+        )
+
+        self.plant.SetPositions(self.fk_context, kpam_obs["joint_positions"])
+        hand_pose_inbase = self.plant.EvalBodyPoseInWorld(
+            self.fk_context, self.plant.GetBodyByName("panda_hand")
+        )
+        hand_pose = vector2pose(
+            kpam_obs["base_pose"]
+        ) * Pose.from_transformation_matrix(
+            np.array(hand_pose_inbase.GetAsMatrix4())
+        )
+
+        peg_pose = hand_pose * peg_rel_pose
+        peg_head_pose = peg_pose * vector2pose(kpam_obs["peg_head_offset"])
+        is_preinserted = self.check_peg_head_preinserted(peg_head_pose, peg_pose, goal_pose)
+        return is_preinserted
+
     def check_pred_keyframe(self, pred_action, kpam_obs):
         res = [False for _ in range(self.n_obs_steps - 1)]
         peg_rel_pose = vector2pose(kpam_obs["hand_pose"]).inv() * vector2pose(
@@ -265,31 +483,33 @@ class KPamDiffAgent(DiffAgent):
             ) * Pose.from_transformation_matrix(
                 np.array(hand_pose_inbase.GetAsMatrix4())
             )
+
             peg_pose = hand_pose * peg_rel_pose
             peg_head_pose = peg_pose * vector2pose(kpam_obs["peg_head_offset"])
+            is_keyframe = self.check_peg_head_preinserted(peg_head_pose, peg_pose, goal_pose)
 
-            peg_head_wrt_goal = goal_pose.inv() * peg_head_pose
-            peg_head_wrt_goal_yz_dist = np.linalg.norm(peg_head_wrt_goal.p[1:])
-            peg_head_wrt_goal_x_offset = peg_head_wrt_goal.p[0]
-            peg_wrt_goal = goal_pose.inv() * peg_pose
-            peg_wrt_goal_yz_dist = np.linalg.norm(peg_wrt_goal.p[1:])
-            if (
-                peg_head_wrt_goal_yz_dist < 0.01
-                and peg_wrt_goal_yz_dist < 0.01
-                and peg_head_wrt_goal_x_offset > -0.015
-                and peg_head_wrt_goal_x_offset <= 0.0
-            ):
-                is_keyframe = True
-            else:
-                is_keyframe = False
             res.append(is_keyframe)
         return np.array(res)
 
-    def modify_keyframe_joint(self, current_joint, kpam_obs, verify: bool = False):
+    def check_peg_head_preinserted(self, peg_head_pose, peg_pose, goal_pose):
+        peg_head_wrt_goal = goal_pose.inv() * peg_head_pose
+        peg_head_wrt_goal_yz_dist = np.linalg.norm(peg_head_wrt_goal.p[1:])
+        peg_head_wrt_goal_x_offset = peg_head_wrt_goal.p[0]
+        peg_wrt_goal = goal_pose.inv() * peg_pose
+        peg_wrt_goal_yz_dist = np.linalg.norm(peg_wrt_goal.p[1:])
+        if (
+            peg_head_wrt_goal_yz_dist < 0.01
+            and peg_wrt_goal_yz_dist < 0.01
+            and peg_head_wrt_goal_x_offset > -0.015
+            and peg_head_wrt_goal_x_offset <= 0.0
+        ):
+            is_preinserted = True
+        else:
+            is_preinserted = False
+        return is_preinserted
+
+    def modify_keyframe_joint(self, joint_positions, kpam_obs, verify: bool = False):
         # Reduce batch dim and transform to raw format
-        joint_positions = np.concatenate(
-            (to_np(current_joint)[0, :-1], kpam_obs["joint_positions"][-2:]), axis=-1
-        )
         self.plant.SetPositions(self.fk_context, joint_positions)
         hand_pose_inbase = Pose.from_transformation_matrix(
             np.array(
@@ -395,13 +615,6 @@ class KPamDiffAgent(DiffAgent):
             object_head_pos = (box_hole_pose * peg_head_offset.inv() * standoff_pose).p
             ic("after", tool_head_pos, object_head_pos)
 
-        modified_joint = to_torch(
-            modified_joint, device=self.device, dtype=torch.float32
-        ).unsqueeze(0)
-        # Transform back to maniskill format
-        modified_joint = torch.cat(
-            (modified_joint[:, :-2], current_joint[:, -1:]), dim=-1
-        )
         return modified_joint, kpam_success
 
     def update_parameters(self, memory, updates):

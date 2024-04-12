@@ -39,6 +39,7 @@ pre_actuation_motions: [["translate_x", -0.05]] # [standoff]
 post_actuation_motions: [["translate_x", 0.15]] # [push]
 
 # trajectory time
-actuation_time: 50  # time to reach task goal pose
-pre_actuation_times: [40]
-post_actuation_times: [60]
+modify_time: 10
+standby_time: 5
+pre_actuation_rel_times: [-10]
+post_actuation_rel_times: [15]
