@@ -3,6 +3,7 @@ import numpy as np
 
 from simple_3dviz import Spherecloud, Scene, Lines
 from simple_3dviz.utils import save_frame
+from simple_3dviz.window import show
 from open3d.geometry import OrientedBoundingBox
 from open3d.utility import Vector3dVector
 
@@ -65,6 +66,8 @@ if __name__ == "__main__":
 
     print(peg_head_middle_points[0])
     print(peg_head_pose.p)
+
+    # show(pc, camera_position=(0.5, -0.5, 0.8), camera_target=(0.05, -0.1, 0.4))
 
     scene = Scene(size=(1024, 1024))
     scene.add(pc)

@@ -1115,6 +1115,26 @@ class KPamEvaluation(Evaluation):
             self.extra_vec_env = None
         super().__init__(seed=seed, *args, **kwargs)
 
+    def save_pointcloud_pkl(self, pointcloud_obs):
+        from skimage.io import imsave
+        env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
+        imsave("camera_image.png", env_img)
+
+        from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
+        kpam_obs = self.vec_env.get_obs_kpam()
+        kpam_obs = recursive_squeeze(kpam_obs, axis=0)
+
+        import pickle
+        with open("pointcloud.pkl", "wb") as f:
+            pickle.dump(
+                dict(
+                    xyz=pointcloud_obs["xyz"][0],
+                    rgb=pointcloud_obs["rgb"][0],
+                    seg=pointcloud_obs["gt_seg"][0],
+                    kpam_obs=kpam_obs,
+                ), f,
+            )
+
     def run(self, pi, num=1, work_dir=None, **kwargs):
         if self.eval_levels is not None:
             if num > len(self.eval_levels):
@@ -1149,55 +1169,20 @@ class KPamEvaluation(Evaluation):
         #     env_states = self.vec_env.get_state()
         #     self.extra_vec_env.set_state(env_states)
         #     pointcloud_obs = self.extra_vec_env.get_obs()
-
-        #     from skimage.io import imsave
-        #     env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
-        #     imsave("camera_image.png", env_img)
-
-        #     from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
-        #     kpam_obs = self.vec_env.get_obs_kpam()
-        #     kpam_obs = recursive_squeeze(kpam_obs, axis=0)
-
-        #     import pickle
-        #     with open("pointcloud.pkl", "wb") as f:
-        #         pickle.dump(
-        #             dict(
-        #                 xyz=pointcloud_obs["xyz"][0],
-        #                 rgb=pointcloud_obs["rgb"][0],
-        #                 seg=pointcloud_obs["gt_seg"][0],
-        #                 kpam_obs=kpam_obs,
-        #             ), f,
-        #         )
+        #     self.save_pointcloud_pkl(pointcloud_obs)
 
         while self.episode_id < num:
             if grasped:
                 kpam_obs = self.vec_env.get_obs_kpam()
-
                 if self.extra_vec_env is not None:
                     env_states = self.vec_env.get_state()
                     self.extra_vec_env.set_state(env_states)
                     pointcloud_obs = self.extra_vec_env.get_obs()
+                    # self.save_pointcloud_pkl(pointcloud_obs)
+                    action = pi(kpam_obs, pointcloud_obs, use_kpam=True).reshape(1, -1)
+                else:
+                    action = pi(kpam_obs, use_kpam=True).reshape(1, -1)
 
-                    from skimage.io import imsave
-                    env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
-                    imsave("camera_image.png", env_img)
-
-                    from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
-                    kpam_obs = self.vec_env.get_obs_kpam()
-                    kpam_obs = recursive_squeeze(kpam_obs, axis=0)
-
-                    import pickle
-                    with open("pointcloud.pkl", "wb") as f:
-                        pickle.dump(
-                            dict(
-                                xyz=pointcloud_obs["xyz"][0],
-                                rgb=pointcloud_obs["rgb"][0],
-                                seg=pointcloud_obs["gt_seg"][0],
-                                kpam_obs=kpam_obs,
-                            ), f,
-                        )
-
-                action = pi(kpam_obs, use_kpam=True).reshape(1, -1)
             else:
                 if self.eval_action_queue is not None and len(self.eval_action_queue):
                     action = self.eval_action_queue.popleft()
