@@ -134,8 +134,12 @@ def parse_args():
         cfg.merge_from_dict(args.cfg_options)
 
     args.with_agent_type = args.with_agent_type or args.agent_type_first
-    for key in ["work_dir", "env_cfg", "rollout_cfg", "resume_from"]:
+    for key in ["work_dir", "env_cfg", "extra_env_cfg", "rollout_cfg", "resume_from"]:
         cfg[key] = cfg.get(key, None)
+    if cfg.extra_env_cfg is not None and cfg.env_cfg is not None:
+        tmp = cfg.extra_env_cfg
+        cfg.extra_env_cfg = deepcopy(cfg.env_cfg)
+        cfg.extra_env_cfg.update(tmp)
     if args.debug:
         os.environ["PYRL_DEBUG"] = "True"
     elif "PYRL_DEBUG" not in os.environ:
@@ -332,6 +336,13 @@ def main(args, cfg):
         tmp = eval_cfg["env_cfg"]
         eval_cfg["env_cfg"] = deepcopy(cfg.env_cfg)
         eval_cfg["env_cfg"].update(tmp)
+    if eval_cfg.get("extra_env_cfg", None) is None:
+        eval_cfg["extra_env_cfg"] = deepcopy(cfg.extra_env_cfg)
+    else:
+        tmp = eval_cfg["extra_env_cfg"]
+        eval_cfg["extra_env_cfg"] = deepcopy(cfg.extra_env_cfg)
+        eval_cfg["extra_env_cfg"].update(tmp)
+
     get_logger().info(f"Building evaluation: eval_cfg: {eval_cfg}")
     eval_cfg["seed"] = args.seed
     if args.seed is None:

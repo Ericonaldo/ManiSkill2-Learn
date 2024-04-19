@@ -661,6 +661,9 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 ret_actor_seg[np.arange(N), actor_seg] = 1.0
                 ret["seg"] = np.concatenate([ret_visual_seg, ret_actor_seg], axis=-1)
 
+            if "Segmentation" in pointcloud:
+                ret["gt_seg"] = pointcloud["Segmentation"]
+
             # Process observation point cloud rgb, downsample observation point cloud, and transform observation point cloud coordinates to self.obs_frame
             ret["rgb"] = ret["rgb"] / 255.0
             uniform_downsample_kwargs = {

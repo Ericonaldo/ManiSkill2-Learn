@@ -17,7 +17,6 @@ from maniskill2_learn.utils.data import (
     is_str,
     num_to_str,
     to_np,
-    dict_to_str,
     to_item,
 )
 from maniskill2_learn.utils.file import dump, load, merge_h5_trajectory
@@ -36,7 +35,6 @@ from .env_utils import build_vec_env, build_env, true_done, get_max_episode_step
 from .replay_buffer import ReplayMemory
 
 
-# def save_eval_statistics(folder, lengths, rewards, finishes, logger=None):
 def save_eval_statistics(folder, logger=None, **kwargs):
     if logger is None:
         logger = get_logger()
@@ -134,7 +132,7 @@ class FastEvaluation:
         )
 
         if self.eval_levels is not None and is_str(self.eval_levels):
-            is_csv = eval_levels.split(".")[-1] == "csv"
+            is_csv = self.eval_levels.split(".")[-1] == "csv"
             eval_levels = load(self.eval_levels)
             self.eval_levels = eval_levels[0] if is_csv else eval_levels
         if self.eval_levels is not None:
@@ -179,7 +177,7 @@ class FastEvaluation:
                 )
             h5_file = File(trajectory_path, "w")
             self.logger.info(f"Save trajectory at {trajectory_path}.")
-            group = h5_file.create_group(f"meta")
+            group = h5_file.create_group("meta")
             GDict(get_meta_info()).to_hdf5(group)
 
         import torch
@@ -347,8 +345,7 @@ class Evaluation:
         save_video=True,
         use_hidden_state=False,
         sample_mode="eval",
-        render_mode="cameras",  # "rgb_array",
-        # render_mode="human", # cameras", # "rgb_array",
+        render_mode="cameras",  # "human", "rgb_array"
         eval_levels=None,
         seed=None,
         eval_action_len=1,
@@ -1110,6 +1107,14 @@ class OfflineDiffusionEvaluation:
 
 @EVALUATIONS.register_module()
 class KPamEvaluation(Evaluation):
+    def __init__(self, extra_env_cfg=None, seed=None, *args, **kwargs):
+        if extra_env_cfg is not None:
+            self.extra_vec_env = build_vec_env(extra_env_cfg, seed=seed)
+            self.extra_vec_env.reset()
+        else:
+            self.extra_vec_env = None
+        super().__init__(seed=seed, *args, **kwargs)
+
     def run(self, pi, num=1, work_dir=None, **kwargs):
         if self.eval_levels is not None:
             if num > len(self.eval_levels):
@@ -1140,9 +1145,58 @@ class KPamEvaluation(Evaluation):
         grasped = self.vec_env.is_grasped().item()
         recent_obs = self.recent_obs
 
+        # if self.extra_vec_env is not None:
+        #     env_states = self.vec_env.get_state()
+        #     self.extra_vec_env.set_state(env_states)
+        #     pointcloud_obs = self.extra_vec_env.get_obs()
+
+        #     from skimage.io import imsave
+        #     env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
+        #     imsave("camera_image.png", env_img)
+
+        #     from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
+        #     kpam_obs = self.vec_env.get_obs_kpam()
+        #     kpam_obs = recursive_squeeze(kpam_obs, axis=0)
+
+        #     import pickle
+        #     with open("pointcloud.pkl", "wb") as f:
+        #         pickle.dump(
+        #             dict(
+        #                 xyz=pointcloud_obs["xyz"][0],
+        #                 rgb=pointcloud_obs["rgb"][0],
+        #                 seg=pointcloud_obs["gt_seg"][0],
+        #                 kpam_obs=kpam_obs,
+        #             ), f,
+        #         )
+
         while self.episode_id < num:
             if grasped:
                 kpam_obs = self.vec_env.get_obs_kpam()
+
+                if self.extra_vec_env is not None:
+                    env_states = self.vec_env.get_state()
+                    self.extra_vec_env.set_state(env_states)
+                    pointcloud_obs = self.extra_vec_env.get_obs()
+
+                    from skimage.io import imsave
+                    env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
+                    imsave("camera_image.png", env_img)
+
+                    from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
+                    kpam_obs = self.vec_env.get_obs_kpam()
+                    kpam_obs = recursive_squeeze(kpam_obs, axis=0)
+
+                    import pickle
+                    with open("pointcloud.pkl", "wb") as f:
+                        pickle.dump(
+                            dict(
+                                xyz=pointcloud_obs["xyz"][0],
+                                rgb=pointcloud_obs["rgb"][0],
+                                seg=pointcloud_obs["gt_seg"][0],
+                                kpam_obs=kpam_obs,
+                            ), f,
+                        )
+
                 action = pi(kpam_obs, use_kpam=True).reshape(1, -1)
             else:
                 if self.eval_action_queue is not None and len(self.eval_action_queue):

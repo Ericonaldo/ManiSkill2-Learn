@@ -257,7 +257,6 @@ def build_vec_env(cfgs, num_procs=None, multi_thread=False, **vec_env_kwargs):
 
     if isinstance(cfgs, dict):
         cfgs = [cfgs] * num_procs
-    env_type = get_gym_env_type(cfgs[0].env_name)
     assert (
         len(cfgs) == num_procs
     ), "You need to provide env configurations for each process or thread!"
