@@ -8,6 +8,9 @@ from sapien.core import Pose
 from pydrake.all import RigidTransform, PiecewisePolynomial, PiecewisePose
 from open3d.geometry import OrientedBoundingBox
 from open3d.utility import Vector3dVector
+from transforms3d.quaternions import mat2quat
+from mani_skill2.utils.sapien_utils import normalize_vector, vectorize_pose
+from copy import deepcopy
 
 from maniskill2_learn.utils.torch import BaseAgent
 from maniskill2_learn.methods.kpam import se3_utils
@@ -437,6 +440,7 @@ class KPamAgent(BaseAgent):
         self.tool_rel_pose = self.compute_tool_inhand()
 
     def update_obs_with_pointcloud(self, obs, pointcloud_obs):
+        obs = deepcopy(obs)
         base_pose = vector2pose(obs["base_pose"])
         pointcloud_obs["xyz"] = apply_pose_to_points(pointcloud_obs["xyz"], base_pose)
 
@@ -462,19 +466,34 @@ class KPamAgent(BaseAgent):
         peg_head_pc = pointcloud_obs["xyz"][peg_head_idx]
         peg_head_o3d_vector = Vector3dVector(peg_head_pc)
         peg_head_bbox = OrientedBoundingBox.create_from_points(peg_head_o3d_vector)
-        peg_head_middle_points = get_box_endpoints(peg_head_bbox)
+        peg_positions = get_box_endpoints(peg_head_bbox)
 
         peg_tail_idx = np.where((pointcloud_obs["gt_seg"][:, 1] == 17) & (pointcloud_obs["gt_seg"][:, 0] == 15))[0]
         peg_tail_pc_center = np.mean(pointcloud_obs["xyz"][peg_tail_idx], axis=0)
 
-        peg_head_middle_points = peg_head_middle_points[np.linalg.norm(peg_head_middle_points - peg_tail_pc_center, axis=-1).argsort()[::-1]]
+        peg_head_position, peg_middle_position = peg_positions[np.linalg.norm(peg_positions - peg_tail_pc_center, axis=-1).argsort()[::-1]]
 
-        return peg_head_middle_points  # head, middle
+        def get_peg_head_pose(middle, head):
+            forward = normalize_vector(head - middle)
+            up = (0, 0, 1)
+            left = np.cross(up, forward)
+            forward = np.cross(left, up)  # use the fact that peg is lie flat on the table
+            # up = np.cross(forward, left)
+            rotation = np.stack([forward, left, up], axis=1)
+            return Pose(p=head, q=mat2quat(rotation))
+
+        # update obs
+        peg_head_pose = get_peg_head_pose(peg_middle_position, peg_head_position)
+        raw_peg_head_offset = vector2pose(obs["peg_head_offset"])
+        peg_pose = peg_head_pose * raw_peg_head_offset.inv()
+        obs["peg_pose"] = vectorize_pose(peg_pose)
+
+        return obs
 
     def forward(self, obs, pointcloud_obs=None, use_kpam: bool = True, **kwargs):
         if use_kpam:
             obs = recursive_squeeze(obs, axis=0)
-            if pointcloud_obs is not None:
+            if self.check_plan_empty() and pointcloud_obs is not None:
                 pointcloud_obs = recursive_squeeze(pointcloud_obs, axis=0)
                 obs = self.update_obs_with_pointcloud(obs, pointcloud_obs)
             self.get_env_info(obs)

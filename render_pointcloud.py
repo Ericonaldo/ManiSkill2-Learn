@@ -3,7 +3,7 @@ import numpy as np
 
 from simple_3dviz import Spherecloud, Scene, Lines
 from simple_3dviz.utils import save_frame
-from simple_3dviz.window import show
+# from simple_3dviz.window import show
 from open3d.geometry import OrientedBoundingBox
 from open3d.utility import Vector3dVector
 

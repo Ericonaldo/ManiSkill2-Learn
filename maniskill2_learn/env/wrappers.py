@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 from collections import deque
 import cv2
 import numpy as np
@@ -18,7 +19,7 @@ from maniskill2_learn.utils.data import (
 )
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
-from .observation_process import pcd_uniform_downsample
+from .observation_process import pcd_uniform_downsample, pcd_filter_with_mask
 
 WRAPPERS = Registry("wrappers of gym environments")
 
@@ -203,18 +204,19 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
     def __init__(
         self,
         env,
-        img_size=None,
-        n_points=1200,
-        n_goal_points=-1,
-        obs_frame="base",
-        ignore_dones=False,
-        fix_seed=None,
-        concat_rgbd=False,
-        using_depth=True,
-        history_len=1,
-        using_angle=False,
-        using_euler=False,
-        using_target=False,
+        img_size: Optional[Tuple[int, int]] = None,
+        n_points: int = 1200,
+        n_goal_points: int = -1,
+        obs_frame: str = "base",
+        ignore_dones: bool = False,
+        fix_seed: Optional[int] = None,
+        concat_rgbd: bool = False,
+        using_depth: bool = True,
+        history_len: int = 1,
+        using_angle: bool = False,
+        using_euler: bool = False,
+        using_target: bool = False,
+        remove_arm_pointcloud: bool = True,
     ):
         super().__init__(env)
 
@@ -227,6 +229,7 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
         elif self.obs_mode == "pointcloud":
             self.n_points = n_points
             self.n_goal_points = n_goal_points
+            self.remove_arm_pointcloud = remove_arm_pointcloud
         else:
             raise ValueError(f"Unknown obs_mode {self.obs_mode}")
 
@@ -671,6 +674,10 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
                 "ground_eps": 1e-4,
                 "num": self.n_points,
             }
+            if self.remove_arm_pointcloud:
+                assert "gt_seg" in ret
+                mask = np.where((ret["gt_seg"][:, 1] != 16) & (ret["gt_seg"][:, 1] != 17) & (ret["gt_seg"][:, 1] != 18), False, True)
+                pcd_filter_with_mask(ret, mask, self.env)
             if "PointCloudPreprocessObsWrapper" not in self.env.__str__():
                 pcd_uniform_downsample(ret, **uniform_downsample_kwargs)
             ret["xyz"] = apply_pose_to_points(ret["xyz"], to_origin)

@@ -1,4 +1,5 @@
 import numpy as np
+
 from maniskill2_learn.utils.data import (
     float_to_int,
     as_dtype,
@@ -8,7 +9,6 @@ from maniskill2_learn.utils.data import (
 )
 from maniskill2_learn.utils.meta import get_logger
 from maniskill2_learn.version import __version__
-import deprecation
 
 
 def select_mask(obs, key, mask):

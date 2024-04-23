@@ -42,8 +42,9 @@ env_cfg = dict(
 )
 extra_env_cfg = dict(
     obs_mode="pointcloud",
-    n_points=5000,
+    n_points=4096,
     camera_cfgs=dict(add_segmentation=True),
+    remove_arm_pointcloud=True,
 )
 
 eval_cfg = dict(
