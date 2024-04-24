@@ -1220,3 +1220,119 @@ class KPamEvaluation(Evaluation):
             rewards=self.episode_rewards,
             finishes=self.episode_finishes,
         )
+
+
+@EVALUATIONS.register_module()
+class RiemannEvaluation(Evaluation):
+    def __init__(self, extra_env_cfg=None, seed=None, *args, **kwargs):
+        if extra_env_cfg is not None:
+            self.extra_vec_env = build_vec_env(extra_env_cfg, seed=seed)
+            self.extra_vec_env.reset()
+        else:
+            self.extra_vec_env = None
+        super().__init__(seed=seed, *args, **kwargs)
+
+    def save_pointcloud_pkl(self, pointcloud_obs):
+        from skimage.io import imsave
+        env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
+        imsave("camera_image.png", env_img)
+
+        from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
+        kpam_obs = self.vec_env.get_obs_kpam()
+        kpam_obs = recursive_squeeze(kpam_obs, axis=0)
+
+        import pickle
+        with open("pointcloud.pkl", "wb") as f:
+            pickle.dump(
+                dict(
+                    xyz=pointcloud_obs["xyz"][0],
+                    rgb=pointcloud_obs["rgb"][0],
+                    seg=pointcloud_obs["gt_seg"][0],
+                    kpam_obs=kpam_obs,
+                ), f,
+            )
+
+    def run(self, pi, num=1, work_dir=None, **kwargs):
+        if self.eval_levels is not None:
+            if num > len(self.eval_levels):
+                print(
+                    f"We do not need to select more than {len(self.eval_levels)} levels!",
+                    flush=True,
+                )
+                num = min(num, len(self.eval_levels))
+        self.start(work_dir)
+        import torch
+
+        replay = None
+        if "memory" in kwargs:
+            replay = kwargs["memory"]
+
+        def reset_pi():
+            if hasattr(pi, "reset"):
+                assert (
+                    self.worker_id is None
+                ), "Reset policy only works for single thread!"
+                reset_kwargs = {}
+                if hasattr(self.vec_env, "level"):
+                    # When we run CEM, we need the level of the rollout env to match the level of test env.
+                    reset_kwargs["level"] = self.vec_env.level
+                pi.reset(**reset_kwargs)  # For CEM and PETS-like model-based method.
+
+        reset_pi()
+        grasped = self.vec_env.is_grasped().item()
+        recent_obs = self.recent_obs
+
+        # if self.extra_vec_env is not None:
+        #     env_states = self.vec_env.get_state()
+        #     self.extra_vec_env.set_state(env_states)
+        #     pointcloud_obs = self.extra_vec_env.get_obs()
+        #     self.save_pointcloud_pkl(pointcloud_obs)
+
+        while self.episode_id < num:
+            if grasped:
+                if self.extra_vec_env is not None:
+                    env_states = self.vec_env.get_state()
+                    self.extra_vec_env.set_state(env_states)
+                    pointcloud_obs = self.extra_vec_env.get_obs()
+                    # self.save_pointcloud_pkl(pointcloud_obs)
+                    action = pi(recent_obs, pointcloud_obs, use_planner=True).reshape(1, -1)
+                else:
+                    action = pi(recent_obs, use_planner=True).reshape(1, -1)
+
+            else:
+                if self.eval_action_queue is not None and len(self.eval_action_queue):
+                    action = self.eval_action_queue.popleft()
+                else:
+                    if self.use_hidden_state:
+                        recent_obs = self.vec_env.get_state()
+                    with torch.no_grad():
+                        with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
+                            action = pi(recent_obs, mode=self.sample_mode, memory=replay, use_planner=False)
+                            action = to_np(action)
+                            if (
+                                (self.eval_action_queue is not None)
+                                and (len(self.eval_action_queue) == 0)
+                                and self.eval_action_len > 1
+                            ):
+                                # for i in range(self.eval_action_len-1):
+                                for i in range(
+                                    min(self.eval_action_len - 1, action.shape[1] - 1)
+                                ):  # Allow eval action len to be different with predicted action len
+                                    self.eval_action_queue.append(action[:, i + 1, :])
+                                action = action[:, 0]
+
+            recent_obs, episode_done = self.step(action)
+            grasped = self.vec_env.is_grasped().item()
+            if grasped:
+                self.eval_action_queue.clear()
+
+            if episode_done:
+                reset_pi()
+                log_mem_info(self.logger)
+        self.finish()
+
+        return dict(
+            lengths=self.episode_lens,
+            rewards=self.episode_rewards,
+            finishes=self.episode_finishes,
+        )

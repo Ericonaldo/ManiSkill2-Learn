@@ -20,39 +20,51 @@ def run():
         control_mode="pd_joint_pos",
         n_points=n_points,
         camera_cfgs=dict(add_segmentation=True),
+        remove_arm_pointcloud=True,
     )
 
     import_env()
     env = build_env(env_cfg)
 
-    xyz_list, rgb_list, seg_center_list, axes_list = [], [], [], []
+    xyz_list, rgb_list, seg_center_list, axes_list, object_seg_center_list, object_axes_list = [], [], [], [], [], []
     for _ in range(n_demos):
         env.reset()
         obs = env.get_obs()
         kpam_obs = env.get_obs_kpam()
         goal_pose = env.goal_pose
+        peg_pose = vector2pose(kpam_obs["peg_pose"])
+        peg_head_offset = vector2pose(kpam_obs["peg_head_offset"])
+        peg_head_pose = peg_pose.transform(peg_head_offset)
 
         base_pose = vector2pose(kpam_obs["base_pose"])
         xyz = apply_pose_to_points(obs["xyz"], base_pose)
         rgb = obs["rgb"]
         seg_center = goal_pose.p
         axes = goal_pose.to_transformation_matrix()[:3, :3].reshape(-1)
+        object_peg_center = peg_head_pose.p
+        object_axes = peg_head_pose.to_transformation_matrix()[:3, :3].reshape(-1)
 
         xyz = np.repeat(np.expand_dims(xyz, axis=0), traj_len, axis=0)
         rgb = np.repeat(np.expand_dims(rgb, axis=0), traj_len, axis=0)
         seg_center = np.repeat(np.expand_dims(seg_center, axis=0), traj_len, axis=0)
         axes = np.repeat(np.expand_dims(axes, axis=0), traj_len, axis=0)
+        object_seg_center = np.repeat(np.expand_dims(object_peg_center, axis=0), traj_len, axis=0)
+        object_axes = np.repeat(np.expand_dims(object_axes, axis=0), traj_len, axis=0)
 
         xyz_list.append(xyz)
         rgb_list.append(rgb)
         seg_center_list.append(seg_center)
         axes_list.append(axes)
+        object_seg_center_list.append(object_seg_center)
+        object_axes_list.append(object_axes)
 
     demo = {
         "xyz": np.stack(xyz_list, axis=0),
         "rgb": np.stack(rgb_list, axis=0),
         "seg_center": np.stack(seg_center_list, axis=0),
         "axes": np.stack(axes_list, axis=0),
+        "object_seg_center": np.stack(object_seg_center_list, axis=0),
+        "object_axes": np.stack(object_axes_list, axis=0),
     }
     np.savez(f"peginsert_demo_{n_points}.npz", **demo)
 

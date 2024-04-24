@@ -180,6 +180,7 @@ def make_gym_env(
         obs_frame = kwargs.pop("obs_frame", "world")
         ignore_dones = kwargs.pop("ignore_dones", False)
         fix_seed = kwargs.pop("fix_seed", None)
+        remove_arm_pointcloud = kwargs.pop("remove_arm_pointcloud", False)
 
     env = gym.make(env_name, **kwargs)
     if env is None:
@@ -218,6 +219,7 @@ def make_gym_env(
             using_angle=using_angle,
             using_euler=using_euler,
             using_target=using_target,
+            remove_arm_pointcloud=remove_arm_pointcloud,
         )
 
     if extra_wrappers is not None:
