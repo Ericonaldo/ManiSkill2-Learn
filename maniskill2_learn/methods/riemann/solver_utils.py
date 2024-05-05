@@ -284,20 +284,15 @@ def compose_rotating_key_frames(
     return times, poses
 
 
-def solve_ik_kpam(
-    constraint_dicts,
+def solve_ik_joint(
     gripper_frame,
-    keypoints_in_hand,
-    keypoints_object_in_world,
-    p0,
+    p_target,
     q0,
     centering_joint,
-    rot_tol=np.pi / 10,
     add_table_col=False,
     add_gripper_faceup=False,
-    timeout=False,
+    # timeout=False,
     consider_collision=False,
-    table_height=0.15,
 ):
     """
     the simple case for the kpam problem
@@ -312,67 +307,23 @@ def solve_ik_kpam(
     # separate out cost and constraint
     # cost is more or less address by the position and orientation constraint
 
-    # separate out axis
-    for constraint in constraint_dicts:
-        if "target_axis" in constraint:
-            from_name = constraint["axis_from_keypoint_name"]
-            to_name = constraint["axis_to_keypoint_name"]
-            target_axis = constraint["target_axis"]
-            vec = keypoints_in_hand[to_name] - keypoints_in_hand[from_name]
-            tol = constraint["tolerance"]
-            tgt = np.arccos(constraint["target_inner_product"])
-            lower_bound = max(tgt - tol, 0)
-            upper_bound = min(tgt + tol, np.pi)
-
-            ik.AddAngleBetweenVectorsConstraint(
-                gripper_frame,
-                vec,
-                robot_plant.world_frame(),
-                target_axis,
-                lower_bound,
-                upper_bound,
-            )
-
-        elif "target_axis_from_keypoint_name" in constraint:
-            from_name = constraint["axis_from_keypoint_name"]
-            to_name = constraint["axis_to_keypoint_name"]
-            target_from_name = constraint["target_axis_from_keypoint_name"]
-            target_to_name = constraint["target_axis_to_keypoint_name"]
-            tool_vec = keypoints_in_hand[to_name] - keypoints_in_hand[from_name]
-            object_vec = (
-                keypoints_object_in_world[target_to_name]
-                - keypoints_object_in_world[target_from_name]
-            )
-            tol = constraint["tolerance"]
-            tgt = np.arccos(constraint["target_inner_product"])
-            lower_bound = max(tgt - tol, 0)
-            upper_bound = min(tgt + tol, np.pi)
-
-            ik.AddAngleBetweenVectorsConstraint(
-                gripper_frame,
-                tool_vec,
-                robot_plant.world_frame(),
-                object_vec,
-                lower_bound,
-                upper_bound,
-            )
-        else:
-            name = constraint["keypoint_name"]
-            target_name = constraint["target_keypoint_name"]
-            tool_point = keypoints_in_hand[name]
-            object_point = keypoints_object_in_world[target_name]
-            tol = constraint["tolerance"]
-
-            ik.AddPositionConstraint(
-                gripper_frame,
-                tool_point,
-                robot_plant.world_frame(),
-                object_point - tol,
-                object_point + tol,
-            )
-
     """solving IK to match tool head keypoint and the object keypoint"""
     # maybe add slackness
+
+    ik.AddPositionConstraint(
+        gripper_frame,
+        [0, 0, 0],
+        robot_plant.world_frame(),
+        p_target.translation(),
+        p_target.translation(),
+    )
+    ik.AddOrientationConstraint(
+        gripper_frame,
+        RotationMatrix(),
+        robot_plant.world_frame(),
+        p_target.rotation(),
+        0,
+    )
 
     # make sure the arm does not go backward
     ik.AddPositionConstraint(
@@ -424,12 +375,6 @@ def solve_ik_kpam(
     joint_cost_mat = np.identity(len(q))
     joint_cost_mat[0, 0] = 10  # 000
     prog.AddQuadraticErrorCost(joint_cost_mat, centering_joint, q)
-    ik.AddPositionCost(
-        gripper_frame, [0, 0, 0], robot_plant.world_frame(), p0.translation(), np.eye(3)
-    )
-    ik.AddOrientationCost(
-        gripper_frame, RotationMatrix(), robot_plant.world_frame(), p0.rotation(), 1
-    )
 
     prog.SetInitialGuess(q, q0)
     result = solver.Solve(ik.prog())

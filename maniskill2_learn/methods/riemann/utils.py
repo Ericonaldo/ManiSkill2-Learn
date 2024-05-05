@@ -1,10 +1,10 @@
 import torch
 import torch_scatter
+from torch_cluster import radius_graph
 import numpy as np
 import dgl
 from dgl import backend as F
 from dgl.convert import graph as dgl_graph
-from torch_cluster import radius_graph
 from scipy.spatial.transform import Rotation
 
 from .se3_transformer.model.fiber import Fiber

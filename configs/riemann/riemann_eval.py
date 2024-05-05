@@ -45,6 +45,7 @@ extra_env_cfg = dict(
     n_points=4096,
     camera_cfgs=dict(add_segmentation=True),
     remove_arm_pointcloud=True,
+    add_front_cover=True
 )
 
 eval_cfg = dict(

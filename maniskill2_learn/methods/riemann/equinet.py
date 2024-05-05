@@ -16,12 +16,12 @@ class SE3SegNet(ExtendedModule):
                     "0": 1,  # one heatmap
                 }
             ),
-            # num_layers=4,
-            # num_degrees=4,
-            # num_channels=8,
-            num_layers=2,
+            num_layers=4,
             num_degrees=4,
-            num_channels=4,
+            num_channels=8,
+            # num_layers=2,
+            # num_degrees=4,
+            # num_channels=4,
             num_heads=1,
             channels_div=2,
             voxelize=voxelize,
@@ -260,11 +260,7 @@ class SE3ManiNet(ExtendedModule):
             else:
                 output_ori[i] = newdata["feature"].mean(dim=0)
 
-        for i in range(3):
-            output_ori[:, 3 * i : 3 * (i + 1)] /= (
-                torch.norm(output_ori[:, 3 * i : 3 * (i + 1)].clone(), dim=1).unsqueeze(
-                    1
-                )
-                + 1e-8
-            )
+        output_ori = output_ori.reshape(-1, 3, 3)
+        output_ori = output_ori / (torch.norm(output_ori, dim=-1, keepdim=True) + 1e-8)
+        output_ori = output_ori.reshape(-1, 9)
         return output_pos, output_ori

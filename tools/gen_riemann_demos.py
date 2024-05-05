@@ -1,15 +1,12 @@
 import numpy as np
+import argparse
 
 from maniskill2_learn.env.env_utils import build_env, import_env
 from maniskill2_learn.methods.kpam.kpam_utils import vector2pose
 from maniskill2_learn.utils.lib3d.mani_skill2_contrib import apply_pose_to_points
 
 
-def run():
-    traj_len = 20
-    n_demos = 20
-    n_points = 4096
-
+def run(args):
     env_cfg = dict(
         type="gym",
         env_name="PegInsertionSide-v0",
@@ -18,16 +15,20 @@ def run():
         state_version="v2",
         history_len=6,
         control_mode="pd_joint_pos",
-        n_points=n_points,
+        n_points=args.n_points,
         camera_cfgs=dict(add_segmentation=True),
         remove_arm_pointcloud=True,
+        add_hole=not args.remove_hole,
+        fixed_hole=args.fixed_hole,
+        add_front_cover=args.add_front_cover,
     )
 
     import_env()
     env = build_env(env_cfg)
+    env.seed(args.seed)
 
     xyz_list, rgb_list, seg_center_list, axes_list, object_seg_center_list, object_axes_list = [], [], [], [], [], []
-    for _ in range(n_demos):
+    for _ in range(args.n_demos):
         env.reset()
         obs = env.get_obs()
         kpam_obs = env.get_obs_kpam()
@@ -40,16 +41,10 @@ def run():
         xyz = apply_pose_to_points(obs["xyz"], base_pose)
         rgb = obs["rgb"]
         seg_center = goal_pose.p
-        axes = goal_pose.to_transformation_matrix()[:3, :3].reshape(-1)
-        object_peg_center = peg_head_pose.p
-        object_axes = peg_head_pose.to_transformation_matrix()[:3, :3].reshape(-1)
-
-        xyz = np.repeat(np.expand_dims(xyz, axis=0), traj_len, axis=0)
-        rgb = np.repeat(np.expand_dims(rgb, axis=0), traj_len, axis=0)
-        seg_center = np.repeat(np.expand_dims(seg_center, axis=0), traj_len, axis=0)
-        axes = np.repeat(np.expand_dims(axes, axis=0), traj_len, axis=0)
-        object_seg_center = np.repeat(np.expand_dims(object_peg_center, axis=0), traj_len, axis=0)
-        object_axes = np.repeat(np.expand_dims(object_axes, axis=0), traj_len, axis=0)
+        # sapien use column major, so we need to transpose the rotation matrix
+        axes = goal_pose.to_transformation_matrix()[:3, :3].T.reshape(-1)
+        object_seg_center = peg_head_pose.p
+        object_axes = peg_head_pose.to_transformation_matrix()[:3, :3].T.reshape(-1)
 
         xyz_list.append(xyz)
         rgb_list.append(rgb)
@@ -61,13 +56,31 @@ def run():
     demo = {
         "xyz": np.stack(xyz_list, axis=0),
         "rgb": np.stack(rgb_list, axis=0),
-        "seg_center": np.stack(seg_center_list, axis=0),
-        "axes": np.stack(axes_list, axis=0),
+        "target_seg_center": np.stack(seg_center_list, axis=0),
+        "target_axes": np.stack(axes_list, axis=0),
         "object_seg_center": np.stack(object_seg_center_list, axis=0),
         "object_axes": np.stack(object_axes_list, axis=0),
     }
-    np.savez(f"peginsert_demo_{n_points}.npz", **demo)
+    demo_file_name = f"peginsert_demo_{args.n_points}_s{args.seed}"
+    if args.remove_hole:
+        assert not args.fixed_hole
+        demo_file_name += "_nohole"
+    if args.fixed_hole:
+        demo_file_name += "_fixhole"
+    if args.add_front_cover:
+        demo_file_name += "_frontcover"
+    demo_file_name += ".npz"
+    print(f"Saving demo npz to {demo_file_name}")
+    np.savez(demo_file_name, **demo)
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=100)
+    parser.add_argument("--n_demos", type=int, default=100)
+    parser.add_argument("--n_points", type=int, default=4096)
+    parser.add_argument("--remove_hole", action="store_true")
+    parser.add_argument("--fixed_hole", action="store_true")
+    parser.add_argument("--add_front_cover", action="store_true")
+    args = parser.parse_args()
+    run(args)

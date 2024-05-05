@@ -1,3 +1,4 @@
+from typing import Optional
 import glob
 import logging
 import os
@@ -470,7 +471,12 @@ class Evaluation:
             print(f"Begin to evaluate in worker {self.worker_id}", flush=True)
 
         self.episode_id = -1
-        self.reset()
+        if hasattr(self, "seed_list"):
+            seed = self.seed_list[self.seed_idx]
+            self.seed_idx = self.seed_idx + 1
+        else:
+            seed = None
+        self.reset(seed)
 
     def done(self):
         self.episode_lens.append(self.episode_len)
@@ -490,7 +496,13 @@ class Evaluation:
             self.video_writer.release()
             self.video_writer = None
 
-    def reset(self):
+    def reset(self, seed: Optional[int] = None):
+        if seed is not None:
+            self.vec_env.seed(seed)
+            self.extra_vec_env.seed(seed)
+        else:
+            raise RuntimeError
+
         self.episode_id += 1
         self.episode_len, self.episode_reward, self.episode_finish = 0, 0, False
         level = None
@@ -503,8 +515,12 @@ class Evaluation:
             if isinstance(level, str):
                 level = eval(level)
             self.recent_obs = self.vec_env.reset(level=level)
+            if self.extra_vec_env is not None:
+                self.extra_vec_env.reset(level=level)
         else:
             self.recent_obs = self.vec_env.reset()
+            if self.extra_vec_env is not None:
+                self.extra_vec_env.reset()
             if hasattr(self.vec_env, "level"):
                 level = self.vec_env.level
             elif hasattr(self.vec_env.unwrapped, "_main_seed"):
@@ -630,7 +646,12 @@ class Evaluation:
                     )
             self.episode_finish = done
             self.done()
-            self.reset()
+            if hasattr(self, "seed_list"):
+                seed = self.seed_list[self.seed_idx]
+                self.seed_idx = self.seed_idx + 1
+            else:
+                seed = None
+            self.reset(seed)
         else:
             self.recent_obs = infos["next_obs"]
         return self.recent_obs, episode_done
@@ -1260,6 +1281,10 @@ class RiemannEvaluation(Evaluation):
                     flush=True,
                 )
                 num = min(num, len(self.eval_levels))
+
+        self.seed_idx = 0
+        self.seed_list = np.arange(2000, 2000 + num)
+
         self.start(work_dir)
         import torch
 
@@ -1290,14 +1315,15 @@ class RiemannEvaluation(Evaluation):
 
         while self.episode_id < num:
             if grasped:
+                kpam_obs = self.vec_env.get_obs_kpam()
                 if self.extra_vec_env is not None:
                     env_states = self.vec_env.get_state()
                     self.extra_vec_env.set_state(env_states)
                     pointcloud_obs = self.extra_vec_env.get_obs()
                     # self.save_pointcloud_pkl(pointcloud_obs)
-                    action = pi(recent_obs, pointcloud_obs, use_planner=True).reshape(1, -1)
+                    action = pi(kpam_obs, pointcloud_obs, use_planner=True).reshape(1, -1)
                 else:
-                    action = pi(recent_obs, use_planner=True).reshape(1, -1)
+                    action = pi(kpam_obs, use_planner=True).reshape(1, -1)
 
             else:
                 if self.eval_action_queue is not None and len(self.eval_action_queue):
