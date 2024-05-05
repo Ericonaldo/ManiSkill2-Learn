@@ -1,7 +1,7 @@
 from functools import wraps
-
 from numbers import Number
-from .converter import to_np, to_torch, to_array
+
+from .converter import to_array, to_np, to_torch
 
 
 def seq_to_np(to_arr=True):

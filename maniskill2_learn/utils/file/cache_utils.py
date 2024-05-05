@@ -1,23 +1,26 @@
-from multiprocessing.shared_memory import SharedMemory
-import numpy as np, time
-from random import shuffle
+import time
 from io import BytesIO
+from multiprocessing.shared_memory import SharedMemory
+from random import shuffle
+
+import numpy as np
 from h5py import File, Group
 from tqdm import tqdm
 
-from maniskill2_learn.utils.meta import get_filename_suffix, Worker, get_logger
-from maniskill2_learn.utils.math import split_num
 from maniskill2_learn.utils.data import (
-    GDict,
     DictArray,
+    GDict,
     SharedDictArray,
     is_h5,
     is_not_null,
     is_null,
     is_str,
 )
-from .serialization import load, dump
-from .record_utils import load_record_indices, load_items_from_record
+from maniskill2_learn.utils.math import split_num
+from maniskill2_learn.utils.meta import Worker, get_filename_suffix, get_logger
+
+from .record_utils import load_items_from_record, load_record_indices
+from .serialization import dump, load
 
 
 def is_h5_traj(h5):

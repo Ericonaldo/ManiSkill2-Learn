@@ -2,31 +2,31 @@
 Behavior cloning(BC)
 """
 
-from random import sample
-from itertools import chain
-from tqdm import tqdm
-import numpy as np
+from collections import defaultdict
 from copy import copy
+from itertools import chain
+from random import sample
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import defaultdict
+from tqdm import tqdm
 
 from maniskill2_learn.networks import (
-    build_model,
     ContinuousActor,
-    build_reg_head,
     RNNVisuomotor,
+    build_model,
+    build_reg_head,
 )
 from maniskill2_learn.schedulers import build_lr_scheduler
-
-from maniskill2_learn.utils.data import to_torch, DictArray, GDict, dict_to_str
-from maniskill2_learn.utils.meta import get_total_memory, get_logger
+from maniskill2_learn.utils.data import DictArray, GDict, dict_to_str, to_torch
+from maniskill2_learn.utils.meta import get_logger, get_total_memory
 from maniskill2_learn.utils.torch import (
     BaseAgent,
-    get_mean_lr,
-    get_cuda_info,
     build_optimizer,
+    get_cuda_info,
+    get_mean_lr,
 )
 
 from ..builder import BRL
@@ -202,8 +202,9 @@ class BC(BaseAgent):
         ret_dict = {}
         num_samples = 0
 
-        from maniskill2_learn.utils.meta import TqdmToLogger
         from tqdm import tqdm
+
+        from maniskill2_learn.utils.meta import TqdmToLogger
 
         tqdm_obj = tqdm(total=memory.data_size, file=TqdmToLogger(), mininterval=20)
 

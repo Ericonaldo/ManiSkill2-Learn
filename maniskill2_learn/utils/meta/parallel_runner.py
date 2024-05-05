@@ -1,11 +1,10 @@
 import random
 import time
-from ctypes import c_bool, c_int32
-from multiprocessing import Process, set_start_method, Pipe, Value, shared_memory
 from copy import deepcopy
+from ctypes import c_bool, c_int32
+from multiprocessing import Pipe, Process, Value, set_start_method, shared_memory
 
 import numpy as np
-
 
 try:
     set_start_method("spawn")

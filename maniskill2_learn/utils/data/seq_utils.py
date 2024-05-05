@@ -1,6 +1,7 @@
 import itertools
 from copy import deepcopy
 from random import shuffle
+
 from .type_utils import is_seq_of
 
 

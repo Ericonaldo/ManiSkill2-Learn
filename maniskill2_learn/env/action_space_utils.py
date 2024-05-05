@@ -1,6 +1,7 @@
-from gym.spaces import Box, Discrete, Dict, Space
-from maniskill2_learn.utils.data import repeat
 import numpy as np
+from gym.spaces import Box, Dict, Discrete, Space
+
+from maniskill2_learn.utils.data import repeat
 
 
 class StackedDiscrete(Space):

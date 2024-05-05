@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from maniskill2_learn.utils.meta import get_logger
-from maniskill2_learn.utils.torch import load_checkpoint, ExtendedModule
+from maniskill2_learn.utils.torch import ExtendedModule, load_checkpoint
 
 from ..builder import BACKBONES
 from ..modules import build_activation_layer

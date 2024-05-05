@@ -1,4 +1,6 @@
-import numpy as np, open3d as o3d
+import numpy as np
+import open3d as o3d
+
 from ..lib3d import np2pcd, to_o3d
 
 

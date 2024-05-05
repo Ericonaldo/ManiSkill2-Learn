@@ -1,14 +1,14 @@
 # https://github.com/alexmojaki/sorcery
 from sorcery import (
     assigned_names,
-    unpack_keys,
-    unpack_attrs,
-    dict_of,
-    print_args,
     call_with_name,
     delegate_to_attr,
+    dict_of,
     maybe,
+    print_args,
     select_from,
+    unpack_attrs,
+    unpack_keys,
 )
 
 # https://github.com/gruns/icecream
@@ -16,8 +16,9 @@ from sorcery import (
 
 
 def colored_print(output_string, level="info", logger=print):
-    from termcolor import colored
     import sys
+
+    from termcolor import colored
 
     if level.lower() in ["warning", "error"]:
         level = colored(level.upper(), "red")

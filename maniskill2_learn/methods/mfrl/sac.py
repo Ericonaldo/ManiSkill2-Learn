@@ -5,15 +5,21 @@ Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a
    https://arxiv.org/abs/1801.01290
 """
 
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from maniskill2_learn.networks import build_model, build_actor_critic
-from maniskill2_learn.utils.torch import build_optimizer
-from maniskill2_learn.utils.torch import BaseAgent, hard_update, soft_update
+from maniskill2_learn.networks import build_actor_critic, build_model
+from maniskill2_learn.utils.torch import (
+    BaseAgent,
+    build_optimizer,
+    hard_update,
+    soft_update,
+)
+
 from ..builder import MFRL
 
 

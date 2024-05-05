@@ -6,6 +6,7 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime
 
 import numpy as np
+
 from maniskill2_learn.env import ReplayMemory, save_eval_statistics
 from maniskill2_learn.utils.data import (
     GDict,
@@ -187,6 +188,7 @@ def train_rl(
     agent.set_mode(mode="train")
 
     import torch
+
     from maniskill2_learn.utils.torch import get_cuda_info
 
     tf_logs = ReplayMemory(n_updates, None, max_threads=1)

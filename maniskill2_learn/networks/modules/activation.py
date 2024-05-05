@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from maniskill2_learn.utils.meta import build_from_cfg, Registry
+from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
 ACTIVATION_LAYERS = Registry("activation layer")
 for module in [

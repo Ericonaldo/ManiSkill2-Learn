@@ -1,13 +1,13 @@
+import torch
 import torch.nn as nn
 import torch.utils.checkpoint as cp
 from torch.nn.modules.batchnorm import _BatchNorm
-import torch
-
 
 from maniskill2_learn.utils.torch import load_checkpoint
-from ..modules import kaiming_init, constant_init, build_conv_layer, build_norm_layer
-from ..modules.cnn_modules import BasicBlock, Bottleneck, ResLayer
+
 from ..builder import BACKBONES, build_backbone
+from ..modules import build_conv_layer, build_norm_layer, constant_init, kaiming_init
+from ..modules.cnn_modules import BasicBlock, Bottleneck, ResLayer
 
 
 @BACKBONES.register_module()

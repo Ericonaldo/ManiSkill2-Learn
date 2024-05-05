@@ -1,8 +1,9 @@
-import torch, torch.nn as nn
+import torch
+import torch.nn as nn
 
 try:
-    import torchsparse.nn.functional as spf
     import torchsparse.nn as spnn
+    import torchsparse.nn.functional as spf
     from torchsparse import PointTensor, SparseTensor
     from torchsparse.nn.utils import get_kernel_offsets
 except:

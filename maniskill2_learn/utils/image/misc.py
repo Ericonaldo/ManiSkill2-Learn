@@ -1,5 +1,8 @@
-from typing import List, Dict
-import numpy as np, cv2
+from typing import Dict, List
+
+import cv2
+import numpy as np
+
 from .photometric import imdenormalize
 
 try:

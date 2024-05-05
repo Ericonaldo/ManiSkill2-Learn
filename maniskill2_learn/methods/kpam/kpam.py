@@ -1,34 +1,34 @@
 import os
 import time
-import yaml
-
-import numpy as np
-from icecream import ic
-from sapien.core import Pose
-from pydrake.all import RigidTransform, PiecewisePolynomial, PiecewisePose
-from open3d.geometry import OrientedBoundingBox
-from open3d.utility import Vector3dVector
-from transforms3d.quaternions import mat2quat
-from mani_skill2.utils.sapien_utils import normalize_vector, vectorize_pose
 from copy import deepcopy
 
-from maniskill2_learn.utils.torch import BaseAgent
+import numpy as np
+import yaml
+from icecream import ic
+from mani_skill2.utils.sapien_utils import normalize_vector, vectorize_pose
+from open3d.geometry import OrientedBoundingBox
+from open3d.utility import Vector3dVector
+from pydrake.all import PiecewisePolynomial, PiecewisePose, RigidTransform
+from sapien.core import Pose
+from transforms3d.quaternions import mat2quat
+
 from maniskill2_learn.methods.kpam import se3_utils
 from maniskill2_learn.methods.kpam.kpam_utils import (
     anchor_seeds,
-    solve_ik_kpam,
+    build_plant,
+    dense_sample_traj_times,
+    recursive_squeeze,
     rotAxis,
     se3_inverse,
-    dense_sample_traj_times,
+    solve_ik_kpam,
     solve_ik_traj_with_standoff,
-    build_plant,
     vector2pose,
-    recursive_squeeze,
 )
 from maniskill2_learn.methods.kpam.optimization_spec import (
     OptimizationProblemSpecification,
 )
 from maniskill2_learn.utils.lib3d.mani_skill2_contrib import apply_pose_to_points
+from maniskill2_learn.utils.torch import BaseAgent
 
 from ..builder import BRL
 
@@ -302,14 +302,21 @@ class KPamAgent(BaseAgent):
             self.joint_traj_waypoints = list(self.joint_traj_waypoints)
             if self.pre_actuation_standby_time > 0:
                 self.joint_traj_waypoints = (
-                    self.joint_traj_waypoints[:self.pre_actuation_times[0]]
-                    + [self.joint_traj_waypoints[self.pre_actuation_times[0]]] * self.pre_actuation_standby_time
-                    + self.joint_traj_waypoints[self.pre_actuation_times[0]:]
+                    self.joint_traj_waypoints[: self.pre_actuation_times[0]]
+                    + [self.joint_traj_waypoints[self.pre_actuation_times[0]]]
+                    * self.pre_actuation_standby_time
+                    + self.joint_traj_waypoints[self.pre_actuation_times[0] :]
                 )
                 self.dense_traj_times = (
-                    self.dense_traj_times[:self.pre_actuation_times[0]]
-                    + [self.dense_traj_times[self.pre_actuation_times[0]] + i for i in range(self.pre_actuation_standby_time)]
-                    + [t + self.pre_actuation_standby_time for t in self.dense_traj_times[self.pre_actuation_times[0]:]]
+                    self.dense_traj_times[: self.pre_actuation_times[0]]
+                    + [
+                        self.dense_traj_times[self.pre_actuation_times[0]] + i
+                        for i in range(self.pre_actuation_standby_time)
+                    ]
+                    + [
+                        t + self.pre_actuation_standby_time
+                        for t in self.dense_traj_times[self.pre_actuation_times[0] :]
+                    ]
                 )
 
                 # self.joint_traj_waypoints = (
@@ -449,35 +456,51 @@ class KPamAgent(BaseAgent):
             start_point = box_points[0]
             dis_to_start_point = np.linalg.norm(box_points - start_point, axis=1)
             near_idx = np.argsort(dis_to_start_point)
-            face_1_middle_point = (box_points[near_idx[1]] + box_points[near_idx[2]]) / 2
+            face_1_middle_point = (
+                box_points[near_idx[1]] + box_points[near_idx[2]]
+            ) / 2
 
             start_point_2 = box_points[near_idx[-1]]
             dis_to_start_point_2 = np.linalg.norm(box_points - start_point_2, axis=1)
             near_idx_2 = np.argsort(dis_to_start_point_2)
-            face_2_middle_point = (box_points[near_idx_2[1]] + box_points[near_idx_2[2]]) / 2
+            face_2_middle_point = (
+                box_points[near_idx_2[1]] + box_points[near_idx_2[2]]
+            ) / 2
 
-            face_middle_points = np.stack([face_1_middle_point, face_2_middle_point], axis=0)
+            face_middle_points = np.stack(
+                [face_1_middle_point, face_2_middle_point], axis=0
+            )
             return face_middle_points
 
         # The 1st dimension is mesh-level (part) segmentation. The 2nd dimension is actor-level (object/link) segmentation.
         # [Actor(name="ground", id="16"), Actor(name="peg", id="17"), Actor(name="box_with_hole", id="18")]
         # head mesh id: 14, tail mesh id: 15
-        peg_head_idx = np.where((pointcloud_obs["gt_seg"][:, 1] == 17) & (pointcloud_obs["gt_seg"][:, 0] == 14))[0]
+        peg_head_idx = np.where(
+            (pointcloud_obs["gt_seg"][:, 1] == 17)
+            & (pointcloud_obs["gt_seg"][:, 0] == 14)
+        )[0]
         peg_head_pc = pointcloud_obs["xyz"][peg_head_idx]
         peg_head_o3d_vector = Vector3dVector(peg_head_pc)
         peg_head_bbox = OrientedBoundingBox.create_from_points(peg_head_o3d_vector)
         peg_positions = get_box_endpoints(peg_head_bbox)
 
-        peg_tail_idx = np.where((pointcloud_obs["gt_seg"][:, 1] == 17) & (pointcloud_obs["gt_seg"][:, 0] == 15))[0]
+        peg_tail_idx = np.where(
+            (pointcloud_obs["gt_seg"][:, 1] == 17)
+            & (pointcloud_obs["gt_seg"][:, 0] == 15)
+        )[0]
         peg_tail_pc_center = np.mean(pointcloud_obs["xyz"][peg_tail_idx], axis=0)
 
-        peg_head_position, peg_middle_position = peg_positions[np.linalg.norm(peg_positions - peg_tail_pc_center, axis=-1).argsort()[::-1]]
+        peg_head_position, peg_middle_position = peg_positions[
+            np.linalg.norm(peg_positions - peg_tail_pc_center, axis=-1).argsort()[::-1]
+        ]
 
         def get_peg_head_pose(middle, head):
             forward = normalize_vector(head - middle)
             up = (0, 0, 1)
             left = np.cross(up, forward)
-            forward = np.cross(left, up)  # use the fact that peg is lie flat on the table
+            forward = np.cross(
+                left, up
+            )  # use the fact that peg is lie flat on the table
             # up = np.cross(forward, left)
             rotation = np.stack([forward, left, up], axis=1)
             return Pose(p=head, q=mat2quat(rotation))
@@ -507,7 +530,12 @@ class KPamAgent(BaseAgent):
                 # ic("plan", self.object_keypoints_in_hand["object_head"])
                 # ic("plan", self.tool_keypoints_in_hand["tool_head"])
 
-            if self.time == self.plan_time + self.pre_actuation_times[0] + self.pre_actuation_standby_time:
+            if (
+                self.time
+                == self.plan_time
+                + self.pre_actuation_times[0]
+                + self.pre_actuation_standby_time
+            ):
                 ic("actuate", self.object_keypoints_in_hand["object_head"])
                 ic("actuate", self.tool_keypoints_in_hand["tool_head"])
 

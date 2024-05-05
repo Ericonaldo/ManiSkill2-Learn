@@ -1,18 +1,18 @@
-from typing import Dict, Tuple, Union
 import copy
-import numpy as np
+from typing import Dict, Tuple, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
 
-from maniskill2_learn.networks.modules.cnn_modules.crop_randomizer import CropRandomizer
-from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodules
-from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
 from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
-from maniskill2_learn.utils.torch import no_grad
 from maniskill2_learn.networks.builder import MODELNETWORKS, build_model
 from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
+from maniskill2_learn.networks.modules.cnn_modules.crop_randomizer import CropRandomizer
+from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
+from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodules
+from maniskill2_learn.utils.torch import no_grad
 
 
 @MODELNETWORKS.register_module()

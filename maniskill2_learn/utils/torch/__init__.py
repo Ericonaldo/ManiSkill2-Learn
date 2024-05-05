@@ -1,72 +1,72 @@
 from .checkpoint_utils import (
-    load_checkpoint,
-    save_checkpoint,
-    load_state_dict,
     get_state_dict,
+    load_checkpoint,
+    load_state_dict,
+    save_checkpoint,
 )
 
 try:
     from .cuda_utils import (
         get_cuda_info,
-        get_gpu_utilization,
-        get_gpu_memory_usage_by_process,
-        get_gpu_memory_usage_by_current_program,
         get_device,
+        get_gpu_memory_usage_by_current_program,
+        get_gpu_memory_usage_by_process,
+        get_gpu_utilization,
         get_one_device,
     )
 except:
     print(f"Not support gpu usage printing")
 
-from .misc import no_grad, disable_gradients, run_with_mini_batch, mini_batch
-from .ops import (
-    set_flat_params,
-    get_flat_params,
-    get_flat_grads,
-    set_flat_grads,
-    batch_random_perm,
-    masked_average,
-    masked_max,
-    smooth_cross_entropy,
-    batch_rot_with_axis,
-    soft_update,
-    hard_update,
-    avg_grad,
-)
-from .logger import *
-from .running_stats import (
-    RunningMeanStdTorch,
-    MovingMeanStdTorch,
-    RunningSecondMomentumTorch,
-)
-from .module_utils import (
-    BaseAgent,
-    ExtendedModule,
-    ExtendedModuleList,
-    ExtendedDDP,
-    async_no_grad_pi,
-    ExtendedSequential,
-)
-from .distributions import (
-    ScaledTanhNormal,
-    CustomIndependent,
-    ScaledNormal,
-    CustomCategorical,
-)
-from .optimizer_utils import get_mean_lr, build_optimizer
 from .distributed_utils import (
-    init_dist,
-    cleanup_dist,
-    master_only,
-    allreduce_params,
     allreduce_grads,
+    allreduce_params,
     barrier,
     build_dist_var,
+    cleanup_dist,
     get_dist_info,
+    init_dist,
+    master_only,
+)
+from .distributions import (
+    CustomCategorical,
+    CustomIndependent,
+    ScaledNormal,
+    ScaledTanhNormal,
 )
 from .freezer import (
+    freeze_bn,
     freeze_modules,
     freeze_params,
-    freeze_bn,
     unfreeze_modules,
     unfreeze_params,
+)
+from .logger import *
+from .misc import disable_gradients, mini_batch, no_grad, run_with_mini_batch
+from .module_utils import (
+    BaseAgent,
+    ExtendedDDP,
+    ExtendedModule,
+    ExtendedModuleList,
+    ExtendedSequential,
+    async_no_grad_pi,
+)
+from .ops import (
+    avg_grad,
+    batch_random_perm,
+    batch_rot_with_axis,
+    get_flat_grads,
+    get_flat_params,
+    hard_update,
+    masked_average,
+    masked_max,
+    set_flat_grads,
+    set_flat_params,
+    smooth_cross_entropy,
+    soft_update,
+)
+from .optimizer_utils import build_optimizer, get_mean_lr
+from .running_stats import (
+    MovingMeanStdTorch,
+    RunningMeanStdTorch,
+    RunningSecondMomentumTorch,
 )

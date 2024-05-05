@@ -4,8 +4,14 @@ End-to-End Training of Deep Visuomotor Policies
 Visuomotor as the base class of all visual polices.
 """
 
-import torch, torch.nn as nn, torch.nn.functional as F
 from copy import copy, deepcopy
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from pytorch3d.transforms import matrix_to_quaternion, quaternion_to_matrix
+
+from maniskill2_learn.utils.data import DictArray, GDict, is_seq_of, recover_with_mask
 from maniskill2_learn.utils.meta import get_logger
 from maniskill2_learn.utils.torch import (
     ExtendedModule,
@@ -13,11 +19,9 @@ from maniskill2_learn.utils.torch import (
     freeze_params,
     unfreeze_params,
 )
-from maniskill2_learn.utils.data import GDict, DictArray, recover_with_mask, is_seq_of
-from .mlp import LinearMLP
-from ..builder import build_model, BACKBONES
 
-from pytorch3d.transforms import quaternion_to_matrix, matrix_to_quaternion
+from ..builder import BACKBONES, build_model
+from .mlp import LinearMLP
 
 
 @BACKBONES.register_module()

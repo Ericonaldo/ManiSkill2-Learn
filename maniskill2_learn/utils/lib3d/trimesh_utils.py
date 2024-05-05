@@ -1,4 +1,7 @@
-import trimesh, numpy as np, open3d as o3d
+import numpy as np
+import open3d as o3d
+import trimesh
+
 from maniskill2_learn.utils.data import is_pcd
 
 

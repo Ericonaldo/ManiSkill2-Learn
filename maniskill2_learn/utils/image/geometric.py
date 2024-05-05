@@ -1,6 +1,10 @@
 # Finish modifying
-import numbers, cv2, numpy as np
+import numbers
 from collections.abc import Sequence
+
+import cv2
+import numpy as np
+
 from .io import imread_backend
 
 try:

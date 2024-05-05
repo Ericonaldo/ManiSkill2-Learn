@@ -14,6 +14,7 @@ Learning Complex Dexterous Manipulation with Deep Reinforcement Learning and Dem
         https://arxiv.org/pdf/1709.10087.pdf
 """
 
+import math
 from collections import defaultdict
 from copy import deepcopy
 
@@ -21,10 +22,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
+
 from maniskill2_learn.env import build_replay
 from maniskill2_learn.networks import build_actor_critic, build_model
-from maniskill2_learn.utils.torch import build_optimizer
 from maniskill2_learn.utils.data import DictArray, GDict, to_np, to_torch
 from maniskill2_learn.utils.meta import get_logger, get_world_rank, get_world_size
 from maniskill2_learn.utils.torch import (
@@ -32,6 +32,7 @@ from maniskill2_learn.utils.torch import (
     RunningMeanStdTorch,
     RunningSecondMomentumTorch,
     barrier,
+    build_optimizer,
     get_flat_grads,
     get_flat_params,
     set_flat_grads,

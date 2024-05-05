@@ -1,4 +1,7 @@
-import hashlib, numpy as np, struct
+import hashlib
+import struct
+
+import numpy as np
 
 
 def md5sum(filename, block_size=None):

@@ -1,9 +1,14 @@
-import numpy as np, base64
-from .dict_array import GDict
-from .array_ops import encode_np, decode_np
-from .converter import as_dtype
-from .type_utils import is_np_arr, get_dtype, is_dict, is_not_null, is_null, is_seq_of
+import base64
+
+import numpy as np
+
 from maniskill2_learn.utils.meta import Config, merge_a_to_b
+
+from .array_ops import decode_np, encode_np
+from .converter import as_dtype
+from .dict_array import GDict
+from .type_utils import (get_dtype, is_dict, is_not_null, is_np_arr, is_null,
+                         is_seq_of)
 
 
 def float_to_int(data, vrange=[0.0, 1.0], res=None, dtype="uint8"):
@@ -53,8 +58,8 @@ def f64_to_f32(item):
     """
     Convert all float64 data to float32
     """
-    from .type_utils import get_dtype
     from .converter import as_dtype
+    from .type_utils import get_dtype
 
     sign = get_dtype(item) in ["float64", "double"]
     return as_dtype(item, "float32") if sign else item
@@ -245,7 +250,7 @@ class DataCoder:
 
     # Encode functions [For single item]
     def uint8_png(self, arr, encode):
-        from ..image import imencode, imdecode
+        from ..image import imdecode, imencode
 
         if encode:
             num_image = arr.shape[-1] // 3
@@ -257,7 +262,7 @@ class DataCoder:
         return arr
 
     def uint16_png(self, arr, encode):
-        from ..image import imencode, imdecode
+        from ..image import imdecode, imencode
 
         if encode:
             num_image = arr.shape[-1]
@@ -268,7 +273,7 @@ class DataCoder:
         return arr
 
     def seg_png(self, arr, encode, num_images=None):
-        from ..image import imencode, imdecode
+        from ..image import imdecode, imencode
 
         if encode:
             arr = np.split(arr, num_images, axis=-1)

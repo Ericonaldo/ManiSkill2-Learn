@@ -1,6 +1,8 @@
-import os, os.path as osp, shutil
-from pathlib import Path
 import glob
+import os
+import os.path as osp
+import shutil
+from pathlib import Path
 
 
 def to_abspath(x):
@@ -145,7 +147,7 @@ def parse_files(filenames):
     """
     filenames can contain four types of files: txt, h5, record, record_episode
     """
-    from maniskill2_learn.utils.data import is_seq_of, concat_list
+    from maniskill2_learn.utils.data import concat_list, is_seq_of
     from maniskill2_learn.utils.file import load
 
     supported_types = ["txt", "h5", "record", "record_episode"]

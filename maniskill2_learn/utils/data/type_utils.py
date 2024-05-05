@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from numbers import Number
-import numpy as np
 
+import numpy as np
 
 """  For python basic type  """
 
@@ -116,6 +116,6 @@ def is_arr(item, arr_type=None):
 
 
 def is_h5(item):
-    from h5py import File, Group, Dataset
+    from h5py import Dataset, File, Group
 
     return isinstance(item, (File, Group, Dataset))

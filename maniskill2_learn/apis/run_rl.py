@@ -27,8 +27,8 @@ from maniskill2_learn.utils.meta import (
     get_logger,
     get_world_rank,
     is_debug_mode,
-    set_random_seed,
     log_meta_info,
+    set_random_seed,
 )
 
 
@@ -344,6 +344,7 @@ def main_rl(
 ):
     import torch.distributed as dist
     import torch.nn as nn
+
     from maniskill2_learn.apis.train_rl import train_rl
     from maniskill2_learn.env import save_eval_statistics
     from maniskill2_learn.methods.builder import build_agent

@@ -105,7 +105,7 @@ def rpy_to_rotation_matrix_symbolic(rpy):
     Creates 3x3 rotation matrix from rpy
     See http://danceswithcode.net/engineeringnotes/rotations_in_3d/rotations_in_3d_part1.html
     """
-    from pydrake.math import sin, cos
+    from pydrake.math import cos, sin
 
     u = rpy[0]
     v = rpy[1]

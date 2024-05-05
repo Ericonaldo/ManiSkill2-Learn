@@ -3,10 +3,10 @@ import os
 import torch
 import torch.nn as nn
 
-from .equinet import SE3SegNet, SE3ManiNet
-from .utils import modified_gram_schmidt
-from .config.target_config import get_config as get_target_config
 from .config.object_config import get_config as get_object_config
+from .config.target_config import get_config as get_target_config
+from .equinet import SE3ManiNet, SE3SegNet
+from .utils import modified_gram_schmidt
 
 
 class SE3PosePredictor(nn.Module):

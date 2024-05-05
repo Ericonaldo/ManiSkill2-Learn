@@ -1,8 +1,8 @@
 import torch.nn as nn
 
 try:
-    from torchsparse import SparseTensor
     import torchsparse.nn as spnn
+    from torchsparse import SparseTensor
 except:
     print("Failed to import torchsparse!")
 

@@ -1,9 +1,10 @@
+from copy import deepcopy
+
+import numpy as np
 import torch
 from torch.utils.data import Dataset
-import numpy as np
-from transforms3d.euler import euler2mat
 from transforms3d.axangles import axangle2mat, mat2axangle
-from copy import deepcopy
+from transforms3d.euler import euler2mat
 
 
 class SE3Demo(Dataset):

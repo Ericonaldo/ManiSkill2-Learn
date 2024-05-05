@@ -1,10 +1,14 @@
-from maniskill2_learn.utils.torch.distributions import ScaledNormal
-import torch.nn as nn, torch, numpy as np
+import numpy as np
+import torch
+import torch.nn as nn
+from torch.distributions import Categorical, MixtureSameFamily, Normal
 from torch.nn import Parameter
-from ..builder import REGHEADS
+
 from maniskill2_learn.utils.data import is_num
-from torch.distributions import Normal, Categorical, MixtureSameFamily
-from maniskill2_learn.utils.torch import ExtendedModule, CustomIndependent
+from maniskill2_learn.utils.torch import CustomIndependent, ExtendedModule
+from maniskill2_learn.utils.torch.distributions import ScaledNormal
+
+from ..builder import REGHEADS
 from .regression_base import ContinuousBaseHead
 
 

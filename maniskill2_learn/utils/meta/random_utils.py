@@ -1,4 +1,8 @@
-import random, string, time, numpy as np
+import random
+import string
+import time
+
+import numpy as np
 
 
 def random_id_generator(size=6, chars=string.ascii_uppercase):

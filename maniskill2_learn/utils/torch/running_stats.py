@@ -1,6 +1,7 @@
-import torch
 import numpy as np
+import torch
 import torch.nn as nn
+
 from .misc import no_grad
 from .module_utils import ExtendedModule
 
@@ -76,6 +77,7 @@ class RunningMeanStdTorch(ExtendedModule):
     def sync(self):
         # A hacked version. I just average means, vars, n over all processes.
         from maniskill2_learn.utils.data import GDict
+
         from .distributed_utils import barrier
 
         barrier()

@@ -1,12 +1,13 @@
-from typing import Union, Dict
-
 import unittest
-import zarr
+from typing import Dict, Union
+
 import numpy as np
 import torch
 import torch.nn as nn
-from maniskill2_learn.utils.diffusion.torch import dict_apply
+import zarr
+
 from maniskill2_learn.utils.diffusion.dict_of_mixin import DictOfTensorMixin
+from maniskill2_learn.utils.diffusion.torch import dict_apply
 
 
 class LinearNormalizer(DictOfTensorMixin):

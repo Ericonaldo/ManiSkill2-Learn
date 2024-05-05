@@ -1,67 +1,67 @@
-from .config import ConfigDict, Config, DictAction, merge_a_to_b
-from .collect_env import collect_env, log_meta_info, get_meta_info
+from .collect_env import collect_env, get_meta_info, log_meta_info
+from .config import Config, ConfigDict, DictAction, merge_a_to_b
+from .env_var import (
+    add_dist_var,
+    add_env_var,
+    get_dist_info,
+    get_world_rank,
+    get_world_size,
+    is_debug_mode,
+)
 from .logger import (
-    get_logger,
-    print_log,
-    flush_print,
-    get_logger_name,
     TqdmToLogger,
     flush_logger,
+    flush_print,
+    get_logger,
+    get_logger_name,
+    print_log,
 )
 from .magic_utils import *
 from .module_utils import (
-    import_modules_from_strings,
     check_prerequisites,
-    requires_package,
-    requires_executable,
     deprecated_api_warning,
+    import_modules_from_strings,
+    requires_executable,
+    requires_package,
 )
+from .network import is_port_in_use
+from .parallel_runner import Worker
 from .path_utils import (
-    is_filepath,
-    fopen,
+    add_suffix_to_filename,
     check_files_exist,
-    mkdir_or_exist,
-    parse_files,
-    symlink,
-    scandir,
-    find_vcs_root,
-    get_filename,
-    get_filename_suffix,
     copy_folder,
     copy_folders,
-    add_suffix_to_filename,
+    find_vcs_root,
+    fopen,
     get_dirname,
-    to_abspath,
+    get_filename,
+    get_filename_suffix,
+    is_filepath,
+    mkdir_or_exist,
+    parse_files,
     replace_suffix,
+    scandir,
+    symlink,
+    to_abspath,
 )
 from .process_utils import (
-    get_total_memory,
+    get_memory_dict,
     get_memory_list,
     get_subprocess_ids,
-    get_memory_dict,
+    get_total_memory,
 )
 from .progressbar import (
     ProgressBar,
-    track_progress,
     track_iter_progress,
     track_parallel_progress,
+    track_progress,
 )
 from .random_utils import (
     RandomWrapper,
     get_random_generator,
-    set_random_seed,
     random_id_generator,
+    set_random_seed,
 )
 from .registry import Registry, build_from_cfg
-from .timer import Timer, TimerError, check_time, get_time_stamp, td_format, get_today
+from .timer import Timer, TimerError, check_time, get_time_stamp, get_today, td_format
 from .version_utils import digit_version
-from .env_var import (
-    add_env_var,
-    add_dist_var,
-    get_world_rank,
-    get_world_size,
-    is_debug_mode,
-    get_dist_info,
-)
-from .parallel_runner import Worker
-from .network import is_port_in_use

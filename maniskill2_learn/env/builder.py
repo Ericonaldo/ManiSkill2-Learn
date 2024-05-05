@@ -1,6 +1,5 @@
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
-
 ROLLOUTS = Registry("rollout")
 EVALUATIONS = Registry("evaluation")
 

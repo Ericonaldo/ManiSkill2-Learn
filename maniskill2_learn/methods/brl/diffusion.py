@@ -3,6 +3,7 @@ Diffusion Policy
 """
 
 from typing import Optional
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -10,13 +11,13 @@ from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 from maniskill2_learn.networks import build_model
 from maniskill2_learn.schedulers import build_lr_scheduler
-from maniskill2_learn.utils.torch import BaseAgent, get_mean_lr, build_optimizer
-from maniskill2_learn.utils.diffusion.helpers import Losses
 from maniskill2_learn.utils.diffusion.arrays import to_torch
-from maniskill2_learn.utils.diffusion.progress import Progress, Silent
+from maniskill2_learn.utils.diffusion.dict_of_mixin import DictOfTensorMixin
+from maniskill2_learn.utils.diffusion.helpers import Losses
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
-from maniskill2_learn.utils.diffusion.dict_of_mixin import DictOfTensorMixin
+from maniskill2_learn.utils.diffusion.progress import Progress, Silent
+from maniskill2_learn.utils.torch import BaseAgent, build_optimizer, get_mean_lr
 
 from ..builder import BRL
 
@@ -390,7 +391,7 @@ class DiffAgent(BaseAgent):
         pred_action = data[..., -self.action_dim :]
 
         if mode == "eval":
-            pred_action = pred_action[:, -(self.action_seq_len - hist_len):]
+            pred_action = pred_action[:, -(self.action_seq_len - hist_len) :]
             # Only used for ms-skill challenge online evaluation
             # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),-self.action_dim:]
             # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
@@ -437,7 +438,9 @@ class DiffAgent(BaseAgent):
         masked_obs = sampled_batch["obs"]
         if self.obs_encoder is None:
             if self.obs_mask is not None:
-                sampled_batch["normed_states"] = sampled_batch["normed_states"][:, self.obs_mask]
+                sampled_batch["normed_states"] = sampled_batch["normed_states"][
+                    :, self.obs_mask
+                ]
             masked_obs["state"] = sampled_batch["normed_states"]
         act_mask, obs_mask = None, None
         if self.fix_obs_steps:

@@ -1,6 +1,8 @@
-from typing import Sequence, Optional
+from typing import Optional, Sequence
+
 import torch
 from torch import nn
+
 from maniskill2_learn.utils.torch import ExtendedModule
 
 

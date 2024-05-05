@@ -1,11 +1,15 @@
-import os.path as osp, os, cv2
 import json
-import numpy as np
+import os
+import os.path as osp
+from copy import deepcopy
 from pathlib import Path
+
+import cv2
+import numpy as np
+
 from maniskill2_learn.env.env_utils import build_env
 from maniskill2_learn.utils.data import GDict
-from maniskill2_learn.utils.meta import mkdir_or_exist, ConfigDict
-from copy import deepcopy
+from maniskill2_learn.utils.meta import ConfigDict, mkdir_or_exist
 
 
 def get_reset_kwargs_from_json(json_name):
@@ -73,8 +77,8 @@ def render_with_o3d(trajectory_file, json_name, env_configs, traj_id=0):
     reset_kwargs = get_reset_kwargs_from_json(json_name)
     env = build_env(ConfigDict(**env_configs))
 
-    from pynput import keyboard
     import open3d as o3d
+    from pynput import keyboard
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
@@ -134,8 +138,8 @@ def render_with_o3d(trajectory_file, json_name, env_configs, traj_id=0):
 def render_with_o3d_random_trajectory(env_configs):
     env = build_env(ConfigDict(**env_configs))
 
-    from pynput import keyboard
     import open3d as o3d
+    from pynput import keyboard
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()

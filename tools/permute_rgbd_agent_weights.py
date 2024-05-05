@@ -1,5 +1,7 @@
-import torch, numpy as np
 import argparse
+
+import numpy as np
+import torch
 
 parser = argparse.ArgumentParser(
     description="Permute RGBD agent weights due to visual key order changes"

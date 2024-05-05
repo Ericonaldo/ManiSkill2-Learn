@@ -1,7 +1,12 @@
-import os.path as osp, subprocess, sys, cv2, time
+import os.path as osp
+import subprocess
+import sys
+import time
 from collections import defaultdict
-from pathlib import Path
 from importlib import import_module
+from pathlib import Path
+
+import cv2
 
 
 def get_PIL_version():

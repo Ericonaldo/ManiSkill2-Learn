@@ -1,15 +1,15 @@
 import torch
-from torch.functional import norm
 from torch import nn
+from torch.functional import norm
 
-from .linear import LINEAR_LAYERS, build_linear_layer
+from maniskill2_learn.utils.meta import ConfigDict, Registry, build_from_cfg
+
+from .activation import INPLACE_ACTIVATIONS, build_activation_layer
 from .conv import CONV_LAYERS, build_conv_layer
-from .activation import build_activation_layer, INPLACE_ACTIVATIONS
-from .padding import build_padding_layer
+from .linear import LINEAR_LAYERS, build_linear_layer
 from .norm import build_norm_layer, need_bias
-from .weight_init import kaiming_init, constant_init
-from maniskill2_learn.utils.meta import Registry, build_from_cfg, ConfigDict
-
+from .padding import build_padding_layer
+from .weight_init import constant_init, kaiming_init
 
 NN_BLOCKS = Registry("nn blocks")
 

@@ -1,6 +1,11 @@
-import torch, numpy as np, torch.nn as nn, copy
+import copy
+
+import numpy as np
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Function
+
 from maniskill2_learn.utils.data import is_num, regex_match
 
 

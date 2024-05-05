@@ -2,43 +2,46 @@
 Diffusion Policy
 """
 
-from random import sample
-from itertools import chain
-from tqdm import tqdm
-import numpy as np
 from copy import copy
+from itertools import chain
+from random import sample
+
+import numpy as np
+import sapien.core as sapien
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from sapien.core.pysapien import Pose
 from torch.nn.parallel import DistributedDataParallel as DDP
-
-import sapien.core as sapien
+from tqdm import tqdm
+from transforms3d.euler import euler2axangle, euler2quat, quat2euler
+from transforms3d.quaternions import axangle2quat, quat2axangle
 
 from maniskill2_learn.networks import build_model, build_reg_head
-from maniskill2_learn.schedulers import build_lr_scheduler
 from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
+from maniskill2_learn.schedulers import build_lr_scheduler
 from maniskill2_learn.utils.data import DictArray, GDict, dict_to_str
-from maniskill2_learn.utils.torch import load_state_dict
-from maniskill2_learn.utils.meta import get_total_memory, get_logger
-from maniskill2_learn.utils.torch import get_mean_lr, get_cuda_info, build_optimizer
+from maniskill2_learn.utils.diffusion.arrays import to_torch
 from maniskill2_learn.utils.diffusion.helpers import (
     Losses,
     apply_conditioning,
     cosine_beta_schedule,
     extract,
 )
-from maniskill2_learn.utils.diffusion.arrays import to_torch
-from maniskill2_learn.utils.diffusion.progress import Progress, Silent
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
-from . import DiffAgent
-from .keyframe_gpt import KeyframeGPTWithHist
+from maniskill2_learn.utils.diffusion.progress import Progress, Silent
+from maniskill2_learn.utils.meta import get_logger, get_total_memory
+from maniskill2_learn.utils.torch import (
+    build_optimizer,
+    get_cuda_info,
+    get_mean_lr,
+    load_state_dict,
+)
 
 from ..builder import BRL
-
-from transforms3d.quaternions import quat2axangle, axangle2quat
-from transforms3d.euler import quat2euler, euler2quat, euler2axangle
-from sapien.core.pysapien import Pose
+from . import DiffAgent
+from .keyframe_gpt import KeyframeGPTWithHist
 
 
 def quaternion_from_compact_axis_angle(compact_axis_angle: np.ndarray) -> np.ndarray:
@@ -1114,9 +1117,7 @@ class KeyDiffAgent(DiffAgent):
                     if self.keyframe_pose_only:
                         data_mask[
                             torch.where(keytime_differences > 0)[0],
-                            keytime[
-                                torch.where(keytime_differences > 0)
-                            ].to(int),
+                            keytime[torch.where(keytime_differences > 0)].to(int),
                             -self.extra_dim
                             - self.pose_dim
                             - self.action_dim : -self.action_dim,
@@ -1125,17 +1126,13 @@ class KeyDiffAgent(DiffAgent):
                         if self.diffuse_state:
                             data_mask[
                                 torch.where(keytime_differences > 0)[0],
-                                keytime[
-                                    torch.where(keytime_differences > 0)
-                                ].to(int),
+                                keytime[torch.where(keytime_differences > 0)].to(int),
                                 : -self.action_dim,
                             ] = True
                         else:
                             data_mask[
                                 torch.where(keytime_differences > 0)[0],
-                                keytime[
-                                    torch.where(keytime_differences > 0)
-                                ].to(int),
+                                keytime[torch.where(keytime_differences > 0)].to(int),
                             ] = True
 
                 diff_loss, info = self.diff_loss(

@@ -1,5 +1,11 @@
-import lmdb, os.path as osp, shutil, os, numpy as np
-from .serialization import load, dump
+import os
+import os.path as osp
+import shutil
+
+import lmdb
+import numpy as np
+
+from .serialization import dump, load
 
 
 class LMDBFile:

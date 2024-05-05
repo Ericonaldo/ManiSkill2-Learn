@@ -1,6 +1,5 @@
 from ..utils.meta import Registry, build_from_cfg
 
-
 MPC = Registry("mpc")  # Model predictive control
 MFRL = Registry("mfrl")  # Model free RL
 BRL = Registry("brl")  # Offline RL / Batch RL

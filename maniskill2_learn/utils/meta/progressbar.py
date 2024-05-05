@@ -3,6 +3,7 @@ import sys
 from collections.abc import Iterable
 from multiprocessing import Pool
 from shutil import get_terminal_size
+
 from .timer import Timer
 
 

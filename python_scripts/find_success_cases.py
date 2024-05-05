@@ -1,6 +1,5 @@
 import csv
 
-
 if __name__ == "__main__":
     diff_log_dir = "complete_logs/StackCube-v0/KeyDiffAgent/posediff-quat-keydiff90000-seed94/20231014_052651_eval/test"
     kf_diff_log_dir = "complete_logs/StackCube-v0/KeyDiffAgent/posediff-quat-diff90000-statekey200000-seed94/20231014_071434_eval/test"

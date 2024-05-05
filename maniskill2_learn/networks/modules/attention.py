@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
 ATTENTION_LAYERS = Registry("attention layer")

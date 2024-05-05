@@ -1,5 +1,6 @@
-import numpy as np
 import argparse
+
+import numpy as np
 
 from maniskill2_learn.env.env_utils import build_env, import_env
 from maniskill2_learn.methods.kpam.kpam_utils import vector2pose
@@ -27,7 +28,14 @@ def run(args):
     env = build_env(env_cfg)
     env.seed(args.seed)
 
-    xyz_list, rgb_list, seg_center_list, axes_list, object_seg_center_list, object_axes_list = [], [], [], [], [], []
+    (
+        xyz_list,
+        rgb_list,
+        seg_center_list,
+        axes_list,
+        object_seg_center_list,
+        object_axes_list,
+    ) = ([], [], [], [], [], [])
     for _ in range(args.n_demos):
         env.reset()
         obs = env.get_obs()

@@ -1,23 +1,21 @@
+import time
+
+import numpy as np
+import open3d as o3d
 import torch
 import torch.nn as nn
-from maniskill2_learn.utils.torch import ExtendedModuleList
-from ..builder import BACKBONES, build_backbone
-from ..modules import build_attention_layer
+from pytorch3d.transforms import quaternion_to_matrix
 
-from maniskill2_learn.utils.torch import ExtendedModule
-from maniskill2_learn.utils.data import split_dim, GDict
 from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
 from maniskill2_learn.networks.modules.multi_image_obs_encoder import (
     MultiImageObsEncoder,
 )
+from maniskill2_learn.utils.data import GDict, split_dim
+from maniskill2_learn.utils.torch import ExtendedModule, ExtendedModuleList
 
-from pytorch3d.transforms import quaternion_to_matrix
-
+from ..builder import BACKBONES, build_backbone
+from ..modules import build_attention_layer
 from .mlp import LinearMLP
-
-import numpy as np
-import open3d as o3d
-import time
 
 
 class TransformerBlock(ExtendedModule):

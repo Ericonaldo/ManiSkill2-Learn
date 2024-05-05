@@ -10,10 +10,10 @@ import torch.nn.functional as F
 from maniskill2_learn.networks import build_model
 from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
 from maniskill2_learn.schedulers import build_lr_scheduler
-from maniskill2_learn.utils.torch import BaseAgent, get_mean_lr, build_optimizer
 from maniskill2_learn.utils.diffusion.arrays import to_torch
 from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
+from maniskill2_learn.utils.torch import BaseAgent, build_optimizer, get_mean_lr
 
 from ..builder import BRL
 

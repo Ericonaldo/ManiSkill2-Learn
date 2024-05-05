@@ -1,10 +1,12 @@
-import torch, torch.nn.functional as F
-from torch.nn import Parameter
 import numpy as np
+import torch
+import torch.nn.functional as F
+from torch.nn import Parameter
 
-from maniskill2_learn.utils.data import is_num, is_not_null, to_np
-from maniskill2_learn.utils.torch import ExtendedModule, CustomCategorical
-from ..builder import build_backbone, REGHEADS
+from maniskill2_learn.utils.data import is_not_null, is_num, to_np
+from maniskill2_learn.utils.torch import CustomCategorical, ExtendedModule
+
+from ..builder import REGHEADS, build_backbone
 
 
 class ContinuousBaseHead(ExtendedModule):

@@ -1,7 +1,8 @@
-import re
-import matplotlib.pyplot as plt
 import argparse
 import os
+import re
+
+import matplotlib.pyplot as plt
 
 
 def plot_training_curve(log_file):

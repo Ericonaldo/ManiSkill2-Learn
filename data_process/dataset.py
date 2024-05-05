@@ -1,18 +1,18 @@
 """Dataset for loading ManiKkill2 data."""
 
-import os
-import json
-import h5py
-import random
 import datetime
-from tqdm.notebook import tqdm
-import numpy as np
-import torch
-from torch.utils.data import Dataset
+import json
+import os
+import random
 
 import clip
-from PIL import Image
+import h5py
+import numpy as np
+import torch
 from mani_skill2.utils.io_utils import load_json
+from PIL import Image
+from torch.utils.data import Dataset
+from tqdm.notebook import tqdm
 
 
 # loads h5 data into memory for faster access

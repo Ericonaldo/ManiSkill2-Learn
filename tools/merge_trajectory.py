@@ -2,7 +2,6 @@ import argparse
 from pathlib import Path
 
 import h5py
-
 from mani_skill2.utils.io_utils import dump_json, load_json
 
 

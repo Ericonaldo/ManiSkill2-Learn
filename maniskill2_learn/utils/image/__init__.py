@@ -30,13 +30,13 @@ from .geometric import (
     rescale_size,
 )
 from .io import (
+    imdecode,
+    imencode,
     imfrombytes,
     imread,
     imwrite,
     supported_backends,
     use_backend,
-    imencode,
-    imdecode,
 )
 from .misc import tensor2imgs
 from .photometric import (
@@ -55,8 +55,8 @@ from .photometric import (
 )
 from .video_utils import (
     concat_videos,
-    put_names_on_image,
     grid_images,
-    video_to_frames,
     images_to_video,
+    put_names_on_image,
+    video_to_frames,
 )

@@ -1,20 +1,22 @@
-from typing import Dict, Tuple, Union
 import copy
+from typing import Dict, Tuple, Union
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
-from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodules
-from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
-from maniskill2_learn.networks.modules.multi_image_obs_encoder import *
-from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
-from maniskill2_learn.networks.backbones.pointnet import PointNet
-from maniskill2_learn.utils.torch import no_grad
-from maniskill2_learn.networks.builder import MODELNETWORKS, build_model
-from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
 from einops import rearrange, repeat
 from einops_exts import rearrange_many
 from torch import einsum
+
+from maniskill2_learn.networks.backbones.pointnet import PointNet
+from maniskill2_learn.networks.backbones.rl_cnn import CNNBase
+from maniskill2_learn.networks.builder import MODELNETWORKS, build_model
+from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
+from maniskill2_learn.networks.modules.cnn_modules.model_getter import get_resnet
+from maniskill2_learn.networks.modules.multi_image_obs_encoder import *
+from maniskill2_learn.utils.diffusion.torch import dict_apply, replace_submodules
+from maniskill2_learn.utils.torch import no_grad
 
 
 class MaskedCrossAttention(nn.Module):

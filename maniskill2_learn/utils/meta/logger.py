@@ -1,9 +1,11 @@
-from glob import glob
-import os, io
-import logging, sys
-from .env_var import get_world_rank, get_world_size, is_debug_mode
+import io
+import logging
+import os
+import sys
 from collections import OrderedDict
+from glob import glob
 
+from .env_var import get_world_rank, get_world_size, is_debug_mode
 
 logger_initialized = OrderedDict()
 

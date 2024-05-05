@@ -7,17 +7,20 @@ Nauture CNN:
     Code: https://github.com/hill-a/stable-baselines/blob/master/stable_baselines/common/policies.py
 """
 
-import numpy as np
-import torch.nn as nn, torch, torch.nn.functional as F
-from torch.nn import Conv2d
 import math
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn import Conv2d
 
 from maniskill2_learn.networks.modules.weight_init import build_init
 from maniskill2_learn.utils.data import GDict, get_dtype
-from maniskill2_learn.utils.torch import ExtendedModule, no_grad, ExtendedSequential
+from maniskill2_learn.utils.torch import ExtendedModule, ExtendedSequential, no_grad
 
 from ..builder import BACKBONES
-from ..modules import build_norm_layer, need_bias, build_activation_layer
+from ..modules import build_activation_layer, build_norm_layer, need_bias
 
 
 class CNNBase(ExtendedModule):

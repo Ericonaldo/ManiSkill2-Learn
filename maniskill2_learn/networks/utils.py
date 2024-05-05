@@ -1,9 +1,11 @@
-from maniskill2_learn.utils.meta import ConfigDict, Config
-from numbers import Number
 from copy import deepcopy
+from numbers import Number
+
 import numpy as np
-from torch.nn.parameter import Parameter
 import torch
+from torch.nn.parameter import Parameter
+
+from maniskill2_learn.utils.meta import Config, ConfigDict
 
 
 def combine_obs_with_action(obs, action=None):
@@ -109,7 +111,9 @@ def get_kwargs_from_shape(obs_shape, action_shape):
                 )
                 # if isinstance(replaceable_kwargs["image_size"], list) and (not isinstance(replaceable_kwargs["image_size"][0], int)):
                 #     replaceable_kwargs["image_size"] = replaceable_kwargs["image_size"][0]
-                replaceable_kwargs["num_pixels"] = np.prod(replaceable_kwargs["image_size"])
+                replaceable_kwargs["num_pixels"] = np.prod(
+                    replaceable_kwargs["image_size"]
+                )
                 replaceable_kwargs["image_channels"] = (
                     sum(
                         [

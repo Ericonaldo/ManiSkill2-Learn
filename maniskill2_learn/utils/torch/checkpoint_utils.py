@@ -9,14 +9,14 @@ from collections import OrderedDict
 from importlib import import_module
 
 import numpy as np
-import torchvision
-from maniskill2_learn.utils.data import GDict, map_dict_keys
-
 import torch
 import torch.distributed
+import torchvision
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from torch.utils import model_zoo
+
+from maniskill2_learn.utils.data import GDict, map_dict_keys
 
 from .distributed_utils import get_dist_info
 from .misc import no_grad

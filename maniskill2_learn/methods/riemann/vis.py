@@ -1,6 +1,6 @@
+import numpy as np
 import open3d as o3d
 import torch
-import numpy as np
 
 
 def interpolate_color(weight, color1=[0, 0, 0.4], color2=[1, 0.1, 0]):

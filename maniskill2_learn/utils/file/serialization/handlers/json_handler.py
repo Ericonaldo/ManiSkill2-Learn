@@ -1,4 +1,7 @@
-import json, numpy as np
+import json
+
+import numpy as np
+
 from .base import BaseFileHandler
 
 

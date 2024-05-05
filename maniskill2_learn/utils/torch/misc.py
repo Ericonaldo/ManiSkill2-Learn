@@ -1,9 +1,11 @@
 from functools import wraps
+
 import numpy as np
 import torch
+
+from maniskill2_learn.utils.data import DictArray, GDict, to_np, to_torch
 from maniskill2_learn.utils.math import split_num
 from maniskill2_learn.utils.meta import get_logger
-from maniskill2_learn.utils.data import DictArray, to_np, GDict, to_torch
 
 
 def disable_gradients(network):

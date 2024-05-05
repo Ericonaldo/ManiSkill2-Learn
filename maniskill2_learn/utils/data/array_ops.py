@@ -1,13 +1,15 @@
-from io import BytesIO
+import base64
 import random
 import sys
-import base64
+from io import BytesIO
+
 import numpy as np
 
-from .converter import range_to_slice, to_np, to_torch, slice_to_range
-from .type_utils import get_dtype, is_np, is_np_arr, is_num, is_torch, is_integer, is_torch_distribution, is_not_null, is_arr, is_h5
+from .converter import range_to_slice, slice_to_range, to_np, to_torch
+from .type_utils import (get_dtype, is_arr, is_h5, is_integer, is_not_null,
+                         is_np, is_np_arr, is_num, is_torch,
+                         is_torch_distribution)
 from .wrappers import seq_to_np
-
 
 """ Unified API for torch and numpy """
 
@@ -686,10 +688,12 @@ def allreduce(item, op="MEAN", device="cuda"):
         coalesce (bool, optional): Whether allreduce parameters as a whole. Defaults to True.
         bucket_size_mb (int, optional): Size of bucket, the unit is MB. Defaults to -1.
     """
-    from ..torch import get_dist_info
     import torch
     from torch import distributed as dist
+
     from maniskill2_learn.utils.data import as_dtype
+
+    from ..torch import get_dist_info
 
     _, world_size = get_dist_info()
     if world_size == 1:
@@ -742,9 +746,11 @@ def detach(item):
 
 
 def concat_torch_distribution(item, axis=0):
-    from torch.distributions import Normal, Independent, Categorical
-    from maniskill2_learn.utils.torch import CustomIndependent, ScaledTanhNormal, ScaledNormal
     import torch
+    from torch.distributions import Categorical, Independent, Normal
+
+    from maniskill2_learn.utils.torch import (CustomIndependent, ScaledNormal,
+                                              ScaledTanhNormal)
 
     reinterpreted_batch_ndims = None
     independent_type = None
@@ -775,9 +781,11 @@ def concat_torch_distribution(item, axis=0):
 
 
 def ops_single_torch_distribution(item, func, *args, **kwargs):
-    from torch.distributions import Normal, Independent, Categorical
-    from maniskill2_learn.utils.torch import CustomIndependent, ScaledTanhNormal, ScaledNormal
     import torch
+    from torch.distributions import Categorical, Independent, Normal
+
+    from maniskill2_learn.utils.torch import (CustomIndependent, ScaledNormal,
+                                              ScaledTanhNormal)
 
     reinterpreted_batch_ndims = None
     independent_type = None

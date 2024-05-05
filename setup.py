@@ -1,10 +1,13 @@
-from setuptools import setup, find_packages, Extension, Command
-from pkg_resources import DistributionNotFound, get_distribution, yield_lines
-from torch.utils.cpp_extension import CppExtension, CUDAExtension, BuildExtension
-import numpy, sys
+import os
+import re
+import sys
 from pathlib import Path
-import os, re
+
+import numpy
 import numpy.distutils.misc_util
+from pkg_resources import DistributionNotFound, get_distribution, yield_lines
+from setuptools import Command, Extension, find_packages, setup
+from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
 
 
 def choose_requirement(primary, secondary):
@@ -27,7 +30,9 @@ def parse_requirements(fname="requirements.txt", with_version=True):
     CommandLine:
         python -c "import setup; print(setup.parse_requirements())"
     """
-    import sys, re, os.path as osp
+    import os.path as osp
+    import re
+    import sys
 
     require_fpath = fname
 

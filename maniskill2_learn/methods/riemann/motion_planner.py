@@ -1,26 +1,26 @@
-from typing import List, Tuple
 import time
+from typing import List, Tuple
 
-import torch
 import numpy as np
+import torch
 from icecream import ic
+from pydrake.all import PiecewisePolynomial, PiecewisePose, RigidTransform
 from sapien.core import Pose
-from pydrake.all import RigidTransform, PiecewisePolynomial, PiecewisePose
 from transforms3d.quaternions import mat2quat
 
-from maniskill2_learn.utils.torch import BaseAgent
 from maniskill2_learn.methods.riemann.solver_utils import (
     anchor_seeds,
-    solve_ik_joint,
+    build_plant,
+    dense_sample_traj_times,
+    recursive_squeeze,
     rotAxis,
     se3_inverse,
-    dense_sample_traj_times,
+    solve_ik_joint,
     solve_ik_traj_with_standoff,
-    build_plant,
     vector2pose,
-    recursive_squeeze,
 )
 from maniskill2_learn.utils.lib3d.mani_skill2_contrib import apply_pose_to_points
+from maniskill2_learn.utils.torch import BaseAgent
 
 from ..builder import BRL
 from .se3_pose_predictor import SE3PosePredictor
@@ -226,7 +226,9 @@ class RiemannAgent(BaseAgent):
         for seed in random_seeds:
             res = solve_ik_joint(
                 gripper_frame=self.plant.GetFrameByName("panda_hand"),
-                p_target=RigidTransform(task_goal_hand_pose_in_base.to_transformation_matrix()),
+                p_target=RigidTransform(
+                    task_goal_hand_pose_in_base.to_transformation_matrix()
+                ),
                 q0=seed.reshape(-1, 1),
                 centering_joint=self.joint_positions.copy(),
                 consider_collision=False,
@@ -284,7 +286,7 @@ class RiemannAgent(BaseAgent):
         res = solve_ik_traj_with_standoff(
             [
                 self.hand_pose_in_base.to_transformation_matrix(),
-                self.task_goal_hand_pose_in_base.to_transformation_matrix()
+                self.task_goal_hand_pose_in_base.to_transformation_matrix(),
             ],
             np.array([self.joint_positions.copy(), self.goal_joint]).T,
             endpoint_times=[0, self.actuation_time],
@@ -360,7 +362,9 @@ class RiemannAgent(BaseAgent):
                 self.plan_time = self.time
 
             elapse_time = self.time - self.plan_time
-            joint_action = self.joint_space_traj.value(elapse_time + self.dt).reshape(-1)
+            joint_action = self.joint_space_traj.value(elapse_time + self.dt).reshape(
+                -1
+            )
             maniskill_joint_action = np.concatenate(
                 (joint_action[:7], -1 * np.ones_like(joint_action[:1])), axis=0
             )

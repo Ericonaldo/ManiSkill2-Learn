@@ -1,8 +1,12 @@
-import numpy as np, trimesh, sklearn
+import numpy as np
+import sklearn
+import trimesh
 from sapien.core import Pose
-from .o3d_utils import is_o3d, to_o3d, np2mesh
-from .trimesh_utils import is_trimesh, to_trimesh
+
 from maniskill2_learn.utils.data import normalize, to_gc, to_nc
+
+from .o3d_utils import is_o3d, np2mesh, to_o3d
+from .trimesh_utils import is_trimesh, to_trimesh
 
 
 def convex_hull(x, o3d=True):

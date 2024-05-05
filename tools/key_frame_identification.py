@@ -1,20 +1,22 @@
-import os
-import cv2
-import csv
-import numpy as np
-import time
-import peakutils
 import argparse
-import h5py
-from tqdm import tqdm
+import csv
+import os
+import time
 from typing import List
+
+import cv2
+import h5py
+import numpy as np
+import peakutils
 
 # install from https://github.com/joelibaceta/video-keyframe-detector
 from KeyFrameDetector.utils import (
     convert_frame_to_grayscale,
-    prepare_dirs,
     plot_metrics,
+    prepare_dirs,
 )
+from tqdm import tqdm
+
 from maniskill2_learn.utils.file.cache_utils import *
 
 

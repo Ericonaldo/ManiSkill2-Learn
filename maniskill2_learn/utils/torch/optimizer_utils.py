@@ -1,8 +1,11 @@
-import numpy as np
-import copy, inspect, torch
-from maniskill2_learn.utils.meta import Registry, build_from_cfg
-from maniskill2_learn.utils.data import regex_match
+import copy
+import inspect
 
+import numpy as np
+import torch
+
+from maniskill2_learn.utils.data import regex_match
+from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
 OPTIMIZERS = Registry("optimizer")
 

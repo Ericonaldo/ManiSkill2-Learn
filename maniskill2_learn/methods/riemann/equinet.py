@@ -1,9 +1,15 @@
-import torch
 import os
 
-from .se3_backbone import SE3Backbone, ExtendedModule
+import torch
+
+from .data_utils import (
+    get_heatmap,
+    mask_part_point_cloud,
+    random_dropout,
+    seg_pointcloud,
+)
+from .se3_backbone import ExtendedModule, SE3Backbone
 from .se3_transformer.model.fiber import Fiber
-from .data_utils import seg_pointcloud, random_dropout, mask_part_point_cloud, get_heatmap
 from .vis import save_pcd_as_pcd
 
 

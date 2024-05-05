@@ -1,6 +1,8 @@
+import numbers
 import os.path as osp
-import numbers, numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class TensorboardLogger:

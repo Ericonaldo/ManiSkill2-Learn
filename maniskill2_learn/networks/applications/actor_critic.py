@@ -1,16 +1,18 @@
-from gym.spaces import Discrete, Box
-from maniskill2_learn.utils.data import to_torch, GDict, DictArray, recover_with_mask
-from maniskill2_learn.utils.torch import ExtendedModule, avg_grad
-from ..builder import POLICYNETWORKS, VALUENETWORKS, build_backbone, build_reg_head
+import torch
+import torch.nn as nn
+from gym.spaces import Box, Discrete
 
-from ..utils import (
-    replace_placeholder_with_args,
-    get_kwargs_from_shape,
-    combine_obs_with_action,
-)
-from maniskill2_learn.utils.diffusion.torch import dict_apply
+from maniskill2_learn.utils.data import DictArray, GDict, recover_with_mask, to_torch
 from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
-import torch, torch.nn as nn
+from maniskill2_learn.utils.diffusion.torch import dict_apply
+from maniskill2_learn.utils.torch import ExtendedModule, avg_grad
+
+from ..builder import POLICYNETWORKS, VALUENETWORKS, build_backbone, build_reg_head
+from ..utils import (
+    combine_obs_with_action,
+    get_kwargs_from_shape,
+    replace_placeholder_with_args,
+)
 
 
 class ActorCriticBase(ExtendedModule):

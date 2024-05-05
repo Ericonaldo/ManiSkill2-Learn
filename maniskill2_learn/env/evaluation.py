@@ -1,15 +1,17 @@
-from typing import Optional
 import glob
 import logging
 import os
 import os.path as osp
 import shutil
-from collections import deque
 import sys
+from collections import deque
+from typing import Optional
 
 import cv2
 import numpy as np
 from h5py import File
+
+from maniskill2_learn.methods.brl import KPamDiffAgent
 from maniskill2_learn.utils.data import (
     DictArray,
     GDict,
@@ -17,8 +19,8 @@ from maniskill2_learn.utils.data import (
     dict_to_str,
     is_str,
     num_to_str,
-    to_np,
     to_item,
+    to_np,
 )
 from maniskill2_learn.utils.file import dump, load, merge_h5_trajectory
 from maniskill2_learn.utils.math import split_num
@@ -26,13 +28,12 @@ from maniskill2_learn.utils.meta import (
     Worker,
     get_logger,
     get_logger_name,
-    get_total_memory,
     get_meta_info,
+    get_total_memory,
 )
-from maniskill2_learn.methods.brl import KPamDiffAgent
 
 from .builder import EVALUATIONS
-from .env_utils import build_vec_env, build_env, true_done, get_max_episode_steps
+from .env_utils import build_env, build_vec_env, get_max_episode_steps, true_done
 from .replay_buffer import ReplayMemory
 
 
@@ -89,6 +90,7 @@ CV_VIDEO_CODES = {
 
 def log_mem_info(logger):
     import torch
+
     from maniskill2_learn.utils.torch import get_cuda_info
 
     print_dict = {}
@@ -705,12 +707,24 @@ class Evaluation:
                     if self.use_hidden_state:
                         recent_obs = self.vec_env.get_state()
                     with torch.no_grad():
-                        with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
-                            if isinstance(pi, KPamDiffAgent) and self.vec_env.is_grasped().item():
+                        with pi.no_sync(
+                            mode=["actor", "model", "obs_encoder"], ignore=True
+                        ):
+                            if (
+                                isinstance(pi, KPamDiffAgent)
+                                and self.vec_env.is_grasped().item()
+                            ):
                                 kpam_obs = self.vec_env.get_obs_kpam()
-                                action = pi(recent_obs, kpam_obs=kpam_obs, mode=self.sample_mode, memory=replay)
+                                action = pi(
+                                    recent_obs,
+                                    kpam_obs=kpam_obs,
+                                    mode=self.sample_mode,
+                                    memory=replay,
+                                )
                             else:
-                                action = pi(recent_obs, mode=self.sample_mode, memory=replay)
+                                action = pi(
+                                    recent_obs, mode=self.sample_mode, memory=replay
+                                )
                             action = to_np(action)
                             if (
                                 (self.eval_action_queue is not None)
@@ -936,7 +950,9 @@ class BatchEvaluation:
 
                 none_idx = [i for i, x in enumerate(actions) if x is None]
                 if len(none_idx):
-                    with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
+                    with pi.no_sync(
+                        mode=["actor", "model", "obs_encoder"], ignore=True
+                    ):
                         tmp[none_idx] = to_np(
                             pi(
                                 dict(self.recent_obs.get(none_idx)),
@@ -1138,14 +1154,17 @@ class KPamEvaluation(Evaluation):
 
     def save_pointcloud_pkl(self, pointcloud_obs):
         from skimage.io import imsave
+
         env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
         imsave("camera_image.png", env_img)
 
         from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
+
         kpam_obs = self.vec_env.get_obs_kpam()
         kpam_obs = recursive_squeeze(kpam_obs, axis=0)
 
         import pickle
+
         with open("pointcloud.pkl", "wb") as f:
             pickle.dump(
                 dict(
@@ -1153,7 +1172,8 @@ class KPamEvaluation(Evaluation):
                     rgb=pointcloud_obs["rgb"][0],
                     seg=pointcloud_obs["gt_seg"][0],
                     kpam_obs=kpam_obs,
-                ), f,
+                ),
+                f,
             )
 
     def run(self, pi, num=1, work_dir=None, **kwargs):
@@ -1211,8 +1231,15 @@ class KPamEvaluation(Evaluation):
                     if self.use_hidden_state:
                         recent_obs = self.vec_env.get_state()
                     with torch.no_grad():
-                        with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
-                            action = pi(recent_obs, mode=self.sample_mode, memory=replay, use_kpam=False)
+                        with pi.no_sync(
+                            mode=["actor", "model", "obs_encoder"], ignore=True
+                        ):
+                            action = pi(
+                                recent_obs,
+                                mode=self.sample_mode,
+                                memory=replay,
+                                use_kpam=False,
+                            )
                             action = to_np(action)
                             if (
                                 (self.eval_action_queue is not None)
@@ -1255,14 +1282,17 @@ class RiemannEvaluation(Evaluation):
 
     def save_pointcloud_pkl(self, pointcloud_obs):
         from skimage.io import imsave
+
         env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
         imsave("camera_image.png", env_img)
 
         from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
+
         kpam_obs = self.vec_env.get_obs_kpam()
         kpam_obs = recursive_squeeze(kpam_obs, axis=0)
 
         import pickle
+
         with open("pointcloud.pkl", "wb") as f:
             pickle.dump(
                 dict(
@@ -1270,7 +1300,8 @@ class RiemannEvaluation(Evaluation):
                     rgb=pointcloud_obs["rgb"][0],
                     seg=pointcloud_obs["gt_seg"][0],
                     kpam_obs=kpam_obs,
-                ), f,
+                ),
+                f,
             )
 
     def run(self, pi, num=1, work_dir=None, **kwargs):
@@ -1321,7 +1352,9 @@ class RiemannEvaluation(Evaluation):
                     self.extra_vec_env.set_state(env_states)
                     pointcloud_obs = self.extra_vec_env.get_obs()
                     # self.save_pointcloud_pkl(pointcloud_obs)
-                    action = pi(kpam_obs, pointcloud_obs, use_planner=True).reshape(1, -1)
+                    action = pi(kpam_obs, pointcloud_obs, use_planner=True).reshape(
+                        1, -1
+                    )
                 else:
                     action = pi(kpam_obs, use_planner=True).reshape(1, -1)
 
@@ -1332,8 +1365,15 @@ class RiemannEvaluation(Evaluation):
                     if self.use_hidden_state:
                         recent_obs = self.vec_env.get_state()
                     with torch.no_grad():
-                        with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
-                            action = pi(recent_obs, mode=self.sample_mode, memory=replay, use_planner=False)
+                        with pi.no_sync(
+                            mode=["actor", "model", "obs_encoder"], ignore=True
+                        ):
+                            action = pi(
+                                recent_obs,
+                                mode=self.sample_mode,
+                                memory=replay,
+                                use_planner=False,
+                            )
                             action = to_np(action)
                             if (
                                 (self.eval_action_queue is not None)

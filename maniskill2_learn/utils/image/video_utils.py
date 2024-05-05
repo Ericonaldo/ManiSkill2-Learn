@@ -1,5 +1,8 @@
-import cv2, numpy as np, imageio
 import os.path as osp
+
+import cv2
+import imageio
+import numpy as np
 
 
 def video_to_frames(filename, output_dir=None):

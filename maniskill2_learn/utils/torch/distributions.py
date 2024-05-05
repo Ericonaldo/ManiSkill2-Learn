@@ -1,15 +1,15 @@
-from torch.distributions import (
-    Normal,
-    Independent,
-    TanhTransform,
-    TransformedDistribution,
-)  # , ComposeTransform, AffineTransform
-from torch.distributions import Categorical
-from torch import distributions as pyd
 import torch
 
 # import math
 import torch.nn.functional as F
+from torch import distributions as pyd
+from torch.distributions import (  # , ComposeTransform, AffineTransform
+    Categorical,
+    Independent,
+    Normal,
+    TanhTransform,
+    TransformedDistribution,
+)
 
 
 class TransformedNormal(TransformedDistribution):

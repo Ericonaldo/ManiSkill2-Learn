@@ -1,6 +1,6 @@
-from time import strftime, localtime
-from datetime import date
 import time
+from datetime import date
+from time import localtime, strftime
 
 
 def td_format(td_object):

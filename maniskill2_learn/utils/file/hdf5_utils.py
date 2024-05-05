@@ -1,7 +1,7 @@
-from h5py import File, Group, Dataset
 import numpy as np
+from h5py import Dataset, File, Group
 
-from ..data import is_h5, is_list_of, is_dict, is_arr, to_np, is_str, is_not_null
+from ..data import is_arr, is_dict, is_h5, is_list_of, is_not_null, is_str, to_np
 
 
 def load_hdf5(file, keys=None):
@@ -72,8 +72,9 @@ def load_hdf5(file, keys=None):
             assert load_keys is None or len(load_keys) == 0, f"{load_keys}"
             ret = file[()]
             if isinstance(ret, np.void):
-                from .serialization import load
                 from io import BytesIO
+
+                from .serialization import load
 
                 return load(BytesIO(ret), file_format="pkl")
             else:

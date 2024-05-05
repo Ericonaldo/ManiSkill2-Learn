@@ -1,11 +1,15 @@
 # Finish modifying
-import io, os.path as osp, cv2, numpy as np
-from pathlib import Path
-from cv2 import IMREAD_COLOR, IMREAD_GRAYSCALE, IMREAD_UNCHANGED
-from maniskill2_learn.utils.meta import check_files_exist, mkdir_or_exist
-from maniskill2_learn.utils.data import is_str
 import base64
+import io
+import os.path as osp
+from pathlib import Path
 
+import cv2
+import numpy as np
+from cv2 import IMREAD_COLOR, IMREAD_GRAYSCALE, IMREAD_UNCHANGED
+
+from maniskill2_learn.utils.data import is_str
+from maniskill2_learn.utils.meta import check_files_exist, mkdir_or_exist
 
 try:
     # sudo apt-get update

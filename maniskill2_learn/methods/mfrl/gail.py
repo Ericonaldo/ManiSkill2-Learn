@@ -3,19 +3,24 @@ Generative Adversarial Imitation Learning
 SAC version..
 """
 
+import math
+from copy import deepcopy
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from copy import deepcopy
 
-from maniskill2_learn.networks import build_model, build_actor_critic
-from maniskill2_learn.utils.torch import build_optimizer
-from maniskill2_learn.utils.data import to_torch
+from maniskill2_learn.networks import build_actor_critic, build_model
+from maniskill2_learn.utils.data import DictArray, to_torch
+from maniskill2_learn.utils.torch import (
+    BaseAgent,
+    build_optimizer,
+    hard_update,
+    soft_update,
+)
+
 from ..builder import MFRL
-from maniskill2_learn.utils.torch import BaseAgent, hard_update, soft_update
-from maniskill2_learn.utils.data import DictArray
-import math
 
 # Modified from Hao Shen, Weikang Wan, and He Wang's ManiSkill2021 challenge submission:
 # Paper: https://arxiv.org/pdf/2203.02107.pdf

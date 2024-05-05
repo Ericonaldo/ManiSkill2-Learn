@@ -1,4 +1,6 @@
-import psutil, os
+import os
+
+import psutil
 
 
 def format_memory_str(x, unit, number_only=False):

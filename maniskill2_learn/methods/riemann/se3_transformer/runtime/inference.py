@@ -31,9 +31,18 @@ from tqdm import tqdm
 
 from maniskill2_learn.methods.riemann.se3_transformer.runtime import gpu_affinity
 from maniskill2_learn.methods.riemann.se3_transformer.runtime.arguments import PARSER
-from maniskill2_learn.methods.riemann.se3_transformer.runtime.callbacks import BaseCallback
-from maniskill2_learn.methods.riemann.se3_transformer.runtime.loggers import DLLogger, WandbLogger, LoggerCollection
-from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import to_cuda, get_local_rank
+from maniskill2_learn.methods.riemann.se3_transformer.runtime.callbacks import (
+    BaseCallback,
+)
+from maniskill2_learn.methods.riemann.se3_transformer.runtime.loggers import (
+    DLLogger,
+    LoggerCollection,
+    WandbLogger,
+)
+from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import (
+    get_local_rank,
+    to_cuda,
+)
 
 
 @torch.inference_mode()
@@ -62,13 +71,26 @@ def evaluate(
 
 
 if __name__ == "__main__":
-    from maniskill2_learn.methods.riemann.se3_transformer.runtime.callbacks import QM9MetricCallback, PerformanceCallback
-    from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import init_distributed, seed_everything
-    from maniskill2_learn.methods.riemann.se3_transformer.model import SE3TransformerPooled, Fiber
-    from maniskill2_learn.methods.riemann.se3_transformer.data_loading import QM9DataModule
-    import torch.distributed as dist
     import logging
     import sys
+
+    import torch.distributed as dist
+
+    from maniskill2_learn.methods.riemann.se3_transformer.data_loading import (
+        QM9DataModule,
+    )
+    from maniskill2_learn.methods.riemann.se3_transformer.model import (
+        Fiber,
+        SE3TransformerPooled,
+    )
+    from maniskill2_learn.methods.riemann.se3_transformer.runtime.callbacks import (
+        PerformanceCallback,
+        QM9MetricCallback,
+    )
+    from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import (
+        init_distributed,
+        seed_everything,
+    )
 
     is_distributed = init_distributed()
     local_rank = get_local_rank()

@@ -1,14 +1,15 @@
-from pathlib import Path
 import os.path as osp
 from io import BytesIO
+from pathlib import Path
+
 from ...data import is_list_of, is_str
 from .handlers import (
     BaseFileHandler,
+    CSVHandler,
     JsonHandler,
     PickleHandler,
-    YamlHandler,
-    CSVHandler,
     TxtHandler,
+    YamlHandler,
 )
 
 file_handlers = {

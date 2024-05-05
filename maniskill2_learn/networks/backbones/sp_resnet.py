@@ -7,17 +7,16 @@ References:
 
 import torch
 import torch.nn as nn
-from torch.nn.modules.batchnorm import _BatchNorm
 from pytorch3d.transforms import quaternion_to_matrix
+from torch.nn.modules.batchnorm import _BatchNorm
 
 try:
-    from torchsparse import SparseTensor
     import torchsparse.nn as spnn
+    from torchsparse import SparseTensor
 except:
     print("Failed to import torchsparse!")
 
 from copy import copy
-
 
 # from maniskill2_learn.utils.torch import ExtendedModule
 # from .mlp import ConvMLP

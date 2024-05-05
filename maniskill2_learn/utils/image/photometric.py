@@ -1,7 +1,9 @@
 # Finish modifying
-import cv2, numpy as np
+import cv2
+import numpy as np
 
 from maniskill2_learn.utils.data import is_tuple_of
+
 from .colorspace import bgr2gray, gray2bgr
 
 

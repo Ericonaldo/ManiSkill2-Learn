@@ -1,28 +1,27 @@
 import os.path as osp
-from shutil import rmtree
 import struct
 import time
-from typing import Union
 from io import BytesIO
+from pathlib import Path
+from shutil import rmtree
+from typing import Union
 
 import h5py
 import numpy as np
-from pathlib import Path
 
-from .hash_utils import masked_crc
-from .serialization import dump, load
-from ..data import DictArray, GDict, shuffle, select_by_index
+from ..data import DictArray, GDict, select_by_index, shuffle
+from ..math import split_num
 from ..meta import (
     check_files_exist,
-    mkdir_or_exist,
     get_filename_suffix,
-    replace_suffix,
-    get_time_stamp,
-    symlink,
     get_logger,
+    get_time_stamp,
+    mkdir_or_exist,
+    replace_suffix,
+    symlink,
 )
-from ..math import split_num
-
+from .hash_utils import masked_crc
+from .serialization import dump, load
 
 """
 TF-Record-Style Dataset

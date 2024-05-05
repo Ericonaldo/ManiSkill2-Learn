@@ -28,7 +28,6 @@ from typing import Optional
 
 import numpy as np
 import torch
-
 from se3_transformer.runtime.loggers import Logger
 from se3_transformer.runtime.metrics import MeanAbsoluteError
 

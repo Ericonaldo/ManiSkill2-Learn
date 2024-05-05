@@ -1,9 +1,11 @@
 import argparse
-import os, numpy as np
+import json
+import os
 import os.path as osp
 from multiprocessing import Process
+
 import h5py
-import json
+import numpy as np
 
 os.environ["D4RL_SUPPRESS_IMPORT_ERROR"] = "1"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -12,11 +14,11 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
-from maniskill2_learn.env import make_gym_env, ReplayMemory, import_env
+from maniskill2_learn.env import ReplayMemory, import_env, make_gym_env
 from maniskill2_learn.utils.data import DictArray, GDict, f64_to_f32
 from maniskill2_learn.utils.file import merge_h5_trajectory
-from maniskill2_learn.utils.meta import get_total_memory, flush_print
 from maniskill2_learn.utils.math import split_num
+from maniskill2_learn.utils.meta import flush_print, get_total_memory
 
 # from maniskill2_learn.utils.data import compress_f64
 

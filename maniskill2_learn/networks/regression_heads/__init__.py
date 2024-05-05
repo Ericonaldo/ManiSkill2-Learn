@@ -1,3 +1,3 @@
-from .deterministic import TanhHead, BasicHead
+from .deterministic import BasicHead, TanhHead
+from .gaussian import GaussianHead, SoftplusGaussianHead, TanhGaussianHead
 from .regression_base import DiscreteBaseHead
-from .gaussian import GaussianHead, TanhGaussianHead, SoftplusGaussianHead

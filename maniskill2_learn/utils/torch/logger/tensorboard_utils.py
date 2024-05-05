@@ -1,4 +1,9 @@
-import pandas, os.path as osp, re, pathlib, os
+import os
+import os.path as osp
+import pathlib
+import re
+
+import pandas
 
 
 def load_tb_summaries_as_df(tb_files, exp_names, data_title="test"):

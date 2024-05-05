@@ -1,7 +1,7 @@
 # Create a json which contains path to all the trajectories
 
-import os
 import json
+import os
 
 tasks = [
     "rigid_body/AssemblingKits-v0",

@@ -1,8 +1,8 @@
+import time
+
 import numpy as np
 import torch
 import torch.nn as nn
-
-import time
 
 ln_time = 0.0
 ln_ln_time = 0.0

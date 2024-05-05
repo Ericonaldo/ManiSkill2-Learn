@@ -1,10 +1,14 @@
-import torch, torch.nn.functional as F
+import os.path as osp
+import time
+
+import torch
+import torch.nn.functional as F
 import torch.utils.cpp_extension
 from torch import nn as nn
-from maniskill2_learn.utils.torch import no_grad
-import os.path as osp, time
-from . import pcd_process_ext
 
+from maniskill2_learn.utils.torch import no_grad
+
+from . import pcd_process_ext
 
 __folder__ = osp.dirname(__file__)
 

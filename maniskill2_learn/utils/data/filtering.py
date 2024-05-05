@@ -1,5 +1,5 @@
 from .string_utils import regex_match
-from .type_utils import is_dict, is_tuple_of, is_list_of
+from .type_utils import is_dict, is_list_of, is_tuple_of
 
 
 def custom_filter(item, func, value=True):

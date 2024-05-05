@@ -1,31 +1,31 @@
-from typing import Optional, Tuple
 from collections import deque
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
-
 from gym import spaces
 from gym.core import ObservationWrapper, Wrapper
 from gym.spaces import Discrete
 
 from maniskill2_learn.utils.data import (
+    SLICE_ALL,
     DictArray,
     GDict,
     deepcopy,
     encode_np,
     is_num,
     to_array,
-    SLICE_ALL,
     to_np,
 )
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
-from .observation_process import pcd_uniform_downsample, pcd_filter_with_mask
+from .observation_process import pcd_filter_with_mask, pcd_uniform_downsample
 
 WRAPPERS = Registry("wrappers of gym environments")
 
 
-from transforms3d.quaternions import quat2axangle
 from transforms3d.euler import quat2euler
+from transforms3d.quaternions import quat2axangle
 
 
 def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
@@ -374,12 +374,13 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
 
     def observation(self, observation):
         from mani_skill2.utils.common import flatten_state_dict
-        from maniskill2_learn.utils.lib3d.mani_skill2_contrib import (
-            apply_pose_to_points,
-            apply_pose_to_point,
-        )
         from mani_skill2.utils.sapien_utils import vectorize_pose
         from sapien.core import Pose
+
+        from maniskill2_learn.utils.lib3d.mani_skill2_contrib import (
+            apply_pose_to_point,
+            apply_pose_to_points,
+        )
 
         if self.obs_mode == "state":
             return {"state": observation}
@@ -676,7 +677,13 @@ class ManiSkill2_ObsWrapper(ExtendedWrapper, ObservationWrapper):
             }
             if self.remove_arm_pointcloud:
                 assert "gt_seg" in ret
-                mask = np.where((ret["gt_seg"][:, 1] != 16) & (ret["gt_seg"][:, 1] != 17) & (ret["gt_seg"][:, 1] != 18), False, True)
+                mask = np.where(
+                    (ret["gt_seg"][:, 1] != 16)
+                    & (ret["gt_seg"][:, 1] != 17)
+                    & (ret["gt_seg"][:, 1] != 18),
+                    False,
+                    True,
+                )
                 pcd_filter_with_mask(ret, mask, self.env)
             if "PointCloudPreprocessObsWrapper" not in self.env.__str__():
                 pcd_uniform_downsample(ret, **uniform_downsample_kwargs)

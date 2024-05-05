@@ -1,13 +1,14 @@
-from contextlib import contextmanager, nullcontext, ExitStack
+from contextlib import ExitStack, contextmanager, nullcontext
 from typing import List, Union
 
+import torch
 from torch.nn import Module, ModuleList, Sequential
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import parameters_to_vector
-import torch
 
 from maniskill2_learn.utils.data import GDict, to_torch
-from .misc import no_grad, mini_batch, run_with_mini_batch
+
+from .misc import mini_batch, no_grad, run_with_mini_batch
 
 
 class ExtendedModuleBase(Module):

@@ -1,10 +1,11 @@
-import h5py
-import random
 import argparse
-import tqdm
-import json
 import copy
+import json
+import random
 from multiprocessing import Pool
+
+import h5py
+import tqdm
 
 
 def copy_group(from_file, to_file, key_name, new_key_name):

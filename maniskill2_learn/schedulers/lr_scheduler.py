@@ -1,5 +1,6 @@
-from maniskill2_learn.utils.meta import Registry, build_from_cfg
 import torch.optim.lr_scheduler as lr_scheduler
+
+from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
 LRSCHEDULERS = Registry("scheduler of pytorch learning rate")
 

@@ -1,31 +1,32 @@
 import os
-import yaml
 from typing import Dict, Optional
-import torch
+
 import numpy as np
-from sapien.core import Pose
-from pydrake.all import RigidTransform, PiecewisePolynomial
+import torch
+import yaml
 from icecream import ic
+from pydrake.all import PiecewisePolynomial, RigidTransform
+from sapien.core import Pose
 
 from maniskill2_learn.methods.brl import DiffAgent
-from maniskill2_learn.utils.torch import get_mean_lr
-from maniskill2_learn.utils.diffusion.arrays import to_torch
-from maniskill2_learn.utils.data import to_np
-from maniskill2_learn.methods.kpam import se3_utils
 from maniskill2_learn.methods.brl.kpam_diff_utils import (
     anchor_seeds,
-    solve_ik_kpam,
-    solve_ik_traj_with_standoff,
+    build_plant,
     dense_sample_traj_times,
+    recursive_squeeze,
     rotAxis,
     se3_inverse,
-    build_plant,
+    solve_ik_kpam,
+    solve_ik_traj_with_standoff,
     vector2pose,
-    recursive_squeeze,
 )
+from maniskill2_learn.methods.kpam import se3_utils
 from maniskill2_learn.methods.kpam.optimization_spec import (
     OptimizationProblemSpecification,
 )
+from maniskill2_learn.utils.data import to_np
+from maniskill2_learn.utils.diffusion.arrays import to_torch
+from maniskill2_learn.utils.torch import get_mean_lr
 
 from ..builder import BRL
 
@@ -52,7 +53,11 @@ class KPamDiffAgent(DiffAgent):
         self.pre_actuation_rel_times = self.cfg["pre_actuation_rel_times"]
         self.post_actuation_rel_times = self.cfg["post_actuation_rel_times"]
 
-        assert keyframe_modify_type in ["all", "middle_range", "first_range"], keyframe_modify_type
+        assert keyframe_modify_type in [
+            "all",
+            "middle_range",
+            "first_range",
+        ], keyframe_modify_type
         self.keyframe_modify_type = keyframe_modify_type
         self.keyframe_modify_length = keyframe_modify_length
 
@@ -105,7 +110,9 @@ class KPamDiffAgent(DiffAgent):
         kpam_obs = recursive_squeeze(kpam_obs, axis=0)
         if self.check_plan_empty():
             joint_positions = kpam_obs["joint_positions"]
-            modified_joint_positions, _ = self.modify_keyframe_joint(joint_positions, kpam_obs)
+            modified_joint_positions, _ = self.modify_keyframe_joint(
+                joint_positions, kpam_obs
+            )
 
             self.plant.SetPositions(self.fk_context, modified_joint_positions)
             task_goal_hand_pose = self.plant.EvalBodyPoseInWorld(
@@ -116,14 +123,17 @@ class KPamDiffAgent(DiffAgent):
             _, post_actuation_poses = self.generate_actuation_poses(task_goal_hand_pose)
             self.joint_space_traj, _ = self.solve_joint_traj(
                 keyposes=[task_goal_hand_pose] + post_actuation_poses,
-                keytimes=[self.modify_time] + [t + self.modify_time for t in self.post_actuation_rel_times],
+                keytimes=[self.modify_time]
+                + [t + self.modify_time for t in self.post_actuation_rel_times],
                 curr_joint_positions=joint_positions,
                 goal_joint_positions=modified_joint_positions,
             )
             self.kpam_plan_time = kpam_obs["time"].item()
 
         curr_time, dt = kpam_obs["time"].item(), kpam_obs["dt"]
-        joint_action = self.joint_space_traj.value(curr_time - self.kpam_plan_time + dt).reshape(-1)
+        joint_action = self.joint_space_traj.value(
+            curr_time - self.kpam_plan_time + dt
+        ).reshape(-1)
         maniskill_joint_action = np.concatenate(
             (joint_action[:7], -1 * np.ones_like(joint_action[:1])), axis=0
         )
@@ -170,14 +180,17 @@ class KPamDiffAgent(DiffAgent):
             joint_traj_waypoints = list(joint_traj_waypoints)
 
             joint_traj_waypoints = (
-                joint_traj_waypoints[:self.modify_time]
+                joint_traj_waypoints[: self.modify_time]
                 + [joint_traj_waypoints[self.modify_time]] * self.standby_time
-                + joint_traj_waypoints[self.modify_time:]
+                + joint_traj_waypoints[self.modify_time :]
             )
             dense_traj_times = (
-                dense_traj_times[:self.modify_time]
-                + [dense_traj_times[self.modify_time] + i for i in range(self.standby_time)]
-                + [t + self.standby_time for t in dense_traj_times[self.modify_time:]]
+                dense_traj_times[: self.modify_time]
+                + [
+                    dense_traj_times[self.modify_time] + i
+                    for i in range(self.standby_time)
+                ]
+                + [t + self.standby_time for t in dense_traj_times[self.modify_time :]]
             )
 
             joint_space_traj = PiecewisePolynomial.CubicShapePreserving(
@@ -379,17 +392,27 @@ class KPamDiffAgent(DiffAgent):
                 kpam_act_mask = act_mask.clone()
                 for keyframe_step in keyframe_steps:
                     pred_joint_positions = np.concatenate(
-                        (to_np(pred_action[:, keyframe_step])[0, :-1], kpam_obs["joint_positions"][-2:]), axis=-1
+                        (
+                            to_np(pred_action[:, keyframe_step])[0, :-1],
+                            kpam_obs["joint_positions"][-2:],
+                        ),
+                        axis=-1,
                     )
-                    modified_joint_positions, solve_success = self.modify_keyframe_joint(
-                        pred_joint_positions, kpam_obs
+                    modified_joint_positions, solve_success = (
+                        self.modify_keyframe_joint(pred_joint_positions, kpam_obs)
                     )
                     modified_joint_positions = to_torch(
-                        modified_joint_positions, device=self.device, dtype=torch.float32
+                        modified_joint_positions,
+                        device=self.device,
+                        dtype=torch.float32,
                     ).unsqueeze(0)
                     # Transform back to maniskill format
                     modified_action = torch.cat(
-                        (modified_joint_positions[:, :-2], pred_action[:, keyframe_step][:, -1:]), dim=-1
+                        (
+                            modified_joint_positions[:, :-2],
+                            pred_action[:, keyframe_step][:, -1:],
+                        ),
+                        dim=-1,
                     )
 
                     if solve_success:
@@ -451,13 +474,13 @@ class KPamDiffAgent(DiffAgent):
         )
         hand_pose = vector2pose(
             kpam_obs["base_pose"]
-        ) * Pose.from_transformation_matrix(
-            np.array(hand_pose_inbase.GetAsMatrix4())
-        )
+        ) * Pose.from_transformation_matrix(np.array(hand_pose_inbase.GetAsMatrix4()))
 
         peg_pose = hand_pose * peg_rel_pose
         peg_head_pose = peg_pose * vector2pose(kpam_obs["peg_head_offset"])
-        is_preinserted = self.check_peg_head_preinserted(peg_head_pose, peg_pose, goal_pose)
+        is_preinserted = self.check_peg_head_preinserted(
+            peg_head_pose, peg_pose, goal_pose
+        )
         return is_preinserted
 
     def check_pred_keyframe(self, pred_action, kpam_obs):
@@ -486,7 +509,9 @@ class KPamDiffAgent(DiffAgent):
 
             peg_pose = hand_pose * peg_rel_pose
             peg_head_pose = peg_pose * vector2pose(kpam_obs["peg_head_offset"])
-            is_keyframe = self.check_peg_head_preinserted(peg_head_pose, peg_pose, goal_pose)
+            is_keyframe = self.check_peg_head_preinserted(
+                peg_head_pose, peg_pose, goal_pose
+            )
 
             res.append(is_keyframe)
         return np.array(res)

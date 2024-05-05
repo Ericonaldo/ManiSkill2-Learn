@@ -6,7 +6,6 @@ Useful regex expression
 
 import re
 
-
 any_string = r"(.*?)"
 
 

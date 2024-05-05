@@ -1,9 +1,10 @@
 import argparse
+import json
 import os
 import os.path as osp
 from multiprocessing import Process
+
 import h5py
-import json
 
 os.environ["D4RL_SUPPRESS_IMPORT_ERROR"] = "1"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -12,11 +13,11 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
-from maniskill2_learn.env import make_gym_env, ReplayMemory
+from maniskill2_learn.env import ReplayMemory, make_gym_env
 from maniskill2_learn.utils.data import GDict
 from maniskill2_learn.utils.file import merge_h5_trajectory
-from maniskill2_learn.utils.meta import flush_print
 from maniskill2_learn.utils.math import split_num
+from maniskill2_learn.utils.meta import flush_print
 
 # from maniskill2_learn.utils.data import compress_f64
 
@@ -294,7 +295,9 @@ def parse_args():
     args = parser.parse_args()
     args.traj_name = osp.abspath(args.traj_name)
     args.output_name = osp.abspath(args.output_name)
-    print(f"Obs mode: {args.obs_mode}; Control mode: {args.control_mode}; State version: {args.state_version}")
+    print(
+        f"Obs mode: {args.obs_mode}; Control mode: {args.control_mode}; State version: {args.state_version}"
+    )
     if args.obs_mode == "pointcloud":
         print(
             f"Obs frame: {args.obs_frame}; n_points: {args.n_points}; n_goal_points: {args.n_goal_points}"

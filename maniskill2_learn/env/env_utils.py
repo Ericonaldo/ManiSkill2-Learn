@@ -1,16 +1,20 @@
 from collections import OrderedDict
-import gym, numpy as np
+
+import gym
+import numpy as np
 from gym.envs import registry
-from gym.spaces import Box, Discrete, Dict
+from gym.spaces import Box, Dict, Discrete
 from gym.wrappers import TimeLimit
+
 from maniskill2_learn.utils.data import GDict, get_dtype
 from maniskill2_learn.utils.meta import Registry, build_from_cfg, dict_of, get_logger
+
 from .action_space_utils import StackedDiscrete, unstack_action_space
 from .wrappers import (
+    BufferAugmentedEnv,
+    ExtendedEnv,
     ManiSkill2_ObsWrapper,
     RenderInfoWrapper,
-    ExtendedEnv,
-    BufferAugmentedEnv,
     build_wrapper,
 )
 
@@ -20,6 +24,7 @@ ENVS = Registry("env")
 def import_env():
     import contextlib
     import os
+
     import mani_skill2.envs
 
 
@@ -264,10 +269,10 @@ def build_vec_env(cfgs, num_procs=None, multi_thread=False, **vec_env_kwargs):
     ), "You need to provide env configurations for each process or thread!"
 
     from .vec_env import (
-        VectorEnv,
         SapienThreadEnv,
         SingleEnv2VecEnv,
         UnifiedVectorEnvAPI,
+        VectorEnv,
     )
 
     if multi_thread:

@@ -1,6 +1,7 @@
-import numpy as np, torch.nn as nn
-from maniskill2_learn.utils.meta import Registry
+import numpy as np
+import torch.nn as nn
 
+from maniskill2_learn.utils.meta import Registry
 
 INIT = Registry("init")
 

@@ -21,11 +21,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES
 # SPDX-License-Identifier: MIT
 
-import torch.distributed as dist
 from abc import ABC
-from torch.utils.data import DataLoader, DistributedSampler, Dataset
 
-from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import get_local_rank
+import torch.distributed as dist
+from torch.utils.data import DataLoader, Dataset, DistributedSampler
+
+from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import (
+    get_local_rank,
+)
 
 
 def _get_dataloader(dataset: Dataset, shuffle: bool, **kwargs) -> DataLoader:

@@ -3,46 +3,20 @@ TODO: Merge or improved with pytree in jax.
 """
 
 from collections import defaultdict
-import numpy as np
 from functools import wraps
 from multiprocessing.shared_memory import SharedMemory
 
-from .array_ops import (
-    squeeze,
-    unsqueeze,
-    zeros_like,
-    repeat,
-    tile,
-    shuffle,
-    take,
-    share_memory,
-    concat,
-    stack,
-    arr_mean,
-    to_item,
-    select_with_mask,
-    recover_with_mask,
-    detach,
-    get_nbytes,
-    split,
-    batch_shuffle,
-    decode_np,
-    to_two_dims,
-    to_list,
-    gather,
-    reshape,
-    transpose,
-    contiguous,
-    split_dim,
-    to_item,
-    to_cpu,
-    to_cuda,
-    allreduce,
-    slice_item,
-    deepcopy,
-)
-from .converter import as_dtype, to_np, to_torch, slice_to_range, to_array
-from .type_utils import get_dtype, is_list_of, is_dict, is_h5, is_arr, is_num, is_np, is_str
+import numpy as np
+
+from .array_ops import (allreduce, arr_mean, batch_shuffle, concat, contiguous,
+                        decode_np, deepcopy, detach, gather, get_nbytes,
+                        recover_with_mask, repeat, reshape, select_with_mask,
+                        share_memory, shuffle, slice_item, split, split_dim,
+                        squeeze, stack, take, tile, to_cpu, to_cuda, to_item,
+                        to_list, to_two_dims, transpose, unsqueeze, zeros_like)
+from .converter import as_dtype, slice_to_range, to_array, to_np, to_torch
+from .type_utils import (get_dtype, is_arr, is_dict, is_h5, is_list_of, is_np,
+                         is_num, is_str)
 
 SMM, use_shared_mem = None, False
 

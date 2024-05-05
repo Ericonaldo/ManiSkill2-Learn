@@ -1,12 +1,12 @@
-from .mlp import LinearMLP, ConvMLP, GaussianMLP
+from .mlp import ConvMLP, GaussianMLP, LinearMLP
 from .pointnet import PointNet
 
 # from .transformer import TransformerEncoder
 from .resnet import ResNet, ResNetV1c, ResNetV1d
-from .visuomotor import Visuomotor, RNNVisuomotor
 from .rl_cnn import IMPALA, NatureCNN
-from .unets import ConditionalUnet1D
 from .rnn import SimpleRNN
+from .unets import ConditionalUnet1D
+from .visuomotor import RNNVisuomotor, Visuomotor
 
 try:
     from .sp_resnet import (

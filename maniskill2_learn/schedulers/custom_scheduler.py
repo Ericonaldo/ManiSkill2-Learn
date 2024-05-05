@@ -1,16 +1,16 @@
-import numpy as np
 from numbers import Number
+
+import numpy as np
+
 from maniskill2_learn.utils.data import (
-    is_seq_of,
-    is_dict,
-    is_str,
-    is_num,
     auto_pad_seq,
     deepcopy,
+    is_dict,
+    is_num,
+    is_seq_of,
+    is_str,
 )
-
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
-
 
 SCHEDULERS = Registry("scheduler of hyper-parameters")
 

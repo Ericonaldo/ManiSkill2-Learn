@@ -1,10 +1,11 @@
+from numbers import Number
 from typing import Optional
 
 import numpy as np
-from numbers import Number
-from .misc import equal
-from .type_utils import is_np_arr, is_type, get_dtype, is_integer, is_torch, is_np, is_seq_of, is_num
 
+from .misc import equal
+from .type_utils import (get_dtype, is_integer, is_np, is_np_arr, is_num,
+                         is_seq_of, is_torch, is_type)
 
 """ Convert tensor type """
 

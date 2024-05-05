@@ -1,12 +1,16 @@
-import ast, os.path as osp, platform, shutil, sys, tempfile
+import ast
 import inspect
+import os.path as osp
+import platform
+import shutil
+import sys
+import tempfile
 from argparse import Action, ArgumentParser
 from collections import abc
 from importlib import import_module
 
 from addict import Dict
 from yapf.yapflib.yapf_api import FormatCode
-
 
 if platform.system() == "Windows":
     import regex as re

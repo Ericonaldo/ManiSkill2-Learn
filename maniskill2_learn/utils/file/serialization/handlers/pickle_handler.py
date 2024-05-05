@@ -1,6 +1,10 @@
-import pickle, importlib, bz2, gzip
+import bz2
+import gzip
+import importlib
+import pickle
+
+from ....meta import custom_assert, get_filename_suffix
 from .base import BaseFileHandler
-from ....meta import get_filename_suffix, custom_assert
 
 
 class PickleProtocol:

@@ -1,15 +1,22 @@
-from maniskill2_learn.networks.modules.norm import need_bias
 import torch
-import torch.nn as nn, torch.nn.functional as F
-from torch.nn.modules.batchnorm import _BatchNorm
+import torch.nn as nn
+import torch.nn.functional as F
 from einops.layers.torch import Rearrange
+from torch.nn.modules.batchnorm import _BatchNorm
 
+from maniskill2_learn.networks.modules.norm import need_bias
 from maniskill2_learn.utils.meta import get_logger
-from maniskill2_learn.utils.torch import load_checkpoint, ExtendedModule
+from maniskill2_learn.utils.torch import ExtendedModule, load_checkpoint
 
 from ..builder import BACKBONES
-from ..modules import ConvModule, build_init, MLP, SharedMLP
-from ..modules import build_activation_layer, build_norm_layer
+from ..modules import (
+    MLP,
+    ConvModule,
+    SharedMLP,
+    build_activation_layer,
+    build_init,
+    build_norm_layer,
+)
 
 BACKBONES.register_module(name="MLP", module=MLP)
 BACKBONES.register_module(name="SharedMLP", module=SharedMLP)

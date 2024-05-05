@@ -1,8 +1,8 @@
-from .spconv_utils import initial_voxelize, point_to_voxel, voxel_to_point, build_points
 from .resnet_utils import (
     BasicConvolutionBlock,
     BasicDeconvolutionBlock,
-    ResidualBlock,
     Bottleneck,
+    ResidualBlock,
     build_sparse_norm,
 )
+from .spconv_utils import build_points, initial_voxelize, point_to_voxel, voxel_to_point

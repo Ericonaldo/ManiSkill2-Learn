@@ -20,29 +20,32 @@
 #
 # SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES
 # SPDX-License-Identifier: MIT
-from typing import Tuple
 import copy
+import pathlib
+from typing import Tuple
 
 import dgl
-import pathlib
-import torch
-from dgl.data import QM9EdgeDataset
-from dgl import DGLGraph
-from torch import Tensor
-from torch.utils.data import random_split, DataLoader, Dataset
-from tqdm import tqdm
-
-from maniskill2_learn.methods.riemann.se3_transformer.data_loading.data_module import DataModule
-from maniskill2_learn.methods.riemann.se3_transformer.model.basis import get_basis
-from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import get_local_rank, str2bool, using_tensor_cores
-
 import numpy as np
-
+import torch
+from dgl import DGLGraph
 from dgl import backend as F
 from dgl.convert import graph as dgl_graph
-
+from dgl.data import QM9EdgeDataset
 from dgl.data.dgl_dataset import DGLDataset
 from dgl.data.utils import _get_dgl_url, download, extract_archive
+from torch import Tensor
+from torch.utils.data import DataLoader, Dataset, random_split
+from tqdm import tqdm
+
+from maniskill2_learn.methods.riemann.se3_transformer.data_loading.data_module import (
+    DataModule,
+)
+from maniskill2_learn.methods.riemann.se3_transformer.model.basis import get_basis
+from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import (
+    get_local_rank,
+    str2bool,
+    using_tensor_cores,
+)
 
 
 class PointcloudDataset(DGLDataset):

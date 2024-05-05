@@ -24,8 +24,8 @@ from maniskill2_learn.utils.meta import (
     get_logger,
     get_world_rank,
     is_debug_mode,
-    set_random_seed,
     log_meta_info,
+    set_random_seed,
 )
 
 
@@ -229,6 +229,7 @@ def init_torch(args):
 
 def main_collect(evaluator, args, cfg):
     import torch.distributed as dist
+
     from maniskill2_learn.env import save_eval_statistics
     from maniskill2_learn.methods.builder import build_agent
     from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint
@@ -240,7 +241,9 @@ def main_collect(evaluator, args, cfg):
 
     logger.info("Build diffusion agent!")
     diff_agent = build_agent(cfg.diff_agent_cfg)
-    assert diff_agent is not None, f"Diffusion agent type {cfg.agent_cfg.type} is not valid!"
+    assert (
+        diff_agent is not None
+    ), f"Diffusion agent type {cfg.agent_cfg.type} is not valid!"
 
     device = "cpu" if len(args.gpu_ids) == 0 else "cuda"
     diff_agent = diff_agent.float().to(device)
@@ -290,6 +293,7 @@ def main(args, cfg):
         raise NotImplementedError(f"GPU IDs: {args.gpu_ids}! Not supported yet!")
 
     import numpy as np
+
     set_random_seed(args.seed)
 
     if is_not_null(args.resume_from):

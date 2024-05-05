@@ -1,13 +1,13 @@
-from typing import Union, Dict
 import copy
+from typing import Dict, Union
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
-from maniskill2_learn.utils.torch import ExtendedModule
 from maniskill2_learn.networks.builder import MODELNETWORKS
 from maniskill2_learn.utils.diffusion.torch import replace_submodules
+from maniskill2_learn.utils.torch import ExtendedModule
 
 
 class ResizeConv2d(nn.Module):

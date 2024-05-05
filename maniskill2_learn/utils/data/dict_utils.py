@@ -1,4 +1,5 @@
 from copy import deepcopy
+
 from .type_utils import is_dict, is_seq_of
 
 
@@ -46,8 +47,9 @@ def first_dict_key(item):
 
 
 def map_dict_keys(inputs, keys_map, logger_print=None):
-    from .string_utils import regex_replace, regex_match, is_regex
     import re
+
+    from .string_utils import is_regex, regex_match, regex_replace
 
     outputs = {}
     for key, value in inputs.items():

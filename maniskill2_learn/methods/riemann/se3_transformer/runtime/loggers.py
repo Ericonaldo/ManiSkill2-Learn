@@ -24,14 +24,16 @@
 import pathlib
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 import dllogger
 import torch.distributed as dist
 import wandb
 from dllogger import Verbosity
 
-from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import rank_zero_only
+from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import (
+    rank_zero_only,
+)
 
 
 class Logger(ABC):

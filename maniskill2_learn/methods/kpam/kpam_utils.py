@@ -1,13 +1,27 @@
-import os
 import copy
+import os
 
-from pydrake.all import InverseKinematics, RotationMatrix, SnoptSolver, MathematicalProgram, MultibodyPlantConfig, RigidTransform, OrientationConstraint, PositionConstraint, DiagramBuilder, AddMultibodyPlant, IpoptSolver, RevoluteJoint, Parser
 import numpy as np
-from transforms3d.quaternions import mat2quat
-from transforms3d.euler import mat2euler
-from transforms3d.axangles import axangle2mat, mat2axangle
-from sapien.core import Pose
 import open3d as o3d
+from pydrake.all import (
+    AddMultibodyPlant,
+    DiagramBuilder,
+    InverseKinematics,
+    IpoptSolver,
+    MathematicalProgram,
+    MultibodyPlantConfig,
+    OrientationConstraint,
+    Parser,
+    PositionConstraint,
+    RevoluteJoint,
+    RigidTransform,
+    RotationMatrix,
+    SnoptSolver,
+)
+from sapien.core import Pose
+from transforms3d.axangles import axangle2mat, mat2axangle
+from transforms3d.euler import mat2euler
+from transforms3d.quaternions import mat2quat
 
 robot_plant = None
 
@@ -463,7 +477,9 @@ def solve_ik_traj_with_standoff(
         # endpoint joint constraints
         for edp_idx, edp_time in enumerate(endpoint_times):
             if time == edp_time:
-                prog.AddConstraint(np.sum((q[:, idx] - endpoint_joints[:, edp_idx]) ** 2) == 0)
+                prog.AddConstraint(
+                    np.sum((q[:, idx] - endpoint_joints[:, edp_idx]) ** 2) == 0
+                )
 
         # keypoint pose constraints
         if time in keytimes:  # standoff
@@ -554,7 +570,9 @@ def vector2pose(vector_pose):
 
 
 def AddFranka(plant):
-    franka_combined_path = os.path.join(os.path.dirname(__file__), "assets/panda_arm_hand.urdf")
+    franka_combined_path = os.path.join(
+        os.path.dirname(__file__), "assets/panda_arm_hand.urdf"
+    )
     parser = Parser(plant)
     franka = parser.AddModelFromFile(franka_combined_path)
     plant.WeldFrames(plant.world_frame(), plant.GetFrameByName("panda_link0"))

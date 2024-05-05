@@ -1,4 +1,6 @@
-import inspect, platform
+import inspect
+import platform
+
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
 PLUGIN_LAYERS = Registry("plugin layer")

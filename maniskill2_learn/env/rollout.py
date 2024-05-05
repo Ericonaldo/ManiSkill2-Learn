@@ -1,8 +1,9 @@
 import time
 
 import numpy as np
+
 from maniskill2_learn.utils.data import DictArray, GDict, to_np
-from maniskill2_learn.utils.meta import get_logger, get_world_size, get_world_rank
+from maniskill2_learn.utils.meta import get_logger, get_world_rank, get_world_size
 
 from .builder import ROLLOUTS
 from .env_utils import build_vec_env
@@ -42,6 +43,7 @@ class Rollout:
 
         sim_time, agent_time, oh_time = 0, 0, 0
         import torch
+
         from maniskill2_learn.utils.torch import barrier, build_dist_var
 
         def get_actions(idx=None):

@@ -1,8 +1,9 @@
 import math
+
 import torch.nn as nn
 import torch.nn.functional as F
-from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
+from maniskill2_learn.utils.meta import Registry, build_from_cfg
 
 CONV_LAYERS = Registry("conv layer")
 for module in [

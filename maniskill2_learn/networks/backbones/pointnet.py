@@ -5,17 +5,20 @@ Reference Code:
     https://github.com/fxia22/pointnet.pytorch.git
 """
 
-import numpy as np
 from copy import deepcopy
-import torch, torch.nn as nn, torch.nn.functional as F
 
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from pytorch3d.transforms import quaternion_to_matrix
+
+from maniskill2_learn.utils.data import GDict, dict_to_seq, repeat, split_dim
+from maniskill2_learn.utils.torch import ExtendedModule, masked_average, masked_max
+
+from ..builder import BACKBONES, build_backbone
 from ..modules.attention import MultiHeadAttention
 from .mlp import ConvMLP, LinearMLP
-from ..builder import BACKBONES, build_backbone
-from maniskill2_learn.utils.data import dict_to_seq, split_dim, GDict, repeat
-from maniskill2_learn.utils.torch import masked_average, masked_max, ExtendedModule
-
-from pytorch3d.transforms import quaternion_to_matrix
 
 
 class STNkd(ExtendedModule):

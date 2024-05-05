@@ -9,11 +9,13 @@ References:
 """
 
 import math
+
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+
 from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
-import numpy as np
 
 
 class GELU(nn.Module):

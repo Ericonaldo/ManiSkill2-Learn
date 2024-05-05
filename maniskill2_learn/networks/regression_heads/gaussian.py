@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, MixtureSameFamily
+
 from maniskill2_learn.utils.torch import (
-    ScaledTanhNormal,
-    ScaledNormal,
     CustomIndependent,
+    ScaledNormal,
+    ScaledTanhNormal,
 )
+
 from ..builder import REGHEADS
 from .regression_base import ContinuousBaseHead
 

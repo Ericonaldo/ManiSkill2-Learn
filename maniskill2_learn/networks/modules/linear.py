@@ -1,14 +1,13 @@
-import math, time
+import math
+import time
 
 import torch
-from torch import Tensor
-from torch.nn.parameter import Parameter
-from torch.nn import init
-from torch import nn
 import torch.nn.functional as F
+from torch import Tensor, nn
+from torch.nn import init
+from torch.nn.parameter import Parameter
 
 from maniskill2_learn.utils.meta import Registry, build_from_cfg
-
 
 LINEAR_LAYERS = Registry("linear layer")
 

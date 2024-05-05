@@ -1,8 +1,10 @@
 import argparse
-import os, numpy as np
-import os.path as osp
-import h5py
 import glob
+import os
+import os.path as osp
+
+import h5py
+import numpy as np
 
 os.environ["D4RL_SUPPRESS_IMPORT_ERROR"] = "1"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"

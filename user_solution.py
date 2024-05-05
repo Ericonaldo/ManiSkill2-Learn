@@ -3,19 +3,17 @@
 import numpy as np
 import torch
 from gym import spaces
-from maniskill2_learn.utils.meta import Config, get_logger
-
-
 from mani_skill2.evaluation.solution import BasePolicy
+
+from maniskill2_learn.env import build_env, get_env_info
 from maniskill2_learn.methods.builder import build_agent
-from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint
-from maniskill2_learn.utils.data import to_np
-from maniskill2_learn.env import get_env_info, build_env
 from maniskill2_learn.networks.utils import (
     get_kwargs_from_shape,
     replace_placeholder_with_args,
 )
-from maniskill2_learn.utils.data import GDict, is_not_null
+from maniskill2_learn.utils.data import GDict, is_not_null, to_np
+from maniskill2_learn.utils.meta import Config, get_logger
+from maniskill2_learn.utils.torch import BaseAgent, load_checkpoint
 
 model_dict = {
     "PickCube-v0": "PickCube-v0/DiffAgent/rgbd/models/model_290000.ckpt",

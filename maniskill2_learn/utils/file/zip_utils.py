@@ -1,11 +1,13 @@
-import tarfile
 import os
 import os.path as osp
-import zipfile, time
-from ..meta import get_total_memory
+import tarfile
+import time
+import zipfile
+
 from ..data import auto_pad_seq
+from ..meta import get_total_memory
+from .hash_utils import check_md5sum, md5sum
 from .serialization import dump, load
-from .hash_utils import md5sum, check_md5sum
 
 
 def extract_files(filenames, target_folders):

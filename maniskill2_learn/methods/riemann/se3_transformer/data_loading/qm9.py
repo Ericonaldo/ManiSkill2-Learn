@@ -20,20 +20,26 @@
 #
 # SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES
 # SPDX-License-Identifier: MIT
+import pathlib
 from typing import Tuple
 
 import dgl
-import pathlib
 import torch
-from dgl.data import QM9EdgeDataset
 from dgl import DGLGraph
+from dgl.data import QM9EdgeDataset
 from torch import Tensor
-from torch.utils.data import random_split, DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, random_split
 from tqdm import tqdm
 
-from maniskill2_learn.methods.riemann.se3_transformer.data_loading.data_module import DataModule
+from maniskill2_learn.methods.riemann.se3_transformer.data_loading.data_module import (
+    DataModule,
+)
 from maniskill2_learn.methods.riemann.se3_transformer.model.basis import get_basis
-from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import get_local_rank, str2bool, using_tensor_cores
+from maniskill2_learn.methods.riemann.se3_transformer.runtime.utils import (
+    get_local_rank,
+    str2bool,
+    using_tensor_cores,
+)
 
 
 def _get_relative_pos(qm9_graph: DGLGraph) -> Tensor:

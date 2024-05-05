@@ -27,7 +27,7 @@ import logging
 import os
 import random
 from functools import wraps
-from typing import Union, List, Dict
+from typing import Dict, List, Union
 
 import numpy as np
 import torch

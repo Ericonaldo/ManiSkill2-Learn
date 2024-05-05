@@ -2,13 +2,25 @@
 Diffusion polices.
 """
 
-import torch, torch.nn as nn, torch.nn.functional as F
-from torch.distributions import Bernoulli
-from typing import Tuple, Union
 from copy import copy, deepcopy
+from typing import Tuple, Union
+
 import einops
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from einops import rearrange
 from einops.layers.torch import Rearrange
+from pytorch3d.transforms import matrix_to_quaternion, quaternion_to_matrix
+from torch.distributions import Bernoulli
+
+from maniskill2_learn.utils.data import DictArray, GDict, is_seq_of, recover_with_mask
+from maniskill2_learn.utils.diffusion.helpers import (
+    Conv1dBlock,
+    Downsample1d,
+    SinusoidalPosEmb,
+    Upsample1d,
+)
 from maniskill2_learn.utils.meta import get_logger
 from maniskill2_learn.utils.torch import (
     ExtendedModule,
@@ -16,20 +28,15 @@ from maniskill2_learn.utils.torch import (
     freeze_params,
     unfreeze_params,
 )
-from maniskill2_learn.utils.data import GDict, DictArray, recover_with_mask, is_seq_of
-from maniskill2_learn.utils.diffusion.helpers import (
-    Conv1dBlock,
-    Downsample1d,
-    SinusoidalPosEmb,
-    Upsample1d,
+
+from ..builder import BACKBONES, build_model
+from ..modules import (
+    MLP,
+    ConvModule,
+    build_activation_layer,
+    build_init,
+    build_norm_layer,
 )
-
-from ..builder import build_model, BACKBONES
-
-from pytorch3d.transforms import quaternion_to_matrix, matrix_to_quaternion
-
-from ..modules import ConvModule, build_init, MLP
-from ..modules import build_activation_layer, build_norm_layer
 
 
 @BACKBONES.register_module()
