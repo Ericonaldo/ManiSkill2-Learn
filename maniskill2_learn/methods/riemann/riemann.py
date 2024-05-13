@@ -136,14 +136,12 @@ class RiemannAgent(BaseAgent):
         self.sample_times = (
             [0]
             + self.pre_actuation_times
-            # + [self.actuation_time]
             + self.post_actuation_times
         )
 
         self.traj_keyframes = (
             [self.hand_pose_in_base]
             + self.pre_actuation_poses
-            # + [self.task_goal_hand_pose_in_base]
             + self.post_actuation_poses
         )
         self.traj_keyframes = [
@@ -157,7 +155,6 @@ class RiemannAgent(BaseAgent):
         ik_times = dense_sample_traj_times(self.sample_times, self.actuation_time)
         self.dense_ik_times = ik_times
         for traj_time in ik_times:
-            # diff_ik_context = self.differential_ik.GetMyMutableContextFromRoot(self.context)
             set_joints = self.joint_space_traj.value(traj_time)
             self.plant.SetPositions(self.fk_context, set_joints)
             pose = self.plant.EvalBodyPoseInWorld(
@@ -205,6 +202,10 @@ class RiemannAgent(BaseAgent):
 
         target_pose = Pose(p=pred_target_pos, q=mat2quat(pred_target_direction))
         object_pose = Pose(p=pred_object_pos, q=mat2quat(pred_object_direction))
+
+        # HACK(zbzhu): use ground-truth
+        # object_pose = self.peg_head_pose
+        # target_pose = self.goal_pose
 
         hand_rel_pose = object_pose.inv() * self.hand_pose
         target_goal_hand_pose = target_pose * hand_rel_pose
@@ -284,10 +285,6 @@ class RiemannAgent(BaseAgent):
 
         # interpolated joint
         res = solve_ik_traj_with_standoff(
-            [
-                self.hand_pose_in_base.to_transformation_matrix(),
-                self.task_goal_hand_pose_in_base.to_transformation_matrix(),
-            ],
             np.array([self.joint_positions.copy(), self.goal_joint]).T,
             endpoint_times=[0, self.actuation_time],
             q_traj=self.joint_space_traj,
@@ -345,14 +342,12 @@ class RiemannAgent(BaseAgent):
             # if densify:
             #     self.get_task_traj_from_joint_traj()
 
-    def forward(
-        self, obs: dict, pointcloud_obs: dict = None, use_planner: bool = True, **kwargs
-    ):
-        if use_planner:
-            obs = recursive_squeeze(obs, axis=0)
+    def forward(self, obs, dict_obs: dict = None, pointcloud_obs: dict = None, **kwargs):
+        if dict_obs is not None:
+            dict_obs = recursive_squeeze(dict_obs, axis=0)
             if self.check_plan_empty() and pointcloud_obs is not None:
                 pointcloud_obs = recursive_squeeze(pointcloud_obs, axis=0)
-            self.get_env_info(obs)
+            self.get_env_info(dict_obs)
             if self.check_plan_empty():
                 s = time.time()
                 self.solve_actuation_joint(pointcloud_obs)

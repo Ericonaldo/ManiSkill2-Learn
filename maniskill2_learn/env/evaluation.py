@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 from h5py import File
 
-from maniskill2_learn.methods.brl import KPamDiffAgent
+from maniskill2_learn.methods.brl import RiemannDiffAgent, KPamDiffAgent
 from maniskill2_learn.utils.data import (
     DictArray,
     GDict,
@@ -1283,7 +1283,7 @@ class RiemannEvaluation(Evaluation):
     def save_pointcloud_pkl(self, pointcloud_obs):
         from skimage.io import imsave
 
-        env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0, ..., ::-1]
+        env_img = self.vec_env.render(mode=self.render_mode, idx=[0])[0]
         imsave("camera_image.png", env_img)
 
         from maniskill2_learn.methods.kpam.kpam_utils import recursive_squeeze
@@ -1313,8 +1313,9 @@ class RiemannEvaluation(Evaluation):
                 )
                 num = min(num, len(self.eval_levels))
 
+        # HACK(zbzhu): to make the env and extra env the same seed before EVERY reset
         self.seed_idx = 0
-        self.seed_list = np.arange(2000, 2000 + num)
+        self.seed_list = np.arange(2000, 2000 + num + 1)
 
         self.start(work_dir)
         import torch
@@ -1345,18 +1346,33 @@ class RiemannEvaluation(Evaluation):
         #     self.save_pointcloud_pkl(pointcloud_obs)
 
         while self.episode_id < num:
-            if grasped:
-                kpam_obs = self.vec_env.get_obs_kpam()
+            stage = getattr(pi, "stage", None)
+            if isinstance(pi, RiemannDiffAgent) and pi.check_pose_empty():
+                env_states = self.vec_env.get_state()
+                self.extra_vec_env.set_state(env_states)
+                pointcloud_obs = self.extra_vec_env.get_obs()
+                dict_obs = self.vec_env.get_obs_kpam()
+                pi.predict_riemann_pose(dict_obs, pointcloud_obs)
+
+            if stage == "diffusion":
+                dict_obs = self.vec_env.get_obs_kpam()
+                # if preinserted, then switch to rule-based control
+                if pi.is_preinserted(dict_obs):
+                    pi.kpam()
+                    stage = getattr(pi, "stage", None)
+
+            if (grasped and stage is None) or stage == "kpam":
+                dict_obs = self.vec_env.get_obs_kpam()
                 if self.extra_vec_env is not None:
                     env_states = self.vec_env.get_state()
                     self.extra_vec_env.set_state(env_states)
                     pointcloud_obs = self.extra_vec_env.get_obs()
                     # self.save_pointcloud_pkl(pointcloud_obs)
-                    action = pi(kpam_obs, pointcloud_obs, use_planner=True).reshape(
+                    action = pi(recent_obs, dict_obs, pointcloud_obs).reshape(
                         1, -1
                     )
                 else:
-                    action = pi(kpam_obs, use_planner=True).reshape(1, -1)
+                    action = pi(recent_obs, dict_obs).reshape(1, -1)
 
             else:
                 if self.eval_action_queue is not None and len(self.eval_action_queue):
@@ -1368,19 +1384,31 @@ class RiemannEvaluation(Evaluation):
                         with pi.no_sync(
                             mode=["actor", "model", "obs_encoder"], ignore=True
                         ):
-                            action = pi(
-                                recent_obs,
-                                mode=self.sample_mode,
-                                memory=replay,
-                                use_planner=False,
-                            )
+                            if stage == "diffusion" and grasped:
+                                dict_obs = self.vec_env.get_obs_kpam()
+                                env_states = self.vec_env.get_state()
+                                self.extra_vec_env.set_state(env_states)
+                                pointcloud_obs = self.extra_vec_env.get_obs()
+                                action = pi(
+                                    recent_obs,
+                                    dict_obs,
+                                    pointcloud_obs,
+                                    mode=self.sample_mode,
+                                    memory=replay,
+                                )
+                            else:
+                                action = pi(
+                                    recent_obs,
+                                    mode=self.sample_mode,
+                                    memory=replay,
+                                )
+
                             action = to_np(action)
                             if (
                                 (self.eval_action_queue is not None)
                                 and (len(self.eval_action_queue) == 0)
                                 and self.eval_action_len > 1
                             ):
-                                # for i in range(self.eval_action_len-1):
                                 for i in range(
                                     min(self.eval_action_len - 1, action.shape[1] - 1)
                                 ):  # Allow eval action len to be different with predicted action len
@@ -1389,7 +1417,7 @@ class RiemannEvaluation(Evaluation):
 
             recent_obs, episode_done = self.step(action)
             grasped = self.vec_env.is_grasped().item()
-            if grasped:
+            if grasped and (not isinstance(pi, RiemannDiffAgent) or pi.stage == "kpam"):
                 self.eval_action_queue.clear()
 
             if episode_done:

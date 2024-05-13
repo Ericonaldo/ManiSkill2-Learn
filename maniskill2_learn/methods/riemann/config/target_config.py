@@ -22,9 +22,13 @@ def get_config():
     config.seg.train_demo_ratio = 0.8
     config.seg.lr = 1e-3
     config.seg.epoch = 1000
-    config.seg.voxel_size = 0.01
-    config.seg.radius_threshold = 0.07
-    config.seg.resume_from = "params/target_segnet.pth"
+    # config.seg.voxel_size = 0.01
+    # config.seg.radius_threshold = 0.07
+    # config.seg.resume_from = "params/target_segnet.pth"
+
+    config.seg.voxel_size = 0.005
+    config.seg.radius_threshold = 0.05
+    config.seg.resume_from = "params/target_segnet_v0.005.pth"
 
     config.mani = ConfigDict()
     config.mani.seed = 100
@@ -49,6 +53,6 @@ def get_config():
     config.mani.voxel_size = 0.01
     config.mani.radius_threshold = 0.05
     config.mani.feature_point_radius = 0.05
-    config.mani.resume_from = "params/target_maninet.pth"
+    config.mani.resume_from = "params/target_maninet_jointtrain.pth"
 
     return config

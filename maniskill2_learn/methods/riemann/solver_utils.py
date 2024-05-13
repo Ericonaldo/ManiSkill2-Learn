@@ -399,7 +399,6 @@ def solve_ik_joint(
 
 
 def solve_ik_traj_with_standoff(
-    endpoint_pose,
     endpoint_joints,
     endpoint_times,
     q_traj,

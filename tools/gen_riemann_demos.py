@@ -1,6 +1,8 @@
+import os
 import argparse
 
 import numpy as np
+from skimage.io import imsave
 
 from maniskill2_learn.env.env_utils import build_env, import_env
 from maniskill2_learn.methods.kpam.kpam_utils import vector2pose
@@ -19,7 +21,7 @@ def run(args):
         n_points=args.n_points,
         camera_cfgs=dict(add_segmentation=True),
         remove_arm_pointcloud=True,
-        add_hole=not args.remove_hole,
+        camera_setting=args.camera_setting,
         fixed_hole=args.fixed_hole,
         add_front_cover=args.add_front_cover,
     )
@@ -27,6 +29,10 @@ def run(args):
     import_env()
     env = build_env(env_cfg)
     env.seed(args.seed)
+
+    if args.save_images:
+        if not os.path.exists("riemann_images"):
+            os.mkdir("riemann_images")
 
     (
         xyz_list,
@@ -36,7 +42,7 @@ def run(args):
         object_seg_center_list,
         object_axes_list,
     ) = ([], [], [], [], [], [])
-    for _ in range(args.n_demos):
+    for idx in range(args.n_demos):
         env.reset()
         obs = env.get_obs()
         kpam_obs = env.get_obs_kpam()
@@ -54,6 +60,10 @@ def run(args):
         object_seg_center = peg_head_pose.p
         object_axes = peg_head_pose.to_transformation_matrix()[:3, :3].T.reshape(-1)
 
+        if args.save_images:
+            env_img = env.render(mode="cameras")
+            imsave(f"riemann_images/camera_image_{idx}.png", env_img)
+
         xyz_list.append(xyz)
         rgb_list.append(rgb)
         seg_center_list.append(seg_center)
@@ -69,10 +79,7 @@ def run(args):
         "object_seg_center": np.stack(object_seg_center_list, axis=0),
         "object_axes": np.stack(object_axes_list, axis=0),
     }
-    demo_file_name = f"peginsert_demo_{args.n_points}_s{args.seed}"
-    if args.remove_hole:
-        assert not args.fixed_hole
-        demo_file_name += "_nohole"
+    demo_file_name = f"peginsert_demo_{args.n_points}_s{args.seed}_{args.camera_setting}cam"
     if args.fixed_hole:
         demo_file_name += "_fixhole"
     if args.add_front_cover:
@@ -87,8 +94,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=100)
     parser.add_argument("--n_demos", type=int, default=100)
     parser.add_argument("--n_points", type=int, default=4096)
-    parser.add_argument("--remove_hole", action="store_true")
+    parser.add_argument("--camera_setting", type=str, default="frontback")
     parser.add_argument("--fixed_hole", action="store_true")
     parser.add_argument("--add_front_cover", action="store_true")
+    parser.add_argument("--save_images", action="store_true")
     args = parser.parse_args()
     run(args)
