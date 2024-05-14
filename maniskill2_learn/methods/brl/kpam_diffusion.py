@@ -304,29 +304,24 @@ class KPamDiffAgent(DiffAgent):
 
         self.set_mode(mode=mode)
 
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-
-        if act_mask is None or obs_mask is None:
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
-        if act_mask.shape[0] < bs:
-            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
-        if act_mask.shape[0] != bs:
-            act_mask = act_mask[: action_history.shape[0]]  # obs mask is int
+        if self.act_mask.shape[0] < bs:
+            self.act_mask = self.act_mask.repeat(max(bs // self.act_mask.shape[0] + 1, 2), 1, 1)
+        if self.act_mask.shape[0] != bs:
+            self.act_mask = self.act_mask[: action_history.shape[0]]  # obs mask is int
 
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:, obs_mask, ...]
+                observation[key] = observation[key][:, self.obs_mask, ...]
 
         if self.obs_encoder is not None:
             obs_fea = self.obs_encoder(
@@ -684,17 +679,14 @@ class KPamDiffAgent(DiffAgent):
                     :, self.obs_mask
                 ]
             masked_obs["state"] = sampled_batch["normed_states"]
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-        if act_mask is None or obs_mask is None:
+
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     traj_data.shape, self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
-                    masked_obs[key] = masked_obs[key][:, obs_mask, ...]
+                    masked_obs[key] = masked_obs[key][:, self.obs_mask, ...]
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
@@ -716,9 +708,9 @@ class KPamDiffAgent(DiffAgent):
             .squeeze(-1)
             .argmax(dim=-1)
         )
-        kpam_act_mask = act_mask.clone()
+        kpam_act_mask = self.act_mask.clone()
         kpam_act_mask[
-            torch.arange(batch_size, device=act_mask.device), kpam_keyframe_step
+            torch.arange(batch_size, device=self.act_mask.device), kpam_keyframe_step
         ] = True
 
         loss, ret_dict = self.loss(

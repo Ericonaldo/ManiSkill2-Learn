@@ -46,7 +46,6 @@ class DiffAgent(BaseAgent):
         agent_share_noise: bool = False,
         obs_as_global_cond: bool = True,  # diffuse action or take obs as condition inputs
         action_visible: bool = True,  # If we cond on some hist actions
-        fix_obs_steps: bool = True,  # Randomly cond on certain obs steps or deterministicly
         n_obs_steps: int = 3,
         normalizer: DictOfTensorMixin = LinearNormalizer(),
         diffuse_state: bool = False,
@@ -132,13 +131,11 @@ class DiffAgent(BaseAgent):
             action_dim=self.action_dim,
             obs_dim=obs_dim,
             max_n_obs_steps=n_obs_steps,
-            fix_obs_steps=fix_obs_steps,
             action_visible=action_visible,
             return_one_mask=diffuse_state,
         )
         self.obs_as_global_cond = obs_as_global_cond
         self.action_visible = action_visible
-        self.fix_obs_steps = fix_obs_steps
         self.n_obs_steps = n_obs_steps
 
         self.init_normalizer = False
@@ -330,29 +327,24 @@ class DiffAgent(BaseAgent):
 
         self.set_mode(mode=mode)
 
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-
-        if act_mask is None or obs_mask is None:
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
-        if act_mask.shape[0] < bs:
-            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
-        if act_mask.shape[0] != bs:
-            act_mask = act_mask[: action_history.shape[0]]  # obs mask is int
+        if self.act_mask.shape[0] < bs:
+            self.act_mask = self.act_mask.repeat(max(bs // self.act_mask.shape[0] + 1, 2), 1, 1)
+        if self.act_mask.shape[0] != bs:
+            self.act_mask = self.act_mask[: action_history.shape[0]]  # obs mask is int
 
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:, obs_mask, ...]
+                observation[key] = observation[key][:, self.obs_mask, ...]
 
         if self.obs_encoder is not None:
             obs_fea = self.obs_encoder(
@@ -373,7 +365,7 @@ class DiffAgent(BaseAgent):
 
         pred_action_seq = self.conditional_sample(
             cond_data=action_history,
-            cond_mask=act_mask,
+            cond_mask=self.act_mask,
             global_cond=obs_fea,
             *args,
             **kwargs,
@@ -442,17 +434,14 @@ class DiffAgent(BaseAgent):
                     :, self.obs_mask
                 ]
             masked_obs["state"] = sampled_batch["normed_states"]
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-        if act_mask is None or obs_mask is None:
+
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     traj_data.shape, self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
-                    masked_obs[key] = masked_obs[key][:, obs_mask, ...]
+                    masked_obs[key] = masked_obs[key][:, self.obs_mask, ...]
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
@@ -466,7 +455,7 @@ class DiffAgent(BaseAgent):
         loss, ret_dict = self.loss(
             x=traj_data,
             masks=sampled_batch["is_valid"],
-            cond_mask=act_mask,
+            cond_mask=self.act_mask,
             global_cond=obs_fea,
         )  # TODO: local_cond, returns
         loss.backward()

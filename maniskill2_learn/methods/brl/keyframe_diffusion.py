@@ -4,31 +4,10 @@ Diffusion Policy
 
 import numpy as np
 import torch
-from sapien.core.pysapien import Pose
-from torch.nn.parallel import DistributedDataParallel as DDP
-from transforms3d.euler import euler2axangle, euler2quat, quat2euler
 
 from maniskill2_learn.methods.brl import DiffAgent
-from maniskill2_learn.networks import build_model, build_reg_head
-from maniskill2_learn.networks.modules.block_utils import SimpleMLP as MLP
-from maniskill2_learn.schedulers import build_lr_scheduler
 from maniskill2_learn.utils.diffusion.arrays import to_torch
-from maniskill2_learn.utils.diffusion.helpers import (
-    Losses,
-    apply_conditioning,
-    cosine_beta_schedule,
-    extract,
-)
-from maniskill2_learn.utils.diffusion.mask_generator import LowdimMaskGenerator
-from maniskill2_learn.utils.diffusion.normalizer import LinearNormalizer
-from maniskill2_learn.utils.diffusion.progress import Progress, Silent
-from maniskill2_learn.utils.meta import get_logger, get_total_memory
-from maniskill2_learn.utils.torch import (
-    build_optimizer,
-    get_cuda_info,
-    get_mean_lr,
-    load_state_dict,
-)
+from maniskill2_learn.utils.torch import get_mean_lr
 
 from ..builder import BRL
 
@@ -68,29 +47,24 @@ class KeyframeDiffAgent(DiffAgent):
 
         self.set_mode(mode=mode)
 
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-
-        if act_mask is None or obs_mask is None:
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
-        if act_mask.shape[0] < bs:
-            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
-        if act_mask.shape[0] != bs:
-            act_mask = act_mask[: action_history.shape[0]]  # obs mask is int
+        if self.act_mask.shape[0] < bs:
+            self.act_mask = self.act_mask.repeat(max(bs // self.act_mask.shape[0] + 1, 2), 1, 1)
+        if self.act_mask.shape[0] != bs:
+            self.act_mask = self.act_mask[: action_history.shape[0]]  # obs mask is int
 
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:, obs_mask, ...]
+                observation[key] = observation[key][:, self.obs_mask, ...]
 
         if self.obs_encoder is not None:
             obs_fea = self.obs_encoder(
@@ -111,7 +85,7 @@ class KeyframeDiffAgent(DiffAgent):
 
         pred_action_seq = self.conditional_sample(
             cond_data=action_history,
-            cond_mask=act_mask,
+            cond_mask=self.act_mask,
             global_cond=obs_fea,
             *args,
             **kwargs,
@@ -180,17 +154,14 @@ class KeyframeDiffAgent(DiffAgent):
                     :, self.obs_mask
                 ]
             masked_obs["state"] = sampled_batch["normed_states"]
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-        if act_mask is None or obs_mask is None:
+
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     traj_data.shape, self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
-                    masked_obs[key] = masked_obs[key][:, obs_mask, ...]
+                    masked_obs[key] = masked_obs[key][:, self.obs_mask, ...]
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
@@ -204,7 +175,7 @@ class KeyframeDiffAgent(DiffAgent):
         loss, ret_dict = self.loss(
             x=traj_data,
             masks=sampled_batch["is_valid"],
-            cond_mask=act_mask,
+            cond_mask=self.act_mask,
             global_cond=obs_fea,
         )
         loss.backward()

@@ -45,7 +45,6 @@ class LowdimMaskGenerator(ExtendedModule):
         obs_dim,
         # obs mask setup
         max_n_obs_steps=3,
-        fix_obs_steps=True,
         # action mask
         action_visible=True,
         return_one_mask=False,
@@ -54,7 +53,6 @@ class LowdimMaskGenerator(ExtendedModule):
         self.action_dim = action_dim
         self.obs_dim = obs_dim
         self.max_n_obs_steps = max_n_obs_steps
-        self.fix_obs_steps = fix_obs_steps
         self.action_visible = action_visible
         self.return_one_mask = return_one_mask
 
@@ -76,17 +74,7 @@ class LowdimMaskGenerator(ExtendedModule):
         is_obs_dim = ~is_action_dim
 
         # generate obs mask
-        if self.fix_obs_steps:
-            obs_steps = torch.full((B,), fill_value=self.max_n_obs_steps, device=device)
-        else:
-            obs_steps = torch.randint(
-                low=1,
-                high=self.max_n_obs_steps + 1,
-                size=(B,),
-                generator=rng,
-                device=device,
-            )
-
+        obs_steps = torch.full((B,), fill_value=self.max_n_obs_steps, device=device)
         steps = torch.arange(0, T, device=device).reshape(1, T).expand(B, T)
         obs_mask = (steps.T < obs_steps).T.reshape(B, T, 1).expand(B, T, D)
         obs_mask = obs_mask
@@ -108,7 +96,6 @@ class LowdimMaskGenerator(ExtendedModule):
 
             # return mask
         if self.obs_dim <= 0:
-            assert self.fix_obs_steps, "We require fix obs steps to obtain obs masks"
             obs_mask = obs_mask[0, :, 0]
         return action_mask, obs_mask, mask
 
@@ -121,7 +108,6 @@ class KeypointMaskGenerator(ExtendedModule):
         keypoint_dim,
         # obs mask setup
         max_n_obs_steps=2,
-        fix_obs_steps=True,
         # keypoint mask setup
         keypoint_visible_rate=0.7,
         time_independent=False,
@@ -135,7 +121,6 @@ class KeypointMaskGenerator(ExtendedModule):
         self.keypoint_dim = keypoint_dim
         self.context_dim = context_dim
         self.max_n_obs_steps = max_n_obs_steps
-        self.fix_obs_steps = fix_obs_steps
         self.keypoint_visible_rate = keypoint_visible_rate
         self.time_independent = time_independent
         self.action_visible = action_visible
@@ -164,17 +149,7 @@ class KeypointMaskGenerator(ExtendedModule):
         # assumption trajectory=cat([action, keypoints, context], dim=-1)
 
         # generate obs mask
-        if self.fix_obs_steps:
-            obs_steps = torch.full((B,), fill_value=self.max_n_obs_steps, device=device)
-        else:
-            obs_steps = torch.randint(
-                low=1,
-                high=self.max_n_obs_steps + 1,
-                size=(B,),
-                generator=rng,
-                device=device,
-            )
-
+        obs_steps = torch.full((B,), fill_value=self.max_n_obs_steps, device=device)
         steps = torch.arange(0, T, device=device).reshape(1, T).expand(B, T)
         obs_mask = (steps.T < obs_steps).T.reshape(B, T, 1).expand(B, T, D)
         obs_mask = obs_mask & is_obs_dim

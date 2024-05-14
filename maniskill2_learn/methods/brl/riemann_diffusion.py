@@ -326,29 +326,24 @@ class RiemannDiffAgent(BaseAgent):
 
         self.diff_model.set_mode(mode=mode)
 
-        act_mask, obs_mask = None, None
-        if self.diff_model.fix_obs_steps:
-            act_mask, obs_mask = self.diff_model.act_mask, self.diff_model.obs_mask
-
-        if act_mask is None or obs_mask is None:
+        if self.diff_model.act_mask is None or self.diff_model.obs_mask is None:
             if self.diff_model.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.diff_model.mask_generator(
+                self.diff_model.act_mask, self.diff_model.obs_mask, _ = self.diff_model.mask_generator(
                     (bs, self.diff_model.horizon, self.diff_model.action_dim), self.device
                 )
-                self.diff_model.act_mask, self.diff_model.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
-        if act_mask.shape[0] < bs:
-            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
-        if act_mask.shape[0] != bs:
-            act_mask = act_mask[: action_history.shape[0]]  # obs mask is int
+        if self.diff_model.act_mask.shape[0] < bs:
+            self.diff_model.act_mask = self.diff_model.act_mask.repeat(max(bs // self.diff_model.act_mask.shape[0] + 1, 2), 1, 1)
+        if self.diff_model.act_mask.shape[0] != bs:
+            self.diff_model.act_mask = self.diff_model.act_mask[: action_history.shape[0]]  # obs mask is int
 
         if action_history.shape[1] == self.diff_model.horizon:
             for key in observation:
-                observation[key] = observation[key][:, obs_mask, ...]
+                observation[key] = observation[key][:, self.diff_model.obs_mask, ...]
 
         if self.diff_model.obs_encoder is not None:
             obs_fea = self.diff_model.obs_encoder(
@@ -369,7 +364,7 @@ class RiemannDiffAgent(BaseAgent):
 
         pred_action_seq = self.diff_model.conditional_sample(
             cond_data=action_history,
-            cond_mask=act_mask,
+            cond_mask=self.diff_model.act_mask,
             global_cond=obs_fea,
             *args,
             **kwargs,
@@ -414,7 +409,7 @@ class RiemannDiffAgent(BaseAgent):
                 ic(keyframe_steps)
 
                 modified_action_history = action_history.clone()
-                modified_act_mask = act_mask.clone()
+                modified_act_mask = self.diff_model.act_mask.clone()
                 for keyframe_step in keyframe_steps:
                     # transform to original joint format
                     pred_joint_positions = np.concatenate(

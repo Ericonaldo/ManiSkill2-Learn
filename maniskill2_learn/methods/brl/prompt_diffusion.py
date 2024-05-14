@@ -63,7 +63,6 @@ class PromptDiffAgent(DiffAgent):
         agent_share_noise=False,
         obs_as_global_cond=True,  # diffuse action or take obs as condition inputs
         action_visible=True,  # If we cond on some hist actions
-        fix_obs_steps=True,  # Randomly cond on certain obs steps or deterministicly
         n_obs_steps=3,
         normalizer=LinearNormalizer(),
         **kwargs,
@@ -91,7 +90,6 @@ class PromptDiffAgent(DiffAgent):
             agent_share_noise=agent_share_noise,
             obs_as_global_cond=obs_as_global_cond,
             action_visible=action_visible,
-            fix_obs_steps=fix_obs_steps,
             n_obs_steps=n_obs_steps,
             normalizer=normalizer,
         )
@@ -130,18 +128,15 @@ class PromptDiffAgent(DiffAgent):
         ]  # Need Normalize! (Already did in replay buffer)
         # traj_data = self.normalizer.normalize(traj_data)
         obs_keys = list(sampled_batch["obs"].keys())
-        act_mask, obs_mask = None, None
         masked_obs_dict = sampled_batch["obs"]
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-        if act_mask is None or obs_mask is None:
+
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     traj_data.shape, self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in obs_keys:
-                    masked_obs_dict[key] = sampled_batch["obs"][key][:, obs_mask, ...]
+                    masked_obs_dict[key] = sampled_batch["obs"][key][:, self.obs_mask, ...]
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
@@ -152,7 +147,7 @@ class PromptDiffAgent(DiffAgent):
                 masked_obs_dict["demo_{}".format(key)] = sampled_demo["obs"][key]
 
         act_dict = dict(
-            actions=sampled_batch["actions"][:, obs_mask, ...],
+            actions=sampled_batch["actions"][:, self.obs_mask, ...],
             demo_actions=sampled_demo["actions"],
         )
 
@@ -161,13 +156,13 @@ class PromptDiffAgent(DiffAgent):
         loss, ret_dict = self.loss(
             x=traj_data,
             masks=sampled_batch["is_valid"],
-            cond_mask=act_mask,
+            cond_mask=self.act_mask,
             global_cond=obs_fea,
         )  # TODO: local_cond, returns
         loss.backward()
         self.actor_optim.step()
 
-        ## Not implement yet
+        # Not implement yet
         # if self.step % self.update_ema_every == 0:
         #     self.step_ema()
         ret_dict["grad_norm_diff_model"] = np.mean(
@@ -216,25 +211,20 @@ class PromptDiffAgent(DiffAgent):
 
         self.set_mode(mode=mode)
 
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-
-        if act_mask is None or obs_mask is None:
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(
+                self.act_mask, self.obs_mask = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
-        if act_mask.shape[0] < bs:
-            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
-        if act_mask.shape[0] != bs:
-            act_mask = act_mask[: action_history.shape[0]]  # obs mask is int
+        if self.act_mask.shape[0] < bs:
+            self.act_mask = self.act_mask.repeat(max(bs // self.act_mask.shape[0] + 1, 2), 1, 1)
+        if self.act_mask.shape[0] != bs:
+            self.act_mask = self.act_mask[: action_history.shape[0]]  # obs mask is int
 
         obs_keys = list(observation.keys())
         for key in obs_keys:
@@ -244,8 +234,8 @@ class PromptDiffAgent(DiffAgent):
         masked_action_history = action_history
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:, obs_mask, ...]
-            masked_action_history = masked_action_history[:, obs_mask, ...]
+                observation[key] = observation[key][:, self.obs_mask, ...]
+            masked_action_history = masked_action_history[:, self.obs_mask, ...]
 
         act_dict = dict(
             actions=masked_action_history, demo_actions=sampled_demo["actions"]

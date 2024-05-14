@@ -45,7 +45,6 @@ class ClipAgent(BaseAgent):
         agent_share_noise=False,
         obs_as_global_cond=True,  # diffuse action or take obs as condition inputs
         action_visible=True,  # If we cond on some hist actions
-        fix_obs_steps=True,  # Randomly cond on certain obs steps or deterministicly
         n_obs_steps=3,
         action_embed_dim=256,
         action_hidden_dims=[256, 512],
@@ -124,12 +123,10 @@ class ClipAgent(BaseAgent):
             action_dim=self.action_dim,
             obs_dim=0 if obs_as_global_cond else self.obs_feature_dim,
             max_n_obs_steps=n_obs_steps,
-            fix_obs_steps=fix_obs_steps,
             action_visible=action_visible,
         )
         self.obs_as_global_cond = obs_as_global_cond
         self.action_visible = action_visible
-        self.fix_obs_steps = fix_obs_steps
         self.n_obs_steps = n_obs_steps
 
         self.init_normalizer = False
@@ -156,16 +153,11 @@ class ClipAgent(BaseAgent):
 
         self.set_mode(mode=mode)
 
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-
-        if act_mask is None or obs_mask is None:
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask = self.mask_generator(
+                self.act_mask, self.obs_mask = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
@@ -173,7 +165,7 @@ class ClipAgent(BaseAgent):
 
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:, obs_mask, ...]
+                observation[key] = observation[key][:, self.obs_mask, ...]
 
         if self.current_obs_only:
             observation = {
@@ -262,17 +254,13 @@ class ClipAgent(BaseAgent):
         ]  # Need Normalize! (Already did in replay buffer)
         masked_obs = sampled_batch["obs"]
         # traj_data = self.normalizer.normalize(traj_data)
-        act_mask, obs_mask = None, None
-        if self.fix_obs_steps:
-            act_mask, obs_mask = self.act_mask, self.obs_mask
-        if act_mask is None or obs_mask is None:
+        if self.act_mask is None or self.obs_mask is None:
             if self.obs_as_global_cond:
-                act_mask, obs_mask, _ = self.mask_generator(
+                self.act_mask, self.obs_mask, _ = self.mask_generator(
                     traj_data.shape, self.device
                 )
-                self.act_mask, self.obs_mask = act_mask, obs_mask
                 for key in masked_obs:
-                    masked_obs[key] = masked_obs[key][:, obs_mask, ...]
+                    masked_obs[key] = masked_obs[key][:, self.obs_mask, ...]
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
@@ -285,7 +273,7 @@ class ClipAgent(BaseAgent):
             act_fea = self.act_encoder(traj_data.reshape(traj_data.shape[0], -1))
         elif self.model_type == "policy":
             obs_fea = self.action_model(obs_fea)
-            act_fea = traj_data[:, obs_mask, ...][:, -1]  # (B, action_dim)
+            act_fea = traj_data[:, self.obs_mask, ...][:, -1]  # (B, action_dim)
         else:
             raise NotImplementedError(f"Model type {self.model_type} not implemented!")
 
