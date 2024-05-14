@@ -297,3 +297,129 @@ class TStepTransition(SamplingStrategy):
         #     # ) + ret[i] # padding zero before
         # ret = np.array(ret, dtype=int)
         return ret, mask, ret_len
+
+
+@SAMPLING.register_module()
+class ResampledTrajectory(TStepTransition):
+    def push(self, item):
+        self.need_update = True
+        # get arr[0] from arr, an array with a single element
+        worker_indices = item["worker_indices"][0]
+        dones = item["episode_dones"][0] or item["is_truncated"][0]
+
+        if worker_indices + 1 > self.num_procs:
+            # Init a information pool for each worker in multiple process
+            for i in range(worker_indices + 1 - self.num_procs):
+                self.current_episode.append(
+                    []
+                )  # self.current_episode[worker_indices] = array of (positions in the replay buffer) for the current episode of the worker
+                self.dones.append([])
+                self.valid_seq.append(
+                    []
+                )  # self.valid_seq[worker_indices][i][:] = (positions in the replay buffer) for the ith valid trajectory of the worker
+            self.num_procs = worker_indices + 1
+
+        # self.current_episode and self.valid_seq[idx] are circular buffers of trajectories
+        # if we are exhaust the replay buffer capacity and go back to the beginning of the replay buffer,
+        # remove the old trajectories in the circular buffers that have self.position as the first index, since they have become invalid
+        if self.worker_indices[self.position] >= 0:
+            # Pop original item in the buffer
+            last_index = self.worker_indices[self.position]
+
+            if (
+                len(self.current_episode[last_index]) > 0
+                and self.position == self.current_episode[last_index][0]
+            ):
+                self.current_episode[last_index].pop(0)
+
+            if self.position == self.valid_seq[last_index][0][0]:
+                # The first element in the first valid transitions
+                if self.horizon > 0:
+                    # Just remove for horizon > 0
+                    self.valid_seq[last_index].pop(0)
+                else:
+                    # When horizon is -1, it stores the whole episode. I am not sure if I should delete the whole episode TODO:Check!
+                    self.valid_seq[last_index][0].pop(0)
+                    if len(self.valid_seq[last_index][0]) == 0:
+                        self.valid_seq[last_index].pop(0)
+
+        self.current_episode[worker_indices].append(self.position)
+        self.worker_indices[self.position] = worker_indices
+
+        if dones:
+            # forced sample the entire trajectory
+            self.valid_seq[worker_indices].append(
+                self.current_episode[worker_indices]
+            )
+            self.current_episode[worker_indices] = []
+
+        self.running_count += 1
+        self.position = (self.position + 1) % self.capacity
+
+    def resample_traj(self, episode_positions):
+        episode_positions = np.array(episode_positions)
+        if len(episode_positions) < self.horizon:
+            repeats = self.horizon // len(episode_positions) + 1
+            indices = np.arange(len(episode_positions)).repeat(repeats=repeats, axis=0)
+            episode_positions = episode_positions[indices]
+
+        indices = np.random.choice(
+            len(episode_positions) - 1, self.horizon - 2, replace=False
+        )
+        indices = np.sort(indices) + 1
+        indices = np.concatenate(
+            [np.array([0]), indices, np.array([len(episode_positions) - 1])]
+        )
+        episode_positions = episode_positions[indices]
+        return episode_positions.tolist()
+
+    def sample(
+        self,
+        batch_size,
+        drop_last=True,
+        auto_restart=True,
+        padded_size=None,
+        *args,
+        **kwargs,
+    ):
+        # Ret: [B, H], indices for each trajectory in the (batch_size) number of trajectories sampled;
+        # Mask: [B, H, 1], whether a timestep in a trajectory is valid (for padding purposes)
+        query_size = np.cumsum([len(_) for _ in self.valid_seq])
+        length = query_size[-1]
+        if length < len(self) * 0.8 and self.horizon != -1:
+            print(
+                f"{len(self) - length}/{len(self)} samples will be throwed out when sampling with horizon {self.horizon}, Please double check the code!"
+            )
+            exit(0)
+        index = self.get_index(batch_size, query_size[-1], drop_last, auto_restart)
+        if index is None:
+            return None, None
+
+        ret = []
+        for i in index:
+            for j in range(self.num_procs):
+                if i < query_size[j]:
+                    break
+            last_indices = 0 if j == 0 else query_size[j - 1]
+            # NOTE: The only change in this function
+            ret.append(self.resample_traj(self.valid_seq[j][i - last_indices]))
+        ret_len = [len(_) for _ in ret]
+        padded_size = max(ret_len) if padded_size is None else padded_size
+        # mask = np.zeros([len(ret), padded_size, 1], dtype=np.bool_)
+        mask = np.ones(
+            [len(ret), padded_size, 1], dtype=np.bool_
+        )  # We set all true since we want to generate all except conditioned ones
+        ret = np.array(
+            list(
+                map(
+                    lambda x: [
+                        x[0],
+                    ]
+                    * (padded_size - len(x))
+                    + x,
+                    ret,
+                )
+            ),
+            dtype=int,
+        )
+        return ret, mask, ret_len

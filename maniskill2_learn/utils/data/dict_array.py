@@ -727,7 +727,7 @@ class DictArray(GDict):
             self.capacity = capacity
             if not faster:
                 self.memory = self.to_array(wrapper=False)
-                self.memory = self.unsqueeze(axis=0, wrapper=False) #.to_zeros(wrapper=False)
+                self.memory = self.unsqueeze(axis=0, wrapper=False)  # .to_zeros(wrapper=False)
                 if capacity != 1:
                     self.memory = self.repeat(capacity, axis=0, wrapper=False)
         elif self.capacity is None:

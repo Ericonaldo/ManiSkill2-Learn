@@ -32,7 +32,12 @@ def is_h5_traj(h5):
     if not is_h5(h5):
         return False
     keys = list(h5.keys())
-    return "traj_0" in keys or "dict_str_traj_0" in keys
+    return (
+        "traj_0" in keys
+        or "dict_str_traj_0" in keys
+        or "traj_0_0" in keys
+        or "dict_str_traj_0_0" in keys
+    )
 
 
 def get_filetypes(filenames):
@@ -157,6 +162,8 @@ def create_shared_dict_array_from_files(
     if file_suffix == "h5":
         if is_h5_traj(filename):
             item = GDict.from_hdf5(filename, keys="traj_0")
+            if len(item.keys()) == 0:
+                item = GDict.from_hdf5(filename, keys="traj_0_0")
             item = DictArray(item)
         else:
             item = DictArray.from_hdf5(filename)

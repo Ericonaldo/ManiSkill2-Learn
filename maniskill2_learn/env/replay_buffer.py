@@ -264,10 +264,6 @@ class ReplayMemory:
         ret = self.memory.slice(slice(0, len(self)))
         if key is not None:
             if sub_key is not None:
-                # if key == "obs" and isinstance(ret["obs"][sub_key], torch.Tensor):
-                #     ret["obs"][sub_key] = torch.cat([ret["obs"][sub_key][...,:9], ret["obs"][sub_key][...,18:]], axis=-1)
-                # elif key == "obs" and isinstance(ret["obs"][key], np.ndarray):
-                #     ret["obs"][sub_key] = np.concatenate([ret["obs"][sub_key][...,:9], ret["obs"][sub_key][...,18:]], axis=-1)
                 return ret[key][sub_key]
             return ret[key]
         return ret
@@ -291,7 +287,6 @@ class ReplayMemory:
         obsact_normalizer=None,
         mode="train",
         whole_traj=False,
-        keyframe_type="gpt",
     ):
         if self.dynamic_loading and not drop_last:
             assert self.capacity % batch_size == 0
@@ -336,21 +331,6 @@ class ReplayMemory:
                         ret["obs"][key] = ret["obs"][key][
                             :, :, :3, :, :
                         ]  # Take the first 3 channel
-                # if "state" in key: # We remove velocity from the state
-                #     if isinstance(ret["obs"][key], torch.Tensor):
-                #         ret["obs"][key] = torch.cat([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
-                #     elif isinstance(ret["obs"][key], np.ndarray):
-                #         ret["obs"][key] = np.concatenate([ret["obs"][key][...,:9], ret["obs"][key][...,18:]], axis=-1)
-                #     else:
-                #         raise NotImplementedError()
-        # if "keyframe_states" in ret.keys():
-        #     # We remove velocity from the state
-        #     if isinstance(ret["keyframe_states"], torch.Tensor):
-        #         ret["keyframe_states"] = torch.cat([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
-        #     elif isinstance(ret["keyframe_states"], np.ndarray):
-        #         ret["keyframe_states"] = np.concatenate([ret["keyframe_states"][...,:9], ret["keyframe_states"][...,18:]], axis=-1)
-        #     else:
-        #         raise NotImplementedError()
 
         if self.horizon > 1:
             batch_flat_idx = [
@@ -359,41 +339,15 @@ class ReplayMemory:
             ret_flat_idx = [
                 j for i in range(batch_size) for j in range(self.horizon - ret_len[i])
             ]
-            # print(ret_len, batch_flat_idx, ret_flat_idx)
-            # for key in ret.keys():
-            #     if "keyframe" in key or "keytime" in key:
-            #         ret[key] = ret[key][:, -1] # We only take the last step of the horizon since we want to train the key frame model
             if "actions" in ret.keys():  # Set zero actions
                 ret["actions"][batch_flat_idx, ret_flat_idx, :] = 0
-            # for i in range(len(batch_idx)):
-            #     if self.horizon-ret_len[i]:
-            # if "obs" in ret.keys(): # Concat obs
-            #     for key in ret["obs"].keys():
-            #         if isinstance(ret["obs"][key], (list,tuple)):
-            #             ret["obs"][key] = ret["obs"][key][0]
-            #         supp = np.array([ret["obs"][key][0][0],]*(self.horizon-ret_len[i]))
-            #         ret["obs"][key][i] = np.concatenate([supp, ret["obs"][key][i][-ret_len[i]:]], axis=0)
-            # if "actions" in ret.keys(): # Set zero actions
-            # supp = np.array([0*np.zeros(ret["actions"].shape[-1]),]*(self.horizon-ret_len[i]))
-            # ret["actions"][i] = np.concatenate([supp, ret["actions"][i][-ret_len[i]:]], axis=0)
+
         ret["is_valid"] = is_valid
 
         if device is not None:
             ret = ret.to_torch(device=device, dtype="float32", non_blocking=True)
 
-        if keyframe_type == "bc":
-            ret["keyframe_states"] = ret["keyframe_states"][
-                :, :, 0
-            ]  # Only keep the first state and tcp pose
-            ret["keytime_differences"] = ret["keytime_differences"][:, :, 0]
-            ret["keyframe_actions"] = ret["keyframe_actions"][:, :, 0]
-            ret["keyframe_masks"] = ret["keyframe_masks"][:, :, 0]
-
-        # ret["normed_states"] = copy.deepcopy(ret["obs"]["state"])
         if action_normalizer is not None:
-            # for key in ["actions", "keyframe_actions"]:
-            #     if key in ret:
-            #         ret[key] = action_normalizer.normalize(ret[key])
             ret["normed_actions"] = action_normalizer.normalize(ret["actions"])
         elif obsact_normalizer is not None:
             if "actions" in ret and "obs" in ret:
@@ -402,18 +356,6 @@ class ReplayMemory:
                 data = obsact_normalizer.normalize(data)
                 ret["normed_states"] = data[..., :-action_dim]
                 ret["normed_actions"] = data[..., -action_dim:]
-            # if "keyframe_states" in ret and "keyframe_actions" in ret: # We do not norm for keyframe prediction
-            #     data = torch.cat([ret["keyframe_states"], ret["keyframe_actions"]], dim=-1)
-            #     data = obsact_normalizer.normalize(data)
-            #     ret["keyframe_states"] = data[...,:-action_dim]
-            #     ret["keyframe_actions"] = data[...,-action_dim:]
-            # if "ep_first_obs" in ret: # We do not consider ep first obs for now
-            #     data = torch.cat([ret['ep_first_obs']['state'][:,0], ret["actions"][:,0]], dim=-1)
-            #     data = obsact_normalizer.normalize(data)
-            #     ret['ep_first_obs']['state'] = data[...,:-action_dim]
-            #     for key in ret['ep_first_obs']:
-            #         if key != "state":
-            #             ret['ep_first_obs'][key] = ret['ep_first_obs'][key][:,0]
 
         if (obs_mask is not None) and ("obs" in ret.keys()):
             obs_mask = obs_mask.cpu().numpy()
@@ -437,7 +379,6 @@ class ReplayMemory:
         obsact_normalizer=None,
         mode="train",
         whole_traj=False,
-        keyframe_type="gpt",
     ):
         if mode == "eval":
             return self.pre_fetch(
@@ -450,7 +391,6 @@ class ReplayMemory:
                 obsact_normalizer,
                 mode=mode,
                 whole_traj=whole_traj,
-                keyframe_type=keyframe_type,
             )
 
         ret = self.prefetched_data(whole_traj)
@@ -470,7 +410,6 @@ class ReplayMemory:
                         obsact_normalizer,
                         mode,
                         whole_traj,
-                        keyframe_type,
                     ),
                 )
                 new_thread.setDaemon(True)
@@ -487,7 +426,6 @@ class ReplayMemory:
             obsact_normalizer,
             mode,
             whole_traj,
-            keyframe_type,
         )
         ret = self.prefetched_data(whole_traj)
         if (obs_mask is not None) or (
@@ -508,7 +446,6 @@ class ReplayMemory:
                         obsact_normalizer,
                         mode,
                         whole_traj,
-                        keyframe_type,
                     ),
                 )
                 new_thread.setDaemon(True)
