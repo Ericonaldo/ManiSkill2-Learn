@@ -52,6 +52,7 @@ class DiffAgent(BaseAgent):
         pose_only: bool = False,
         pose_dim: int = 7,
         extra_dim: int = 0,
+        mask_generator_cls: callable = LowdimMaskGenerator,
         **kwargs,
     ):
         super().__init__()
@@ -127,7 +128,7 @@ class DiffAgent(BaseAgent):
                     pose_dim + extra_dim
                 )  # We only diffuse tcp pose and the target pose
 
-        self.mask_generator = LowdimMaskGenerator(
+        self.mask_generator = mask_generator_cls(
             action_dim=self.action_dim,
             obs_dim=obs_dim,
             max_n_obs_steps=n_obs_steps,

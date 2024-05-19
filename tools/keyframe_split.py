@@ -5,7 +5,6 @@ from typing import List
 import cv2
 import h5py
 import numpy as np
-from tqdm import tqdm
 
 from maniskill2_learn.env import ReplayMemory
 from maniskill2_learn.utils.data import GDict, DictArray
@@ -22,7 +21,7 @@ def recursive_slice_from_dict(dict_to_do, start, end):
 
 
 def _is_stopped(
-    obs_traj, i, obs, stopped_buffer, delta=0.01, grip_thresh=0.3, use_gripper=False
+    obs_traj, i, obs, stopped_buffer, delta: float = 0.01, grip_thresh: float = 0.03, use_gripper: bool = False
 ):
     next_is_not_final = i == (len(obs_traj) - 2)
     if i <= 0 or (not use_gripper):
@@ -44,8 +43,8 @@ def _is_stopped(
     return stopped
 
 
-def keyframeDetectionByJoints(
-    demo, stopping_delta=0.01, grip_thresh=0.4, use_gripper=False
+def keyframe_detection_by_joints(
+    demo, stopping_delta: float = 0.01, grip_thresh: float = 0.03, use_gripper: bool = False
 ) -> List[int]:
     obs_traj = demo[0]
     episode_keypoints = []
@@ -79,9 +78,34 @@ def keyframeDetectionByJoints(
     return episode_keypoints
 
 
+def relabel_demo_action(traj_item, control_mode: str, rot_rep: str, grip_thresh: float = 0.03):
+    if control_mode == "pd_joint_pos":
+        traj_item["actions"] = np.concatenate(
+            [
+                traj_item["obs"]["state"][:, :7],  # arm joint pos
+                np.where(traj_item["obs"]["state"][:, 8:9] > grip_thresh, 1.0, -1.0)  # gripper open
+            ],
+            axis=-1,
+        )
+    elif control_mode == "pd_ee_pose":
+        if rot_rep == "quat":
+            traj_item["actions"] = np.concatenate(
+                [
+                    traj_item["obs"]["state"][:, 18: 18 + 7],  # arm joint pos
+                    np.where(traj_item["obs"]["state"][:, 8:9] > grip_thresh, 1.0, -1.0)  # gripper open
+                ],
+                axis=-1,
+            )
+        else:
+            raise NotImplementedError(f"Unknown rotation representation: {rot_rep}")
+    return traj_item
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Key frame identification")
     parser.add_argument("-f", "--filename", help="Replay file name")
+    parser.add_argument("--grip_thresh", help="Gripper threshold", default=0.03, type=float)
+    parser.add_argument("--rot_rep", help="Rotation representation", default="quat", type=str)
     args = parser.parse_args()
     return args
 
@@ -89,6 +113,17 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     filename = args.filename
+    grip_thresh = args.grip_thresh
+    rot_rep = args.rot_rep
+
+    if ".pd_joint_pos." in filename:
+        control_mode = "pd_joint_pos"
+    elif ".pd_ee_pose." in filename:
+        control_mode = "pd_ee_pose"
+    else:
+        raise ValueError(f"Unknown control mode of demo file: {filename}")
+
+    print(f"\nControl mode: {control_mode}\n")
 
     current_file = h5py.File(filename, "r")
     traj_keys = list(current_file.keys())
@@ -104,11 +139,12 @@ if __name__ == "__main__":
     for key in traj_keys:
         item = GDict.from_hdf5(filename, keys=key)
         item = DictArray(item)
+        item = relabel_demo_action(item, control_mode, rot_rep, grip_thresh)
 
         keyframe_idxes = [0, len(item["actions"]) - 1]
 
         demos = (item["obs"]["state"], item["actions"])
-        detect_frame_idxes = keyframeDetectionByJoints(demos)
+        detect_frame_idxes = keyframe_detection_by_joints(demos, grip_thresh=grip_thresh)
 
         keyframe_idxes += list(detect_frame_idxes)
         keyframe_idxes = list(set(keyframe_idxes))

@@ -8,12 +8,17 @@ import torch
 from maniskill2_learn.methods.brl import DiffAgent
 from maniskill2_learn.utils.diffusion.arrays import to_torch
 from maniskill2_learn.utils.torch import get_mean_lr
+from maniskill2_learn.utils.diffusion.mask_generator import KeyframeMaskGenerator
 
 from ..builder import BRL
 
 
 @BRL.register_module()
 class KeyframeDiffAgent(DiffAgent):
+    def __init__(self, mask_generator_cls: callable = KeyframeMaskGenerator, *args, **kwargs):
+        assert mask_generator_cls == KeyframeMaskGenerator, mask_generator_cls
+        super().__init__(mask_generator_cls=mask_generator_cls, *args, **kwargs)
+
     def forward(
         self,
         observation: np.ndarray,

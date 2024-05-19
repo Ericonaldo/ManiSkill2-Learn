@@ -73,14 +73,18 @@ def delta_pose_to_pd_ee_delta(
     assert isinstance(controller, PDEEPosController)
     # assert controller.config.use_delta
     # assert controller.config.normalize_action
-    low, high = controller._action_space.low, controller._action_space.high
-    if pos_only:
-        return inv_scale_action(delta_pose.p, low, high)
+    if controller.config.normalize_action:
+        low, high = controller._action_space.low, controller._action_space.high
+        if pos_only:
+            return inv_scale_action(delta_pose.p, low, high)
     delta_pose = np.r_[
         delta_pose.p,
         compact_axis_angle_from_quaternion(delta_pose.q),
     ]
-    return inv_scale_action(delta_pose, low, high)
+    if controller.config.normalize_action:
+        return inv_scale_action(delta_pose, low, high)
+    else:
+        return delta_pose
 
 
 def from_pd_joint_pos_to_ee(
