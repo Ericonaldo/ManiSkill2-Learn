@@ -4,10 +4,12 @@ import os
 import os.path as osp
 import shutil
 import sys
+import json
 from collections import deque
 from typing import Optional
 
 import cv2
+import h5py
 import numpy as np
 from h5py import File
 
@@ -121,7 +123,6 @@ class FastEvaluation:
         self.only_save_success_traj = kwargs.get("only_save_success_traj", False)
 
         self.sample_mode = kwargs.get("sample_mode", "eval")
-        self.eval_levels = kwargs.get("eval_levels", None)
 
         self.video_format = kwargs.get("video_format", "mp4")
         self.video_fps = kwargs.get("fps", 20)
@@ -134,15 +135,6 @@ class FastEvaluation:
             f"Evaluation environments have seed in [{seed}, {seed + num_procs})!"
         )
 
-        if self.eval_levels is not None and is_str(self.eval_levels):
-            is_csv = self.eval_levels.split(".")[-1] == "csv"
-            eval_levels = load(self.eval_levels)
-            self.eval_levels = eval_levels[0] if is_csv else eval_levels
-        if self.eval_levels is not None:
-            self.logger.info(
-                f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}"
-            )
-
     def reset_pi(self, pi, idx):
         """When we run CEM, we need the level of the rollout env to match the level of test env."""
         if not hasattr(pi, "reset"):
@@ -153,11 +145,6 @@ class FastEvaluation:
         pi.reset(**reset_kwargs)  # For CEM and PETS-like model-based method.
 
     def run(self, pi, num=1, work_dir=None, **kwargs):
-        eval_levels = None
-        if self.eval_levels is not None:
-            num = min(len(self.eval_levels), num)
-            random_start = np.random.randint(len(self.eval_levels) - num + 1)
-            eval_levels = self.eval_levels[random_start : random_start + num]
         self.logger.info(f"We will evaluate over {num} episodes!")
 
         if osp.exists(work_dir):
@@ -189,14 +176,7 @@ class FastEvaluation:
         traj_idx = np.arange(num_envs, dtype=np.int32)
         video_writers, episodes = None, None
 
-        if eval_levels is not None and hasattr(
-            self.vec_env.vec_env.single_env, "level"
-        ):
-            obs_all = self.vec_env.reset(
-                level=eval_levels[:num_envs], idx=np.arange(num_envs)
-            )
-        else:
-            obs_all = self.vec_env.reset(idx=np.arange(num_envs))
+        obs_all = self.vec_env.reset(idx=np.arange(num_envs))
         obs_all = DictArray(obs_all).copy()
         self.reset_pi(pi, self.all_env_indices)
 
@@ -296,18 +276,13 @@ class FastEvaluation:
                     if num_start < num:
                         traj_idx[i] = num_start
                         reset_idx.append(i)
-                        if eval_levels is not None:
-                            reset_levels.append(eval_levels[num_start])
                         num_start += 1
                     else:
                         traj_idx[i] = -1
+
             reset_idx = np.array(reset_idx, dtype=np.int32)
             if len(reset_idx) > 0:
-                if eval_levels is not None:
-                    reset_levels = np.array(reset_levels, dtype=np.int64)
-                    obs = self.vec_env.reset(level=reset_levels, idx=reset_idx)
-                else:
-                    obs = self.vec_env.reset(idx=reset_idx)
+                obs = self.vec_env.reset(idx=reset_idx)
                 obs_all.assign(reset_idx, obs)
                 self.reset_pi(pi, reset_idx)
 
@@ -349,7 +324,6 @@ class Evaluation:
         use_hidden_state=False,
         sample_mode="eval",
         render_mode="cameras",  # "human", "rgb_array"
-        eval_levels=None,
         seed=None,
         eval_action_len=1,
         **kwargs,
@@ -410,20 +384,6 @@ class Evaluation:
         self.video_file = None
 
         self.render_mode = render_mode
-
-        # restrict the levels as those randomly sampled from eval_levels_path, if eval_levels_path is not None
-        if eval_levels is not None:
-            if is_str(eval_levels):
-                is_csv = eval_levels.split(".")[-1] == "csv"
-                eval_levels = load(eval_levels)
-                if is_csv:
-                    eval_levels = eval_levels[0]
-            self.eval_levels = eval_levels
-            self.logger.info(
-                f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}"
-            )
-        else:
-            self.eval_levels = None
 
         assert not (
             self.use_hidden_state and worker_id is not None
@@ -502,31 +462,17 @@ class Evaluation:
         if seed is not None:
             self.vec_env.seed(seed)
             self.extra_vec_env.seed(seed)
-        else:
-            raise RuntimeError
 
         self.episode_id += 1
         self.episode_len, self.episode_reward, self.episode_finish = 0, 0, False
         level = None
-        if self.eval_levels is not None:
-            self.level_index = (self.level_index + 1) % len(self.eval_levels)
-            # randomly sample a level from the self.eval_init_  levels
-            # lvl = int(self.eval_levels[np.random.randint(len(self.eval_levels))])
-            # print(f"Env is reset to level {lvl}")
-            level = self.eval_levels[self.level_index]
-            if isinstance(level, str):
-                level = eval(level)
-            self.recent_obs = self.vec_env.reset(level=level)
-            if self.extra_vec_env is not None:
-                self.extra_vec_env.reset(level=level)
-        else:
-            self.recent_obs = self.vec_env.reset()
-            if self.extra_vec_env is not None:
-                self.extra_vec_env.reset()
-            if hasattr(self.vec_env, "level"):
-                level = self.vec_env.level
-            elif hasattr(self.vec_env.unwrapped, "_main_seed"):
-                level = self.vec_env.unwrapped._main_seed
+        self.recent_obs = self.vec_env.reset()
+        if getattr(self, "extra_vec_env", None) is not None:
+            self.extra_vec_env.reset()
+        if hasattr(self.vec_env, "level"):
+            level = self.vec_env.level
+        elif hasattr(self.vec_env.unwrapped, "_main_seed"):
+            level = self.vec_env.unwrapped._main_seed
         if level is not None and self.log_every_episode:
             extra_output = (
                 "" if self.level_index is None else f"with level id {self.level_index}"
@@ -663,13 +609,6 @@ class Evaluation:
             self.h5_file.close()
 
     def run(self, pi, num=1, work_dir=None, **kwargs):
-        if self.eval_levels is not None:
-            if num > len(self.eval_levels):
-                print(
-                    f"We do not need to select more than {len(self.eval_levels)} levels!",
-                    flush=True,
-                )
-                num = min(num, len(self.eval_levels))
         self.start(work_dir)
         import torch
 
@@ -769,7 +708,6 @@ class BatchEvaluation:
         enable_merge=True,
         sample_mode="eval",
         render_mode="cameras",
-        eval_levels=None,
         seed=None,
         eval_action_len=1,
         **kwargs,
@@ -792,25 +730,6 @@ class BatchEvaluation:
         log_level = logging.INFO
         self.logger = get_logger("Evaluation-" + get_logger_name(), log_level=log_level)
 
-        if eval_levels is None:
-            eval_levels = [None for i in range(self.n)]
-            self.eval_levels = None
-        else:
-            if is_str(eval_levels):
-                is_csv = eval_levels.split(".")[-1] == "csv"
-                eval_levels = load(eval_levels)
-                if is_csv:
-                    eval_levels = eval_levels[0]
-            self.eval_levels = eval_levels
-            self.n, num_levels = split_num(len(eval_levels), self.n)
-            self.logger.info(
-                f"Split {len(eval_levels)} levels into {self.n} processes, and {num_levels}!"
-            )
-            ret = []
-            for i in range(self.n):
-                ret.append(eval_levels[: num_levels[i]])
-                eval_levels = eval_levels[num_levels[i] :]
-            eval_levels = ret
         seed = seed if seed is not None else np.random.randint(int(1e9))
         self.logger.info(
             f"Evaluation environments have seed in [{seed}, {seed + self.n})!"
@@ -828,7 +747,6 @@ class BatchEvaluation:
                     save_video=save_video,
                     render_mode=render_mode,
                     sample_mode=sample_mode,
-                    eval_levels=eval_levels[i],
                     **kwargs,
                 )
             )
@@ -914,13 +832,6 @@ class BatchEvaluation:
                 shutil.rmtree(dir_name, ignore_errors=True)
 
     def run(self, pi, num=1, work_dir=None, **kwargs):
-        if self.eval_levels is not None:
-            if num > len(self.eval_levels):
-                self.logger.info(
-                    f"We use number of levels: {len(self.eval_levels)} instead of {num}!"
-                )
-                num = len(self.eval_levels)
-
         n, running_steps = split_num(num, self.n)
         self.start(work_dir)
         num_finished = [0 for i in range(n)]
@@ -1015,7 +926,6 @@ class OfflineDiffusionEvaluation:
         env_cfg,
         worker_id=None,
         sample_mode="train",
-        eval_levels=None,
         seed=None,
         **kwargs,
     ):
@@ -1058,20 +968,6 @@ class OfflineDiffusionEvaluation:
         self.video_writer = None
         self.video_file = None
 
-        # restrict the levels as those randomly sampled from eval_levels_path, if eval_levels_path is not None
-        if eval_levels is not None:
-            if is_str(eval_levels):
-                is_csv = eval_levels.split(".")[-1] == "csv"
-                eval_levels = load(eval_levels)
-                if is_csv:
-                    eval_levels = eval_levels[0]
-            self.eval_levels = eval_levels
-            self.logger.info(
-                f"During evaluation, levels are selected from an existing list with length {len(self.eval_levels)}"
-            )
-        else:
-            self.eval_levels = None
-
     def start(self, work_dir=None):
         if work_dir is not None:
             self.work_dir = (
@@ -1093,13 +989,6 @@ class OfflineDiffusionEvaluation:
         return
 
     def run(self, pi, memory, num=1, work_dir=None, **kwargs):
-        if self.eval_levels is not None:
-            if num > len(self.eval_levels):
-                print(
-                    f"We do not need to select more than {len(self.eval_levels)} levels!",
-                    flush=True,
-                )
-                num = min(num, len(self.eval_levels))
         self.start(work_dir)
         import torch
 
@@ -1177,13 +1066,6 @@ class KPamEvaluation(Evaluation):
             )
 
     def run(self, pi, num=1, work_dir=None, **kwargs):
-        if self.eval_levels is not None:
-            if num > len(self.eval_levels):
-                print(
-                    f"We do not need to select more than {len(self.eval_levels)} levels!",
-                    flush=True,
-                )
-                num = min(num, len(self.eval_levels))
         self.start(work_dir)
         import torch
 
@@ -1305,14 +1187,6 @@ class RiemannEvaluation(Evaluation):
             )
 
     def run(self, pi, num=1, work_dir=None, **kwargs):
-        if self.eval_levels is not None:
-            if num > len(self.eval_levels):
-                print(
-                    f"We do not need to select more than {len(self.eval_levels)} levels!",
-                    flush=True,
-                )
-                num = min(num, len(self.eval_levels))
-
         # HACK(zbzhu): to make the env and extra env the same seed before EVERY reset
         self.seed_idx = 0
         self.seed_list = np.arange(2000, 2000 + num + 1)
@@ -1430,3 +1304,174 @@ class RiemannEvaluation(Evaluation):
             rewards=self.episode_rewards,
             finishes=self.episode_finishes,
         )
+
+
+@EVALUATIONS.register_module()
+class KeyframeEvaluation(Evaluation):
+    def __init__(
+        self,
+        traj_filename: str,
+        traj_json_filename: str,
+        *args,
+        **kwargs,
+    ):
+        with open(traj_json_filename, "r") as f:
+            json_file = json.load(f)
+        self.reset_kwargs = {}
+        for d in json_file["episodes"]:
+            episode_id = d["episode_id"]
+            r_kwargs = d["reset_kwargs"]
+            # XXX(zbzhu): change 'seed' to np.array to skip the bug of slicing native list in Gdict
+            self.reset_kwargs[episode_id] = {"seed": np.array([r_kwargs["seed"]])}
+        self.load_keyframes(traj_filename)
+        self.ep_keyframes = None
+        super().__init__(*args, **kwargs)
+
+    def load_keyframes(self, traj_filename: str):
+        traj_file = h5py.File(traj_filename, "r")
+        traj_keys = list(traj_file.keys())
+        traj_file.close()
+        traj_keys = [(int(key.split("_")[1]), int(key.split("_")[2])) for key in traj_keys]
+        sorted_traj_keys = sorted(traj_keys, key=lambda x: (x[0], x[1]))
+
+        self.init_env_states = {}
+        self.keyframe_obs = {}
+        for traj_id, keyframe_id in sorted_traj_keys:
+            item = GDict.from_hdf5(traj_filename, keys=f"traj_{traj_id}_{keyframe_id}")
+            keyframe = item["actions"][-1]
+            if keyframe_id == 0:
+                self.init_env_states[traj_id] = item["env_states"][0]
+                self.keyframe_obs[traj_id] = [keyframe]
+            else:
+                self.keyframe_obs[traj_id].append(keyframe)
+        self.traj_ids = list(self.init_env_states.keys())
+
+    def reset(self, seed: Optional[int] = None):
+        if seed is not None:
+            self.vec_env.seed(seed)
+            self.extra_vec_env.seed(seed)
+
+        self.episode_id += 1
+        self.episode_len, self.episode_reward, self.episode_finish = 0, 0, False
+
+        reset_kwargs = self.reset_kwargs[self.traj_ids[self.episode_id]]
+        init_env_state = self.init_env_states[self.traj_ids[self.episode_id]]
+        self.ep_keyframes = self.keyframe_obs[self.traj_ids[self.episode_id]]
+
+        self.vec_env.reset(**reset_kwargs)
+        self.vec_env.set_state(init_env_state.reshape(1, -1))
+        self.recent_obs = self.vec_env.get_obs()
+        if getattr(self, "extra_vec_env", None) is not None:
+            self.extra_vec_env.reset(**reset_kwargs)
+            self.extra_vec_env.set_state(init_env_state.reshape(1, 1))
+
+        self.init_eval()
+
+    def run(self, pi, num: int = 1, work_dir: str = None, **kwargs):
+        assert num <= len(self.init_env_states), f"Episode num {num} should be less than {len(self.init_env_states)}"
+
+        self.start(work_dir)
+        import torch
+
+        replay = None
+        if "memory" in kwargs:
+            replay = kwargs["memory"]
+
+        def reset_pi():
+            if hasattr(pi, "reset"):
+                assert (
+                    self.worker_id is None
+                ), "Reset policy only works for single thread!"
+                reset_kwargs = {}
+                if hasattr(self.vec_env, "level"):
+                    # When we run CEM, we need the level of the rollout env to match the level of test env.
+                    reset_kwargs["level"] = self.vec_env.level
+                pi.reset(**reset_kwargs)  # For CEM and PETS-like model-based method.
+
+        reset_pi()
+        recent_obs = self.recent_obs
+        keyframe_id = 0
+
+        while self.episode_id < num:
+            if self.eval_action_queue is not None and len(self.eval_action_queue):
+                action = self.eval_action_queue.popleft()
+            else:
+                if self.use_hidden_state:
+                    recent_obs = self.vec_env.get_state()
+                with torch.no_grad():
+                    with pi.no_sync(
+                        mode=["actor", "model", "obs_encoder"], ignore=True
+                    ):
+                        keyframe = np.expand_dims(self.ep_keyframes[keyframe_id], axis=0)
+                        keyframe_id = min(keyframe_id + 1, len(self.ep_keyframes) - 1)
+                        action = pi(
+                            recent_obs, next_keyframe=keyframe, mode=self.sample_mode, memory=replay
+                        )
+                        action = to_np(action)
+                        if (
+                            (self.eval_action_queue is not None)
+                            and (len(self.eval_action_queue) == 0)
+                            and self.eval_action_len > 1
+                        ):
+                            # for i in range(self.eval_action_len-1):
+                            for i in range(
+                                min(self.eval_action_len - 1, action.shape[1] - 1)
+                            ):  # Allow eval action len to be different with predicted action len
+                                self.eval_action_queue.append(action[:, i + 1, :])
+                            action = action[:, 0]
+
+            recent_obs, episode_done = self.step(action)
+
+            if episode_done:
+                reset_pi()
+                keyframe_id = 0
+                log_mem_info(self.logger)
+
+        self.finish()
+
+        return dict(
+            lengths=self.episode_lens,
+            rewards=self.episode_rewards,
+            finishes=self.episode_finishes,
+        )
+
+
+@EVALUATIONS.register_module()
+class OfflineKeyframeEvaluation(OfflineDiffusionEvaluation):
+    def run(self, pi, memory, num: int = 1, work_dir: str = None, **kwargs):
+        self.start(work_dir)
+        import torch
+
+        sampled_batch = memory.sample(num, mode="eval")
+
+        if self.act_mask is None or self.obs_mask is None:
+            act_mask, obs_mask, _ = pi.mask_generator(
+                (num, pi.horizon, pi.action_dim), pi.device
+            )
+            self.act_mask, self.obs_mask = to_np(act_mask), to_np(obs_mask)
+
+        observation = sampled_batch["obs"]
+        keyframe = sampled_batch["actions"][:, -1]
+        if "state" in observation:
+            observation["state"] = observation["state"][:, self.obs_mask]
+        if "timesteps" in sampled_batch:
+            observation["timesteps"] = sampled_batch["timesteps"]
+
+        with torch.no_grad():
+            with pi.no_sync(mode=["actor", "model", "obs_encoder"], ignore=True):
+                action_sequence = pi(observation, next_keyframe=keyframe, mode=self.sample_mode)
+                assert (
+                    action_sequence.shape == sampled_batch["actions"].shape
+                ), "action_sequence shape is {}, yet sampled_batch actions shape is {}".format(
+                    action_sequence.shape, sampled_batch["actions"].shape
+                )
+
+        action_sequence = action_sequence.cpu().numpy()
+        self.action_diff = (
+            ((action_sequence[:, 1:-1] - sampled_batch["actions"][:, 1:-1]) ** 2)
+            .mean(axis=-1)
+            .mean(axis=-1)
+        )
+
+        self.finish()
+        return dict(num=num, action_diff=self.action_diff)

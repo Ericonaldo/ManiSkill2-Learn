@@ -4,6 +4,7 @@ Diffusion Policy
 
 import numpy as np
 import torch
+from transforms3d.quaternions import quat2axangle
 
 from maniskill2_learn.methods.brl import DiffAgent
 from maniskill2_learn.utils.diffusion.arrays import to_torch
@@ -13,17 +14,35 @@ from maniskill2_learn.utils.diffusion.mask_generator import KeyframeMaskGenerato
 from ..builder import BRL
 
 
+def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
+    theta, omega = quat2axangle(quat)
+    # - 2 * np.pi to make the angle symmetrical around 0
+    if omega > np.pi:
+        omega = omega - 2 * np.pi
+    return omega * theta
+
+
 @BRL.register_module()
 class KeyframeDiffAgent(DiffAgent):
-    def __init__(self, mask_generator_cls: callable = KeyframeMaskGenerator, *args, **kwargs):
+    def __init__(
+        self,
+        mask_generator_cls: callable = KeyframeMaskGenerator,
+        control_mode: str = "pd_ee_pose",
+        rot_rep: str = "quat",
+        *args,
+        **kwargs,
+    ):
         assert mask_generator_cls == KeyframeMaskGenerator, mask_generator_cls
+        self.control_mode = control_mode
+        self.rot_rep = rot_rep
         super().__init__(mask_generator_cls=mask_generator_cls, *args, **kwargs)
 
     def forward(
         self,
         observation: np.ndarray,
-        returns_rate: float = 0.9,
+        next_keyframe: np.ndarray,
         mode: str = "eval",
+        grip_thresh: float = 0.03,
         *args,
         **kwargs,
     ):
@@ -31,45 +50,93 @@ class KeyframeDiffAgent(DiffAgent):
         #     if self.eval_action_queue is not None and len(self.eval_action_queue):
         #         return self.eval_action_queue.popleft()
 
-        observation = to_torch(observation, device=self.device, dtype=torch.float32)
-
-        action_history = observation["actions"]
-        if self.obs_encoder is None:
-            action_history = torch.cat(
-                [action_history, torch.zeros_like(action_history[:, :1])],
-                dim=1,
+        if self.control_mode == "pd_joint_pos":
+            keyframe = np.concatenate(
+                observation["state"][:, :7],
+                np.where(
+                    observation["state"][:, 8:9] > grip_thresh, 1.0, -1.0
+                ),  # gripper open
+                axis=-1,
             )
-            data = self.normalizer.normalize(
-                torch.cat((observation["state"], action_history), dim=-1)
-            )
-            observation["state"] = data[..., : observation["state"].shape[-1]]
-            action_history = data[:, :-1, -self.action_dim :]
+        elif self.control_mode == "pd_ee_pose":
+            if self.rot_rep == "quat":
+                keyframe = np.concatenate(
+                    [
+                        observation["state"][:, 18 : 18 + 3],  # ee pos
+                        # the maniskill pose controller take axis angle as action input
+                        np.array(list(map(
+                            compact_axis_angle_from_quaternion,
+                            observation["state"][:, 18 + 3 : 18 + 7],
+                        ))),  # ee pose [pos, axis-angle]
+                        np.where(
+                            observation["state"][:, 8:9] > grip_thresh, 1.0, -1.0
+                        ),  # gripper open
+                    ],
+                    axis=-1,
+                )
+            else:
+                raise NotImplementedError(f"Unknown rotation representation: {self.rot_rep}")
         else:
-            action_history = self.normalizer.normalize(action_history)
-        bs = action_history.shape[0]
-        hist_len = action_history.shape[1]
-        observation.pop("actions")
+            raise NotImplementedError(f"Unknown control mode: {self.control_mode}")
 
+        keyframe = np.stack([keyframe, next_keyframe], axis=1)
+
+        observation = to_torch(observation, device=self.device, dtype=torch.float32)
+        keyframe_action = to_torch(keyframe, device=self.device, dtype=torch.float32)
+        action_dim = keyframe_action.shape[-1]
+
+        if self.obs_encoder is None:
+            # Pad and normalize state
+            data = torch.cat(
+                [
+                    observation["state"],
+                    torch.zeros(
+                        [*observation["state"].shape[:-1], action_dim],
+                        device=self.device,
+                        dtype=torch.float32,
+                    )
+                ],
+                dim=-1,
+            )
+            data = self.normalizer.normalize(data)
+            observation["state"] = data[..., : observation["state"].shape[-1]]
+
+            # Pad and normalize action
+            data = torch.cat(
+                [
+                    torch.zeros(
+                        [*keyframe_action.shape[:-1], observation["state"].shape[-1]],
+                        device=self.device,
+                        dtype=torch.float32,
+                    ),
+                    keyframe_action,
+                ],
+                dim=-1,
+            )
+            data = self.normalizer.normalize(data)
+            keyframe_action = data[..., -self.action_dim :]
+        else:
+            keyframe_action = self.normalizer.normalize(keyframe_action)
+
+        bs = keyframe_action.shape[0]
         self.set_mode(mode=mode)
 
-        if self.act_mask is None or self.obs_mask is None:
+        act_mask, obs_mask = self.act_mask, self.obs_mask
+        if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                self.act_mask, self.obs_mask, _ = self.mask_generator(
+                act_mask, obs_mask, _ = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
+                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
-        if self.act_mask.shape[0] < bs:
-            self.act_mask = self.act_mask.repeat(max(bs // self.act_mask.shape[0] + 1, 2), 1, 1)
-        if self.act_mask.shape[0] != bs:
-            self.act_mask = self.act_mask[: action_history.shape[0]]  # obs mask is int
-
-        if action_history.shape[1] == self.horizon:
-            for key in observation:
-                observation[key] = observation[key][:, self.obs_mask, ...]
+        if act_mask.shape[0] < bs:
+            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
+        if act_mask.shape[0] != bs:
+            act_mask = act_mask[: keyframe_action.shape[0]]  # obs mask is int
 
         if self.obs_encoder is not None:
             obs_fea = self.obs_encoder(
@@ -78,19 +145,19 @@ class KeyframeDiffAgent(DiffAgent):
         else:
             obs_fea = observation["state"].reshape(bs, -1)
 
-        if self.action_seq_len - hist_len:
-            supp = torch.zeros(
-                bs,
-                self.action_seq_len - hist_len,
-                self.action_dim,
-                dtype=action_history.dtype,
-                device=self.device,
-            )
-            action_history = torch.concat([action_history, supp], dim=1)
-
+        supp = torch.zeros(
+            bs,
+            self.horizon - 2,
+            self.action_dim,
+            dtype=keyframe_action.dtype,
+            device=self.device,
+        )
+        cond_action_sequence = torch.cat(
+            [keyframe_action[:, 0:1], supp, keyframe_action[:, -1:]], dim=1
+        )
         pred_action_seq = self.conditional_sample(
-            cond_data=action_history,
-            cond_mask=self.act_mask,
+            cond_data=cond_action_sequence,
+            cond_mask=act_mask,
             global_cond=obs_fea,
             *args,
             **kwargs,
@@ -106,14 +173,6 @@ class KeyframeDiffAgent(DiffAgent):
             data = torch.cat([supp, pred_action_seq], dim=-1)
         data = self.normalizer.unnormalize(data)
         pred_action = data[..., -self.action_dim :]
-
-        if mode == "eval":
-            pred_action = pred_action[:, -(self.action_seq_len - hist_len) :]
-            # Only used for ms-skill challenge online evaluation
-            # pred_action = pred_action_seq[:,-(self.action_seq_len-hist_len),-self.action_dim:]
-            # if (self.eval_action_queue is not None) and (len(self.eval_action_queue) == 0):
-            #     for i in range(self.eval_action_len-1):
-            #         self.eval_action_queue.append(pred_action_seq[:,-(self.action_seq_len-hist_len)+i+1,-self.action_dim:])
 
         return pred_action
 

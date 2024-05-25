@@ -44,7 +44,6 @@ python data_process.py --traj-path ../demos/rigid_body/PickSingleYCB-v0/trajecto
 # python data_process.py --traj-path ../demos/rigid_body/StackCube-v0/trajectory.h5 --save-traj --obs-mode rgbd --target-control-mode pd_ee_delta_pose --num-proc 10
 python data_process.py --traj-path ../demos/rigid_body/TurnFaucet-v0/trajectory.h5 --save-traj --obs-mode rgbd --target-control-mode pd_ee_delta_pose --num-proc 10
 
-
 # none
 # python data_process.py --traj-path ../demos/rigid_body/LiftCube-v0/trajectory.h5 --save-traj --obs-mode none --target-control-mode pd_ee_delta_pose --num-proc 5
 # python data_process.py --traj-path ../demos/rigid_body/AssemblingKits-v0/trajectory.h5 --save-traj --obs-mode none --target-control-mode pd_ee_delta_pose --num-proc 5
@@ -64,13 +63,11 @@ python tools/convert_state.py --env-name PickCube-v0 --num-procs 5 \
 --output-name ./demos/rigid_body/PickCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
 
-
 python tools/convert_state.py --env-name StackCube-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/StackCube-v0/trajectory.none.pd_ee_delta_pose.h5 \
 --json-name ./demos/rigid_body/StackCube-v0/trajectory.none.pd_ee_delta_pose.json \
 --output-name ./demos/rigid_body/StackCube-v0/trajmslearn.rgbd.pd_ee_delta_pose.h5 \
 --control-mode pd_ee_delta_pose --max-num-traj -100000 --obs-mode rgbd
-
 
 python tools/convert_state.py --env-name LiftCube-v0 --num-procs 5 \
 --traj-name ./demos/rigid_body/LiftCube-v0/trajectory.none.pd_ee_delta_pose.h5 \

@@ -14,7 +14,6 @@ import numpy as np
 np.set_printoptions(3)
 warnings.simplefilter(action="ignore")
 
-
 from maniskill2_learn.utils.data import is_not_null, is_null, num_to_str
 from maniskill2_learn.utils.meta import (
     Config,

@@ -12,7 +12,6 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 
-
 from maniskill2_learn.env import ReplayMemory, make_gym_env
 from maniskill2_learn.utils.data import GDict
 from maniskill2_learn.utils.file import merge_h5_trajectory
@@ -62,7 +61,7 @@ def convert_state_representation(keys, args, worker_id, main_process_id):
         "concat_rgbd": args.concat_rgbd,
         "using_angle": args.using_angle,
         "using_target": args.using_target,
-        "state_version": args.state_version,
+        # "state_version": args.state_version,
     }
     if args.enable_seg:
         input_dict["camera_cfgs"]["add_segmentation"] = True
@@ -139,6 +138,11 @@ def convert_state_representation(keys, args, worker_id, main_process_id):
                 "episode_dones": False if i < length - 1 else True,
                 "rewards": reward,
             }
+            if args.save_env_state:
+                if all_env_states_present:
+                    item_i["env_states"] = trajectory["env_states"][i]
+                else:
+                    item_i["env_init_state"] = trajectory["env_init_state"]
 
             if args.include_kpam_state:
                 item_i["kpam_states"] = env.get_kpam_state()
@@ -158,7 +162,8 @@ def convert_state_representation(keys, args, worker_id, main_process_id):
             flush_print(
                 f"Convert Trajectory: completed {cnt + 1} / {len(keys)}; this trajectory has length {length}"
             )
-        group = output_h5.create_group(f"traj_{cnt}")
+        # group = output_h5.create_group(f"traj_{cnt}")
+        group = output_h5.create_group(f"traj_{cur_episode_num}")
         cnt += 1
         replay.to_hdf5(group, with_traj_index=False)
     output_h5.close()
@@ -269,6 +274,11 @@ def parse_args():
         action="store_true",
         help="If we use rgbd data straightly instead of rgb + depth",
     )
+    parser.add_argument(
+        "--save-env-state",
+        action="store_true",
+        help="If we add raw env state into the observation",
+    )
 
     # Specific point cloud generation args
     parser.add_argument(
@@ -350,7 +360,7 @@ def main():
     from shutil import rmtree
 
     rmtree(args.output_name, ignore_errors=True)
-    merge_h5_trajectory(files, args.output_name)
+    merge_h5_trajectory(files, args.output_name, recompute_id=False)
     for file in files:
         rmtree(file, ignore_errors=True)
     print(f"Finish merging files to {args.output_name}")

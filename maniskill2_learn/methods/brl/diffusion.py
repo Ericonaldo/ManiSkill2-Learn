@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 
 from maniskill2_learn.networks import build_model
 from maniskill2_learn.schedulers import build_lr_scheduler
@@ -36,6 +37,7 @@ class DiffAgent(BaseAgent):
         lr_scheduler_cfg: Optional[dict] = None,
         batch_size: int = 256,
         n_timesteps: int = 150,
+        n_ddim_timesteps: int = 15,
         loss_type: str = "l1",
         clip_denoised: bool = False,
         action_weight: float = 1.0,
@@ -96,6 +98,12 @@ class DiffAgent(BaseAgent):
             clip_sample=self.clip_denoised,
             num_train_timesteps=self.n_timesteps,
         )
+        self.ddim_noise_scheduler = DDIMScheduler(
+            num_train_timesteps=self.n_timesteps,
+            clip_sample=self.clip_denoised,
+            beta_schedule="squaredcos_cap_v2",
+        )
+        self.ddim_noise_scheduler.set_timesteps(n_ddim_timesteps)
 
         self.loss_type = loss_type
         loss_weights = self.get_loss_weights(action_weight, loss_discount, loss_weights)
@@ -197,6 +205,7 @@ class DiffAgent(BaseAgent):
         returns=None,
         verbose=True,
         return_diffusion=False,
+        use_ddim_sample=True,
         **kwargs,
     ):
         x = torch.randn(
@@ -206,9 +215,14 @@ class DiffAgent(BaseAgent):
         if return_diffusion:
             diffusion = [x]
 
-        n_timesteps = len(self.noise_scheduler.timesteps)
+        if use_ddim_sample:
+            scheduler = self.ddim_noise_scheduler
+        else:
+            scheduler = self.noise_scheduler
+
+        n_timesteps = len(scheduler.timesteps)
         progress = Progress(n_timesteps) if verbose else Silent()
-        for i, t in enumerate(self.noise_scheduler.timesteps):
+        for i, t in enumerate(scheduler.timesteps):
             # 1. apply conditioning
             x[cond_mask] = cond_data[cond_mask]
 
@@ -227,7 +241,7 @@ class DiffAgent(BaseAgent):
                 epsilon = self.model(x, t, local_cond, global_cond)
 
             # 3. compute previous image: x_t -> x_t-1
-            x = self.noise_scheduler.step(epsilon, t, x).prev_sample
+            x = scheduler.step(epsilon, t, x).prev_sample
 
             progress.update({"t": i})
 
@@ -328,24 +342,26 @@ class DiffAgent(BaseAgent):
 
         self.set_mode(mode=mode)
 
-        if self.act_mask is None or self.obs_mask is None:
+        act_mask, obs_mask = self.act_mask, self.obs_mask
+        if act_mask is None or obs_mask is None:
             if self.obs_as_global_cond:
-                self.act_mask, self.obs_mask, _ = self.mask_generator(
+                act_mask, obs_mask, _ = self.mask_generator(
                     (bs, self.horizon, self.action_dim), self.device
                 )
+                self.act_mask, self.obs_mask = act_mask, obs_mask
             else:
                 raise NotImplementedError(
                     "Not support diffuse over obs! Please set obs_as_global_cond=True"
                 )
 
-        if self.act_mask.shape[0] < bs:
-            self.act_mask = self.act_mask.repeat(max(bs // self.act_mask.shape[0] + 1, 2), 1, 1)
-        if self.act_mask.shape[0] != bs:
-            self.act_mask = self.act_mask[: action_history.shape[0]]  # obs mask is int
+        if act_mask.shape[0] < bs:
+            act_mask = act_mask.repeat(max(bs // act_mask.shape[0] + 1, 2), 1, 1)
+        if act_mask.shape[0] != bs:
+            act_mask = act_mask[: action_history.shape[0]]  # obs mask is int
 
         if action_history.shape[1] == self.horizon:
             for key in observation:
-                observation[key] = observation[key][:, self.obs_mask, ...]
+                observation[key] = observation[key][:, obs_mask, ...]
 
         if self.obs_encoder is not None:
             obs_fea = self.obs_encoder(
@@ -366,7 +382,7 @@ class DiffAgent(BaseAgent):
 
         pred_action_seq = self.conditional_sample(
             cond_data=action_history,
-            cond_mask=self.act_mask,
+            cond_mask=act_mask,
             global_cond=obs_fea,
             *args,
             **kwargs,

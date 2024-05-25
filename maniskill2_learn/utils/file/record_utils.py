@@ -302,9 +302,14 @@ Trajectory-related Tools
 """
 
 
-def merge_h5_trajectory(h5_files, output_name, num=-1):
+def merge_h5_trajectory(
+    h5_files,
+    output_name: str,
+    num: int = -1,
+    recompute_id: bool = False,
+):
     with h5py.File(output_name, "w") as f:
-        index, meta = 0, None
+        index = 0
         for h5_file in h5_files:
             h5 = h5py.File(h5_file, "r")
             h5_keys = set(h5.keys())
@@ -313,12 +318,16 @@ def merge_h5_trajectory(h5_files, output_name, num=-1):
                 if "meta" not in f.keys():
                     h5.copy("meta", f, "meta")
 
-            for i in range(len(h5_keys)):
-                if f"traj_{i}" in h5_keys:
+            for i, key in enumerate(h5_keys):
+                if recompute_id and f"traj_{i}" in h5_keys:
                     h5.copy(f"traj_{i}", f, f"traj_{index}")
-                    index += 1
-                    if num != -1 and index >= num:
-                        break
+                elif not recompute_id:
+                    h5.copy(key, f, key)
+                else:
+                    continue
+                index += 1
+                if num != -1 and index >= num:
+                    break
             if num != -1 and index >= num:
                 break
         get_logger().info(f"Total number of trajectories {index}")

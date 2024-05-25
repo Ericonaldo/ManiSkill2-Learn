@@ -5,9 +5,18 @@ from typing import List
 import cv2
 import h5py
 import numpy as np
+from transforms3d.quaternions import quat2axangle
 
 from maniskill2_learn.env import ReplayMemory
 from maniskill2_learn.utils.data import GDict, DictArray
+
+
+def compact_axis_angle_from_quaternion(quat: np.ndarray) -> np.ndarray:
+    theta, omega = quat2axangle(quat)
+    # - 2 * np.pi to make the angle symmetrical around 0
+    if omega > np.pi:
+        omega = omega - 2 * np.pi
+    return omega * theta
 
 
 def recursive_slice_from_dict(dict_to_do, start, end):
@@ -20,8 +29,27 @@ def recursive_slice_from_dict(dict_to_do, start, end):
     return res
 
 
+def add_traj_rank(traj_item, rank_bins: int = 10):
+    ee_traj = traj_item["obs"]["state"][:, 18 : 18 + 3]
+    euc_dist = np.linalg.norm(ee_traj[-1] - ee_traj[0])
+    dist = ee_traj[1:] - ee_traj[:-1]
+    dist = np.linalg.norm(dist, axis=1).sum()
+
+    rank = euc_dist / (dist + 1e-5)
+    rank_id = rank / (1.0 / rank_bins)
+    rank_one_hot = np.eye(rank_bins, dtype=np.float32)[int(np.clip(rank_id, 0, rank_bins - 1))]
+    traj_item["rank"] = np.tile(rank_one_hot, (ee_traj.shape[0], 1))
+    return traj_item
+
+
 def _is_stopped(
-    obs_traj, i, obs, stopped_buffer, delta: float = 0.01, grip_thresh: float = 0.03, use_gripper: bool = False
+    obs_traj,
+    i,
+    obs,
+    stopped_buffer,
+    delta: float = 0.01,
+    grip_thresh: float = 0.03,
+    use_gripper: bool = False,
 ):
     next_is_not_final = i == (len(obs_traj) - 2)
     if i <= 0 or (not use_gripper):
@@ -44,7 +72,10 @@ def _is_stopped(
 
 
 def keyframe_detection_by_joints(
-    demo, stopping_delta: float = 0.01, grip_thresh: float = 0.03, use_gripper: bool = False
+    demo,
+    stopping_delta: float = 0.01,
+    grip_thresh: float = 0.03,
+    use_gripper: bool = False,
 ) -> List[int]:
     obs_traj = demo[0]
     episode_keypoints = []
@@ -78,12 +109,16 @@ def keyframe_detection_by_joints(
     return episode_keypoints
 
 
-def relabel_demo_action(traj_item, control_mode: str, rot_rep: str, grip_thresh: float = 0.03):
+def relabel_demo_action(
+    traj_item, control_mode: str, rot_rep: str, grip_thresh: float = 0.03
+):
     if control_mode == "pd_joint_pos":
         traj_item["actions"] = np.concatenate(
             [
                 traj_item["obs"]["state"][:, :7],  # arm joint pos
-                np.where(traj_item["obs"]["state"][:, 8:9] > grip_thresh, 1.0, -1.0)  # gripper open
+                np.where(
+                    traj_item["obs"]["state"][:, 8:9] > grip_thresh, 1.0, -1.0
+                ),  # gripper open
             ],
             axis=-1,
         )
@@ -91,8 +126,15 @@ def relabel_demo_action(traj_item, control_mode: str, rot_rep: str, grip_thresh:
         if rot_rep == "quat":
             traj_item["actions"] = np.concatenate(
                 [
-                    traj_item["obs"]["state"][:, 18: 18 + 7],  # arm joint pos
-                    np.where(traj_item["obs"]["state"][:, 8:9] > grip_thresh, 1.0, -1.0)  # gripper open
+                    traj_item["obs"]["state"][:, 18 : 18 + 3],  # ee pos
+                    # the maniskill pose controller take axis angle as action input
+                    np.array(list(map(
+                        compact_axis_angle_from_quaternion,
+                        traj_item["obs"]["state"][:, 18 + 3 : 18 + 7],
+                    ))),  # ee pose [pos, axis-angle]
+                    np.where(
+                        traj_item["obs"]["state"][:, 8:9] > grip_thresh, 1.0, -1.0
+                    ),  # gripper open
                 ],
                 axis=-1,
             )
@@ -104,8 +146,15 @@ def relabel_demo_action(traj_item, control_mode: str, rot_rep: str, grip_thresh:
 def parse_args():
     parser = argparse.ArgumentParser(description="Key frame identification")
     parser.add_argument("-f", "--filename", help="Replay file name")
-    parser.add_argument("--grip_thresh", help="Gripper threshold", default=0.03, type=float)
-    parser.add_argument("--rot_rep", help="Rotation representation", default="quat", type=str)
+    parser.add_argument(
+        "--grip_thresh", help="Gripper threshold", default=0.03, type=float
+    )
+    parser.add_argument(
+        "--rot_rep", help="Rotation representation", default="quat", type=str
+    )
+    parser.add_argument(
+        "--rank-bins", help="Number of bins for traj rank", default=10, type=int
+    )
     args = parser.parse_args()
     return args
 
@@ -115,6 +164,7 @@ if __name__ == "__main__":
     filename = args.filename
     grip_thresh = args.grip_thresh
     rot_rep = args.rot_rep
+    rank_bins = args.rank_bins
 
     if ".pd_joint_pos." in filename:
         control_mode = "pd_joint_pos"
@@ -144,7 +194,9 @@ if __name__ == "__main__":
         keyframe_idxes = [0, len(item["actions"]) - 1]
 
         demos = (item["obs"]["state"], item["actions"])
-        detect_frame_idxes = keyframe_detection_by_joints(demos, grip_thresh=grip_thresh)
+        detect_frame_idxes = keyframe_detection_by_joints(
+            demos, grip_thresh=grip_thresh
+        )
 
         keyframe_idxes += list(detect_frame_idxes)
         keyframe_idxes = list(set(keyframe_idxes))
@@ -180,7 +232,8 @@ if __name__ == "__main__":
             group = res_file.create_group(key + f"_{i}")
             start, end = keyframe_idxes[i : i + 2]
             replay = ReplayMemory(end - start)
-            item_slice = GDict(recursive_slice_from_dict(item, start, end))
+            item_slice = add_traj_rank(recursive_slice_from_dict(item, start, end))
+            item_slice = GDict(item_slice)
             replay.push_batch(item_slice)
             replay.to_hdf5(group, with_traj_index=False)
 

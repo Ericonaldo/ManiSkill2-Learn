@@ -148,6 +148,7 @@ class KeyframeMaskGenerator(ExtendedModule):
             action_mask = (steps.T < action_steps).T.reshape(B, T, 1).expand(B, T, D)
             action_mask = action_mask & is_action_dim
             # NOTE: the only difference
+            action_mask[:, 0] = True
             action_mask[:, -1] = True
 
         mask = None
